@@ -203,6 +203,22 @@
       const seen = new Set(); for (const [x, z] of legs) { const kk = Math.round(x) + ',' + Math.round(z); if (seen.has(kk)) continue; seen.add(kk); b.obj(0, 'hpillar', x, z); const o = b.m.lv[0].o; o[o.length - 1].h = n; }
       b.all(n, 'concrete'); b.m.deck = true; add(b);
     }
+    // Steeg: een huis met een overdekte sluipsteeg van 4,5 m breed en 3 m hoog eronderdoor (langs de x-as van het vak), zoals
+    // de doorgangen onder de huizen in een Italiaans heuveldorp. De bovenverdieping loopt over de steeg heen en het huis
+    // heeft een gewoon schilddak; zo zijn er geen rafelige vloerranden (de driehoeken van het raster lopen niet langs de
+    // x-as). Deuren aan de steeg; een pad erdoorheen maakt de steeg (heuveldorp, 08i2).
+    for (const [nm, mat] of [['Steeg · natuursteen', 'stone'], ['Steeg · wit', 'plaster']]) {
+      const b = libBuilder(nm, 'Wonen'); const A = 2.25, ts = R / 4, inA = (x, z) => inHex6(x, z, R - 0.01);
+      b.where(0, inA, 'tile'); b.cell(1, 0, 0, 'wood');
+      // begane grond: geen vloer in de steeg, en ook geen driehoek die er half in steekt (de rest van de steeg is grond)
+      for (const id in b.m.lv[0].f) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); if (v.some(p => Math.abs(p[1]) < A - 0.05)) delete b.m.lv[0].f[id]; }
+      for (let f = 0; f < 2; f++) b.ring(f, 0, 0, R, mat, { win: 2 });
+      // beneden geen muur waar de steeg naar buiten gaat (helemaal weg, geen posten of latei in de doorgang)
+      for (const id in b.m.lv[0].w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d], p = mv2P(i, j, ts), q = mv2P(i + D[0], j + D[1], ts); if (Math.abs(p[0] + q[0]) / 2 > 7 && Math.abs(p[1]) < A + 0.05 && Math.abs(q[1]) < A + 0.05) delete b.m.lv[0].w[id]; }
+      for (const sg of [-1, 1]) b.wline(0, -7.79, sg * A, 3, 4, mat, i => i === 1 ? 'door' : i === 2 ? 'window' : '');   // de wanden langs de steeg
+      b.roof(1, 0, 0, 'hip'); b.stairwell(2, 0, 6.75, 3, 3, 1.2);   // trap langs de achterwand (de bovenverdieping is één geheel over de steeg)
+      add(b);
+    }
     add(mallBuild());   // klein winkelcentrum (7 vakken, 2 lagen); varianten via mallGenerate (knop bij de modules)
     { const b = libBuilder('Roltrap · glas', 'Verbindingen'); b.cell(0, 0, 0, 'polished').cell(1, 0, 0, 'polished'); bandStair(b, 0, 'A', 'esc'); b.cellRing(1, 0, 0, 'fence'); libExtraDetails(b, 'roltrap'); add(b); }
   }

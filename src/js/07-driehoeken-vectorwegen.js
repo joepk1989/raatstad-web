@@ -552,12 +552,13 @@
     return false;
   }
   // Ligt de weg hier als een dek op pijlers (geen dijk, geen wand tot de grond)? Op een vaste laag, als dakweg, over een
-  // andere weg, of 3 m en meer boven het maaiveld (1,5 m is een dijkje, dat hoort bij het terrein)
+  // andere weg, of zelf 3 m en meer opgehoogd (1,5 m is een dijkje, dat hoort bij het terrein)
   function isDeck(path, x, z, h) {
     if (path.abs || path.dak) return h > terrainHeightAt(x, z) + 0.6;
     if (roadSpan(path, x, z, h)) return true;
-    return h - terrainHeightAt(x, z) > 2.5;   // 1,5 m: dijkje; 3 m en hoger: dek
+    return pathLifted(path) && h - terrainHeightAt(x, z) > 2.5;   // zelf 3 m of hoger gezet (▲▼): dek; 1,5 m: dijkje; een weg die gewoon het terrein volgt: nooit een dek
   }
+  const pathLifted = p => Array.isArray(p.y) && p.y.some(v => v >= 3);
   function skirtInto(L, pts, sg, path) {   // wand langs een lijn van de weg (bovenkant stoep) tot het maaiveld, waar de weg erboven ligt
     if (pts.length < 2) return;
     pts = densify(pts, 1.5);

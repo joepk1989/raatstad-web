@@ -346,6 +346,9 @@ Opslag: `cells.rails = [{ p: [[x, z], …] }]`, in de stadsdata als `__r` (allee
 ## Startdorp (08i-startstad.js)
 Wat een dorp nodig heeft, op het zeshoekraster: een zeshoekige ringweg op 4 vakken, drie straten van de rotonde naar de hoeken, drie uitvalswegen. Wonen (rijhuizen in de kern, bungalows en villa's aan de rand), werken (bedrijfshal, werkplaats, garage), school en kinderopvang, supermarkt en bakker, huisarts en apotheek, dorpsplein met fontein, kerk, café en restaurant, speeltuin, park met vijver, bos, sportveld met snackbar, bushalte, parkeerplaats, trafohuisje, en het treinstation aan het spoor. Test: `test/visueel/startdorp.js`.
 
+## Heuveldorp (08i2-heuveldorp.js)
+Menu → Heuveldorp: een Italiaans dorpje op een heuvel (terrassen van 1,5 m, top 21 m). Een klinkerstraat als spiraal omhoog, twee steile straten recht de heuvel op, pleintje met fontein, kerk, café en restaurant op de top; eromheen huizen van natuursteen en wit, tuinen, boomgaarden en bos. Groene paden over de groene vakken en drie **sluipsteegjes** recht de heuvel op, door **Steeg-modules** heen: een huis met een overdekte doorgang (4,5 m breed, 3 m hoog) eronderdoor, deuren aan de steeg, de bovenverdieping loopt erover en het huis heeft een schilddak (een open steeg tussen twee halve huizen gaf rafelige vloerranden: de driehoeken van het raster lopen niet langs de x-as). Wegen op een helling zijn gewoon terrein (geen dek: alleen een weg die 3 m of hoger begint is een dek), straten sluiten op elkaar aan (snapEnds). Nieuwe modules komen bij bestaande bibliotheken via migratie lib15. Test: `test/visueel/heuveldorp.js`.
+
 ## Opslag
 
 Steden en modules staan in `localStorage` van de browser. Modules kunnen als JSON-bestand worden geëxporteerd en geïmporteerd (Raatmaker → Delen). De 152 standaardmodules worden één keer toegevoegd en zijn met "Standaard terugzetten" te herstellen.

@@ -21,10 +21,13 @@
     c.paths.push({ t: 'klink', l: 0, r: 0, p: [W(0, 0), W(2, -1), W(4, -2)] });   // het plein (midden) naar de spiraal
     // twee steile rechte straatjes: van de voet naar de spiraal, elk langs een rasterrichting
     c.paths.push({ t: 'klink', l: 0, r: 0, p: [W(-8, 1), W(-5, 1), W(-2, 1)] });
-    c.paths.push({ t: 'klink', l: 0, r: 0, p: [W(3, 5), W(3, 2), W(3, -1)] });
     { const [sq, sr] = spiral[0];   // de weg beneden langs de voet (zuidkant), door het begin van de spiraal, en naar buiten
-      c.paths.push({ t: 'weg', l: 0, r: 0, p: [W(sq - 4, sr), W(sq, sr), W(sq + 4, sr)] });
-      c.paths.push({ t: 'weg', l: 0, r: 0, p: [W(sq, sr), W(sq, sr + 4)] }); }
+      c.paths.push({ t: 'weg', l: 0, r: 0, p: [W(sq - 4, sr), W(sq, sr), W(sq + 7, sr)] });
+      c.paths.push({ t: 'weg', l: 0, r: 0, p: [W(sq, sr), W(sq, sr + 4)] });
+      c.paths.push({ t: 'klink', l: 0, r: 0, p: [W(3, sr), W(3, 2), W(3, -1)] }); }   // tweede steile straatje, van de weg beneden recht omhoog
+    // uiteinden aansluiten: een straatje dat vlak bij een andere weg eindigt, eindigt precies óp die weg (anders een doodlopend eind)
+    const snapEnds = (list, tol) => { for (const q of list) for (const ei of [0, q.p.length - 1]) { const e = q.p[ei]; let best = null, bd = tol; for (const o of c.paths) { if (o === q) continue; const pts = smoothPts(o.p); for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b2 = pts[i + 1], dx = b2[0] - a[0], dz = b2[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((e[0] - a[0]) * dx + (e[1] - a[1]) * dz) / l2)), px = a[0] + dx * t, pz = a[1] + dz * t, d = Math.hypot(px - e[0], pz - e[1]); if (d < bd) { bd = d; best = P(px, pz); } } } if (best) q.p[ei] = best; } };
+    snapEnds(c.paths.slice(1), 30);
     const roads = c.paths.map(p => ({ def: PATH_DEF[p.t], pts: smoothPts(p.p) }));
     const roadDist = (x, z) => { let d = 1e9; for (const r of roads) d = Math.min(d, distPoly(x, z, r.pts) - r.def.hw - r.def.walk); return d; };
     // ---------- modules ----------
@@ -50,6 +53,15 @@
       if (rad < 100) { if (street) { if (h < 12) mod(HUIS[h % HUIS.length], q, r); else mod(GROEN[h % GROEN.length], q, r); } else if (h < 10) mod(GROEN[h % GROEN.length], q, r); else if (h < 13) mod('Bos · bomen', q, r); }
       else if (h < 9) mod(h < 6 ? 'Bos · bomen' : 'Tuin · boomgaard', q, r);
     }
+    // sluipsteegjes: drie smalle paadjes recht de heuvel op (elke 120°), door steeg-huizen heen (twee smalle huizen met de
+    // steeg ertussen, 08d9) en dwars over de spiraal
+    for (const k of [0, 2, 4]) {
+      const [dq, dr] = NEIGH[k], pts = [];
+      for (let n = 1; n <= 7; n++) { const q = dq * n, r = dr * n, w = cellToWorld(q, r); if (Math.hypot(w.x, w.z) > RAD) break; pts.push([q, r]);
+        if (roadDist(w.x, w.z) < 6) continue;   // op de spiraal: de steeg kruist de straat
+        if (free(q, r) || (used.has(key(q, r)) && !c.inst.some(I => I.q === q && I.r === r && /^(Kerk|Horeca|Plein|Winkel|Apotheek)/.test(I.m.name)))) { const I = c.inst.find(I => I.q === q && I.r === r); if (I) { c.inst.splice(c.inst.indexOf(I), 1); used.delete(key(q, r)); } mod(n % 2 ? 'Steeg · natuursteen' : 'Steeg · wit', q, r, k); } }
+      if (pts.length >= 2) c.paths.push({ t: 'pad', l: 0, r: 0, p: pts.map(([q, r]) => W(q, r)) });
+    }
     // groene paadjes: smalle paden over de groene vakken, dwars op de spiraal, van de voet naar boven
     const green = c.inst.filter(I => /^(Tuin|Park|Bos|Grasveld)/.test(I.m.name));
     const greenK = new Set(green.map(I => key(I.q, I.r)));
@@ -59,7 +71,7 @@
       for (let n = 1; n <= 7; n++) { const [cq, cr] = ringCell(n, a0 * Math.PI / 180); let bestK = null, bd = 1e9; for (const [dq, dr] of [[0, 0], ...NEIGH]) { const k = key(cq + dq, cr + dr); if (!greenK.has(k)) continue; const w = cellToWorld(cq + dq, cr + dr), d = Math.hypot(w.x - Math.cos(a0 * Math.PI / 180) * n * PITCH, w.z - Math.sin(a0 * Math.PI / 180) * n * PITCH); if (d < bd) { bd = d; bestK = [cq + dq, cr + dr]; } } if (bestK && !(pts.length && pts[pts.length - 1][0] === bestK[0] && pts[pts.length - 1][1] === bestK[1])) pts.push(bestK); void q; void r; }
       if (pts.length >= 2) padden.push(pts);
     }
-    for (const pts of padden) c.paths.push({ t: 'pad', l: 0, r: 0, p: pts.map(([q, r]) => W(q, r)) });
+    { const np = padden.map(pts => ({ t: 'pad', l: 0, r: 0, p: pts.map(([q, r]) => W(q, r)) })); c.paths.push(...np); snapEnds(np, 22); }
     // randvulling langs de wegen
     c.sec = {};
     for (let q = -11; q <= 11; q++) for (let r = -11; r <= 11; r++) {
