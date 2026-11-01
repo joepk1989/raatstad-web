@@ -426,6 +426,10 @@ Gemeten in het bestand: vak R = 9 m, verdieping 3 m, vloer 0,3 m dik; steek 6,75
 - Twee aanvullingen die ook naar Unity kunnen: (1) wegstukken eerst samenvoegen (Douglas–Peucker, 25 cm / 8 cm), anders wordt het veld extreem traag; (2) `roadCap`: onder een wegdek nooit grond boven die weg (haarspelden).
 - **Terreincontrole** (Instellingen): alles onder het maaiveld paars, de onderkant van het terrein ook; handig om gaten te zien.
 
+## 33. Detailniveaus voor modules (1 nov; `08c`)
+- Twee versies per module: de echte en `far` (dichte muren met donkere ramen, zonder trappen, inrichting, kozijnen, hekjes, hoekpaaltjes, plafonds en bedekte vloeren). Gebundeld per 6 × 6 vakken in vier klassen (near, far, inner, frame), die per bundel zichtbaar worden naar de afstand: 90 / 70 / 50 m. Unity: LODGroup per gebouw met LOD0 = modulair, LOD1 = deze far-versie; inrichting als aparte renderer met een kleinere cull-afstand.
+- Ook: muurhoekpaaltjes zeshoekig, gewrichtsbolletjes van mensen 20 driehoeken, funderingen onder modules op een terras (§ heuveldorp).
+
 ## 21. Open punten
 - Unity: noord- en zuidpool op de bol (vraag staat open); `unity/README.md` is niet bijgewerkt sinds het planeet-wegensysteem.
 - Web: eerste klap op een gebouw geeft een korte hapering (omzetten naar stukken); mensen ontwijken brokstukken niet en het loopnetwerk kent de gaten niet; instortingen worden niet bewaard; jagers maken soms nog sprongetjes van 3–7 m.

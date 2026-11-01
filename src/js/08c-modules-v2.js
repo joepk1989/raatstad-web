@@ -104,6 +104,9 @@
   // details); opts.roofMask(x, z): daar staat een module op, dus daar geen dakvloer (een glazen lichtkap verdwijnt
   // zodra er iets op het vak staat, de dakbedekking alleen onder de vloer van de module erboven)
   const OFF_ROAD = new Set(['tree', 'bush', 'bench', 'bin', 'table', 'bike', 'planter']);
+  const INNER_OBJ = new Set(['kitchen', 'sofa', 'bed', 'desk', 'shelf', 'counter', 'screen']);   // inrichting binnen
+  const FAR_OBJ = new Set(['tree', 'bush', 'fountain', 'chimney', 'solar', 'turbine', 'pillar', 'hpillar', 'shelter', 'goal', 'container', 'boat', 'slide', 'swing', 'table', 'bench']);   // wat ook ver weg blijft
+  const FAR_WIN = new THREE.MeshStandardMaterial({ color: '#3b4a56', roughness: 0.35, metalness: 0.2 });   // ramen in de eenvoudige versie
   const OBJ_MAT = new Map(), om = (c, r = 0.75) => { const k = c + '|' + r; let m = OBJ_MAT.get(k); if (!m) OBJ_MAT.set(k, m = new THREE.MeshStandardMaterial({ color: c, roughness: r })); return m; };   // één materiaal per kleur (minder tekenbeurten)   // zie offSpot
   const onRoadNow = (x, z) => typeof roadTop === 'function' && roadTop(x, z, 0) !== null;
   // Staat op dit punt (met kruin erbij) een weg, stoep of een gebouw van een ander vak? Dan komt er geen boom of bankje.
@@ -183,7 +186,11 @@
     const Mt = mv2Mats(), ts = mv2Ts(m), LH = MV2.LV_H, bags = new Map(), group = new THREE.Group(), surfaces = [], walls = [];
     const cand = [], nLv = m.lv.length, stacked = !!opts.stacked, roofLi = m.lv.length > 1 && modRoofOnly(m) ? m.lv.length - 1 : -1, mask = opts.roofMask || null;
     const pieceList = opts.pieces ? [] : null;   // instorten: elk stuk apart (muur, vloertegel, dakdeel, voorwerp) in plaats van per materiaal samengevoegd
-    const put = (mat, g) => { if (pieceList) { pieceList.push({ mat, g }); return; } let L = bags.get(mat); if (!L) bags.set(mat, L = []); L.push(g); };
+    // far: de eenvoudige versie voor ver weg (zie buildModNet): dichte muren met donkere ramen, geen trappen, inrichting,
+    // kozijnen, hoekpaaltjes of plafonds, en alleen vloeren die je van buiten ziet. inner: de inrichting gaat in een eigen
+    // bundel (die gaat al uit als je er niet vlakbij bent)
+    const far = !!opts.far, bagsIn = new Map(); let innerNow = false;
+    const put = (mat, g) => { if (pieceList) { pieceList.push({ mat, g }); return; } const B = innerNow ? bagsIn : bags; let L = B.get(mat); if (!L) B.set(mat, L = []); L.push(g); };
     const tilesOf = tris => { const o = new Map(); for (const v of tris) { const cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3, k = Math.floor(cx / 4.5) + ',' + Math.floor(cz / 4.5); let L = o.get(k); if (!L) o.set(k, L = []); L.push(v); } return [...o.values()]; };
     const tfp = p => tf(p[0], p[1]);
     // doos tussen twee punten a en b (op de grond), dik t, van y0 tot y1; off schuift hem dwars
@@ -245,6 +252,7 @@
           if (hk) { if (hk.keep) { const pl = mv2ClipKeep(v, hk.keep); if (pl.length >= 3) { const top = y0 + 0.02; for (let n = 1; n < pl.length - 1; n++) { const tv = [pl[0], pl[n], pl[n + 1]]; if (Math.abs((tv[1][0] - tv[0][0]) * (tv[2][1] - tv[0][1]) - (tv[1][1] - tv[0][1]) * (tv[2][0] - tv[0][0])) < 1e-4) continue; (byMat[mat] || (byMat[mat] = [])).push(tv); pushWalk(tv[0], tv[1], tv[2], top, top, top); } } } continue; }
         }
         if (li === roofLi && mask) { const W = tf((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3), c = mask(W[0], W[1]); if (c === 2) continue; }   // 2: onder een vloer erboven, 1: op een bebouwd vak
+        if (far && ((m.lv[li + 1] && m.lv[li + 1].f[id]) || (L.r && L.r[mv2CellOf((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3).join(',')]))) continue;   // ver weg: een vloer met een vloer of dak erboven zie je niet
         if (li === roofLi && mat === 'grass' && opts.roofStyle && opts.roofStyle !== 'top') { const cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3, c0 = mv2CellXZ(...mv2CellOf(cx, cz)); if (Math.hypot(cx - c0[0], cz - c0[1]) > 3.2) mat = 'stonetile'; }   // binnen: het groen wordt een klein eiland in een plein
         (byMat[mat] || (byMat[mat] = [])).push(v);
         for (const [p, q] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) { const k = eid(p, q); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); }
@@ -254,7 +262,7 @@
         const top = lifted ? y0 + 0.02 : (mat === 'water' ? -0.25 : 0.05);
         if (pieceList) { for (const T of tilesOf(byMat[mat])) { put(Mt.fl[mat] || Mt.fl.concrete, tileSlab(T, lifted && mat !== 'glass' ? y0 - MV2.FLOOR_T + 0.01 : Math.min(0, top - 0.05), top)); if (lifted && mat !== 'glass') put(Mt.ceiling, triGeo(T, y0 - MV2.FLOOR_T, false)); } continue; }   // instorten: elke vloertegel een dichte plaat (anders kijk je bij een gat van opzij door de vloer heen)
         put(Mt.fl[mat] || Mt.fl.concrete, triGeo(byMat[mat], top));
-        if (lifted && mat !== 'glass') put(Mt.ceiling, triGeo(byMat[mat], y0 - MV2.FLOOR_T, false));
+        if (lifted && mat !== 'glass' && !far) put(Mt.ceiling, triGeo(byMat[mat], y0 - MV2.FLOOR_T, false));
       }
       if (lifted) {   // randen van de vloerplaat: een zijkant van 22 cm waar geen buurdriehoek ligt
         for (const mat in byMat) for (const v of byMat[mat]) for (const [p, q] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) if (edgeCnt.get(eid(p, q)) === 1) wallBox(Mt.slab, p, q, y0 - MV2.FLOOR_T, y0 + 0.02, 0.06);
@@ -268,7 +276,7 @@
           const l = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
           add(i + ',' + j, u, W); add((i + D[0]) + ',' + (j + D[1]), [-u[0], -u[1]], W); }
         for (const [k, L2] of ends) {
-          if (L2.length < 2) continue;
+          if (L2.length < 2 || far) continue;
           if (opts.skip) { const [i0, j0] = k.split(',').map(Number), c0 = mv2P(i0, j0, ts), Wc = tf(c0[0], c0[1]); if (opts.skip.has('p' + wallKeyW((opts.baseLv || 0) + li, Wc[0], Wc[1]))) continue; }
           let bent = false; for (let x = 0; x < L2.length && !bent; x++) for (let y = x + 1; y < L2.length; y++) if (L2[x].dir[0] * L2[y].dir[0] + L2[x].dir[1] * L2[y].dir[1] > -0.99) { bent = true; break; }
           if (!bent) continue;   // rechtdoor: de blokken sluiten al aan
@@ -288,6 +296,7 @@
         const mat = Mt.wl[W.m] || Mt.wl.brick, T = MV2.WALL_T;
         // haag en hek: een deur, poort of open doorgang is een gat (vroeger bleef die dicht en kon je een omheind park niet in)
         if (W.m === 'hedge' || W.m === 'fence') {
+          if (far && W.m === 'fence') continue;   // ver weg: geen hekjes
           const og = W.o && W.o !== 'window' ? W.o : '', gw = og === 'door' ? Math.min(1.4, len - 0.6) : og === 'gate' ? Math.max(1.5, len - 0.5) : og ? len - 0.3 : 0, g0 = (len - gw) / 2 / len;
           const parts = gw > 0.1 ? [[a, lerp(a, b, g0)], [lerp(a, b, 1 - g0), b]] : [[a, b]];
           for (const [pa, pb] of parts) {
@@ -300,6 +309,12 @@
           continue;
         }
         const o = W.o || '', isGlass = W.m === 'glass';
+        if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
+          if (o === 'open' || o === 'gate') continue;
+          wallBox(mat, a, b, y0, y0 + LH, isGlass ? 0.06 : T);
+          if (o === 'window' && !isGlass) { const ow2 = Math.max(0.6, len - 0.8), g0 = (len - ow2) / 2 / len; wallBox(FAR_WIN, lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.9, y0 + 2.15, T + 0.03); }
+          continue;
+        }
         if (!o) { wallBox(mat, a, b, y0, y0 + LH, isGlass ? 0.06 : T); if (isGlass) { wallBox(Mt.frame, a, b, y0, y0 + 0.12, T); wallBox(Mt.frame, a, b, y0 + LH - 0.12, y0 + LH, T); } addWall(a, b, y0, y0 + LH); continue; }
         // opening: breedte en hoogte, posten links en rechts, latei erboven, bij een raam ook een borstwering
         const ow = o === 'door' ? Math.min(1.2, len - 0.6) : o === 'window' ? Math.max(0.6, len - 0.8) : o === 'gate' ? Math.max(1.5, len - 0.5) : len - 0.3;
@@ -317,7 +332,7 @@
         if (o === 'gate') { wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.1, y0 + oy1, T + 0.1); }
       }
       // --- trappen en hellingen ---
-      for (const S of L.s || []) {
+      for (const S of far ? [] : L.s || []) {
         const D = MV2.DIR6[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2;
         const dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux;
         const rise = S.h || LH, off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];   // off: zijwaarts verschoven (trap in een galerijband)
@@ -473,7 +488,8 @@
       }
       // --- voorwerpen ---
       for (const O0 of L.o || []) {
-        let O = O0;
+        let O = O0; innerNow = INNER_OBJ.has(O.t);
+        if (far && !FAR_OBJ.has(O.t)) continue;
         if (li === roofLi && mask) { const Wm = tf(O.x, O.z); if (mask(Wm[0], Wm[1])) continue; }   // op een dak waar een module op staat: niets
         if (li === roofLi && opts.roofStyle && opts.roofStyle !== 'top') {   // binnen in een gebouw (hal, overdekte straat): klein groen
           if (O.t === 'bush') continue;
@@ -526,12 +542,14 @@
           case 'screen': box(om('#f4f4f0', 0.9), 6.0, 3.0, 0.06, 0, 2.0, 0); box(om('#1c1c1c'), 6.2, 3.2, 0.04, 0, 2.0, -0.04); solidLen(6.0, 0.1, 3.5); break;
         }
       }
+      innerNow = false;
       if (walkPos.length) {
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(walkPos, 3));
         surfaces.push({ kind: 'tris', cx: origin[0], cz: origin[1], B: triBuckets(g), base: 0, bottom: lifted ? y0 - MV2.FLOOR_T : -0.3 });
       }
     }
     for (const [mat, list] of bags) { const mesh = new THREE.Mesh(mergeGeos(list), mat); mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.own = true; group.add(mesh); }
+    for (const [mat, list] of bagsIn) { const mesh = new THREE.Mesh(mergeGeos(list), mat); mesh.castShadow = false; mesh.receiveShadow = true; mesh.userData.own = true; mesh.userData.inner = true; group.add(mesh); }   // inrichting: werpt geen schaduw naar buiten
     return { group, surfaces, walls, doors: doorsOut, cand, pieces: pieceList };
   }
   // zelfde uiterlijk = zelfde sleutel (veel modules maken eigen, gelijke materialen)
@@ -565,12 +583,17 @@
       group.add(m);
     }
   }
-  // Ver weg zie je de dunne latjes van kozijnen en hekjes niet meer (ze zijn een derde van de driehoeken van een huis):
-  // die bundels gaan uit als het midden van hun stuk stad (6 × 6 vakken) verder dan 110 m van de camera ligt
-  const BATCH_FAR = 110;
+  // Detailniveaus per stuk stad (6 × 6 vakken, straal ±50 m), naar de afstand van de camera tot het midden van dat stuk:
+  //  dichtbij   de echte modules (muren in stukken, ramen met kozijnen, trappen): tot 90 m
+  //  ver weg    de eenvoudige versie (dichte muren met donkere ramen, zelfde dak en vorm): vanaf 90 m
+  //  inrichting keuken, bedden, banken …: alleen tot 50 m (je ziet ze alleen door een raam van dichtbij)
+  //  kozijnen   dunne latjes: tot 70 m (geen schaduw)
+  // Een hoge camera telt als iets verder weg (half de hoogte boven 20 m).
+  const LOD_D = { near: 90, frame: 70, inner: 50 };
   function batchLod() {
     const cx = camera.position.x, cz = camera.position.z, cy = camera.position.y;
-    for (const m of modBatchGroup.children) { const c = m.userData.farLod; if (!c) continue; const d = Math.hypot(c[0] - cx, c[1] - cz, Math.max(0, cy - 20) * 0.5); m.visible = d < BATCH_FAR + 50; }   // de straal van een stuk is ±50 m
+    for (const m of modBatchGroup.children) { const c = m.userData.lodC; if (!c) continue; const d = Math.hypot(c[0] - cx, c[1] - cz, Math.max(0, cy - 20) * 0.5) - 50, L = m.userData.lod;
+      m.visible = L === 'far' ? d >= LOD_D.near : d < (LOD_D[L] || LOD_D.near); }
   }
   setInterval(() => { try { batchLod(); } catch (e) { } }, 250);
   function batchMods(live) {
@@ -581,14 +604,14 @@
       const sig = BATCH_ON.v ? L.map(e => e.group.uuid).sort().join('|') : 'uit', old = modBatches.get(k);
       if (old && old.sig === sig) continue;
       if (old) { for (const m of old.meshes) { modBatchGroup.remove(m); m.geometry.dispose(); } modBatches.delete(k); }
-      if (!BATCH_ON.v) { for (const e of L) e.group.traverse(o => { if (o.isMesh) o.visible = true; }); modBatches.set(k, { sig, meshes: [] }); continue; }
+      if (!BATCH_ON.v) { for (const e of L) e.group.traverse(o => { if (o.isMesh) o.visible = !o.userData.lodFar; }); modBatches.set(k, { sig, meshes: [] }); continue; }
       const bags = new Map(), MM = new THREE.Matrix4();
       for (const e of L) {
         e.group.updateMatrixWorld(true);
         e.group.traverse(o => {
           if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || !o.geometry.attributes.position || !o.geometry.attributes.normal || o.renderOrder) return;
-          const mm = o.material, key = matKey(mm, o.castShadow, o.receiveShadow);
-          let b = bags.get(key); if (!b) bags.set(key, b = { mat: o.material, cast: o.castShadow, recv: o.receiveShadow, list: [], src: [] });
+          const mm = o.material, lod = o.userData.lodFar ? 'far' : o.userData.inner ? 'inner' : MV2M && mm === MV2M.frame ? 'frame' : 'near', key = lod + '|' + matKey(mm, o.castShadow, o.receiveShadow);
+          let b = bags.get(key); if (!b) bags.set(key, b = { mat: o.material, cast: o.castShadow && lod !== 'frame', recv: o.receiveShadow, list: [], src: [], lod });
           const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(MM.copy(o.matrixWorld));
           if (MM.determinant() < 0) { const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv; for (let v = 0; v + 2 < P.count; v += 3) for (const A of [P, N, U]) if (A) for (let c = 0; c < A.itemSize; c++) { const t = A.array[(v + 1) * A.itemSize + c]; A.array[(v + 1) * A.itemSize + c] = A.array[(v + 2) * A.itemSize + c]; A.array[(v + 2) * A.itemSize + c] = t; } }
           b.list.push(g); b.src.push(o);
@@ -597,7 +620,7 @@
       const meshes = [];
       for (const b of bags.values()) {
         const mesh = new THREE.Mesh(mergeGeos(b.list), b.mat); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.userData.batch = true; mesh.matrixAutoUpdate = false;
-        if (MV2M && b.mat === MV2M.frame) { const [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.userData.farLod = [c.x, c.z]; mesh.castShadow = false; }   // kozijnen en hekjes: ver weg niet (zie batchLod)
+        { const [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.userData.lod = b.lod; mesh.userData.lodC = [c.x, c.z]; }   // dichtbij, ver weg, inrichting of kozijnen (zie batchLod)
         modBatchGroup.add(mesh); meshes.push(mesh);
         for (const o of b.src) o.visible = false;   // het origineel blijft alleen voor aanwijzen
       }
@@ -683,12 +706,17 @@
         if (e) { e.group.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); }); scene.remove(e.group); }
         const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
         if (!instLv(I)) addFoundation(I, b.group);   // op een terras: een stenen fundering onder elk vak
+        { // de eenvoudige versie voor ver weg: een kind van de groep, zelf nooit zichtbaar; alleen gebundeld (batchMods/batchLod)
+          const bf = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { far: true, stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+          if (!instLv(I)) addFoundation(I, bf.group);
+          bf.group.traverse(m2 => { if (m2.isMesh) { m2.userData.lodFar = true; m2.visible = false; } }); bf.group.userData.lodFar = true; b.group.add(bf.group);
+        }
         b.group.position.y += G; b.group.userData.inst = I; doors.clear(I); for (const d of b.doors) { d.y += G; doors.add(I, d); } e = { cand: b.cand, off: b.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join(''), group: b.group, col: shiftCol({ surfaces: b.surfaces, walls: b.walls }, G), sig, roofed: !!cov.mask, mask: cov.mask, skip, style: cov.style }; scene.add(e.group); modGroups.set(I, e); touched = true;
       }
       e.col.tag = (I.m.name || '') + ' @' + I.q + ',' + I.r + ' lv' + instLv(I) + ' rot' + I.rot + (I.mir ? ' mir' : '');
       for (const [q, r] of mv2Area(I)) { const k = q + ',' + r; if (!instLv(I)) modCellSet.add(k); let L = modCols.get(k); if (!L) modCols.set(k, L = []); L.push(e.col); }
     }
-    try { batchMods(live); } catch (e) { console.warn('batchMods', e); }
+    try { batchMods(live); batchLod(); } catch (e) { console.warn('batchMods', e); }
     // het terrein onder een module is een plateau: bij een nieuwe of weggehaalde module de stukken eromheen bijwerken
     const diff = []; for (const k of modCellSet) if (!before.has(k)) diff.push(k.split(',').map(Number)); for (const k of before) if (!modCellSet.has(k)) diff.push(k.split(',').map(Number));
     if (diff.length && cells.terr && Object.keys(cells.terr).length) { terrDirty(diff); terrFlush(); }
