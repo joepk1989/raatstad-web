@@ -311,7 +311,7 @@
       // paraplu: een achtkantig scherm met een stok; het handvat zit ongeveer bij de hand
       umbrella: { geo: mergeGeos([new THREE.ConeGeometry(0.56, 0.24, 8, 1, true).translate(0, 0.12, 0), new THREE.CylinderGeometry(0.012, 0.012, 0.95, 5).translate(0, -0.35, 0), new THREE.SphereGeometry(0.03, 5, 3).translate(0, 0.26, 0)]), per: 1 },
     };
-    PARTS.joint = { geo: new THREE.IcosahedronGeometry(1, 1), per: 12 };   // gewrichtsbol (per gewricht geschaald): de delen lopen in elkaar over
+    PARTS.joint = { geo: new THREE.IcosahedronGeometry(1, 0), per: 12 };   // gewrichtsbol (per gewricht geschaald): de delen lopen in elkaar over; 20 driehoeken (zit grotendeels in de ledematen verstopt)
     PARTS.smile = { geo: smileGeo, per: 1, vc: true, noShadow: true };
     PARTS.glasses = { geo: glassesGeo, per: 1, noShadow: true };
     PARTS.beard = { geo: beardGeo, per: 1 };

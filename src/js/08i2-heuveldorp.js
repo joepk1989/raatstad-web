@@ -70,7 +70,7 @@
       const n = ring(q, r); if (n > 12 || !free(q, r) || onRoad(q, r)) continue;
       const w = cellToWorld(q, r), d = roadDist(w.x, w.z), h = ((q * 7 + r * 13 + q * r * 3) & 15), street = d < 14;
       if (n < FOOT) { if (street) { if (h < 13) mod(HUIS[h % HUIS.length], q, r); else mod(GROEN[h % GROEN.length], q, r); } else if (h < 6) mod('Tuin · boomgaard', q, r); else if (h < 8) mod('Bos · bomen', q, r); else if (h < 9) mod(GROEN[h % GROEN.length], q, r); }
-      else if (n > FOOT && h < 9) mod(h < 5 ? 'Bos · bomen' : 'Tuin · boomgaard', q, r);
+      else if (n > FOOT && n <= FOOT + 2 && h < 6) mod(h < 4 ? 'Bos · bomen' : 'Tuin · boomgaard', q, r);   // buiten de ringweg: een rand bos en olijfgaard, niet meer (prestaties)
     }
     // randvulling langs de wegen: alleen op het vlakke land (op een terras ligt het stukje park hoger dan de weg)
     c.sec = {};

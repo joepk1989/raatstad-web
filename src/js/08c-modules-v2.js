@@ -274,7 +274,7 @@
           if (!bent) continue;   // rechtdoor: de blokken sluiten al aan
           const [i, j] = k.split(',').map(Number), c = mv2P(i, j, ts), hedge = L2.every(e => e.W.m === 'hedge'), W0 = L2.find(e => e.W.m !== 'hedge') || L2[0];
           const mat = hedge ? (Mt.wl.hedge) : (Mt.wl[W0.W.m] || Mt.wl.brick), r = hedge ? 0.3 : MV2.WALL_T / 2, h = hedge ? 1.4 : LH;
-          const g = new THREE.CylinderGeometry(r * 1.02, r * 1.02, h, 12);
+          const g = new THREE.CylinderGeometry(r * 1.02, r * 1.02, h, hedge ? 8 : 6);   // zeshoekig paaltje: van buiten niet te zien, een kwart van de driehoeken
           if (mat.userData && mat.userData.mUV) { const P2 = g.attributes.position, U = g.attributes.uv; for (let n = 0; n < P2.count; n++) U.setXY(n, Math.atan2(P2.getZ(n), P2.getX(n)) * r + c[0] + c[1], P2.getY(n) + y0 + h / 2); }
           const Wp = tf(c[0], c[1]); g.translate(Wp[0], y0 + h / 2, Wp[1]); put(mat, g);
         } }
@@ -565,6 +565,14 @@
       group.add(m);
     }
   }
+  // Ver weg zie je de dunne latjes van kozijnen en hekjes niet meer (ze zijn een derde van de driehoeken van een huis):
+  // die bundels gaan uit als het midden van hun stuk stad (6 × 6 vakken) verder dan 110 m van de camera ligt
+  const BATCH_FAR = 110;
+  function batchLod() {
+    const cx = camera.position.x, cz = camera.position.z, cy = camera.position.y;
+    for (const m of modBatchGroup.children) { const c = m.userData.farLod; if (!c) continue; const d = Math.hypot(c[0] - cx, c[1] - cz, Math.max(0, cy - 20) * 0.5); m.visible = d < BATCH_FAR + 50; }   // de straal van een stuk is ±50 m
+  }
+  setInterval(() => { try { batchLod(); } catch (e) { } }, 250);
   function batchMods(live) {
     const by = new Map();
     for (const I of live) { const e = modGroups.get(I); if (!e || !e.group || e.collapsed) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6); let L = by.get(k); if (!L) by.set(k, L = []); L.push(e); }
@@ -589,6 +597,7 @@
       const meshes = [];
       for (const b of bags.values()) {
         const mesh = new THREE.Mesh(mergeGeos(b.list), b.mat); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.userData.batch = true; mesh.matrixAutoUpdate = false;
+        if (MV2M && b.mat === MV2M.frame) { const [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.userData.farLod = [c.x, c.z]; mesh.castShadow = false; }   // kozijnen en hekjes: ver weg niet (zie batchLod)
         modBatchGroup.add(mesh); meshes.push(mesh);
         for (const o of b.src) o.visible = false;   // het origineel blijft alleen voor aanwijzen
       }
