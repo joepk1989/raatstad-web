@@ -62,6 +62,7 @@ Eerst bouwen: `node build.js` in de hoofdmap. Daarna, vanuit `test/`:
 | `python wc_mods.py [namen]` | elke Winkelcentrum-module apart dichtbij, plus winkel met galerij erop |
 | `python mm_schans.py` | module maker: schans (S), penselen kern/rand, glazen dak, winkelvoorwerpen |
 | `python mod_namen.py [oude.html]` | modulenamen (hernoemen vanaf een oude versie, geen dubbele), zoeken, categorieën, maatfilters, , en . |
+| `node terreinveld.js` | terreinveld (`src/js/07a-terreinveld.js`, uit Unity): talud, koppen, ongelijkvloers; gesneden raster vlak en zonder kieren (alleen Node, niet bouwen) |
 | `python lowpoly.py` | low poly terrein: los vak, groepje, dijk met een weg erlangs en eroverheen |
 | `python mm_bordes.py` | module maker: bordestrap (U) tekenen met trapgat erboven, 3D-beeld |
 | `python bordes_test.py` | huis: de bordestrap op lopen, bordes op 1,7 m en bovenverdieping op 3,2 m |
