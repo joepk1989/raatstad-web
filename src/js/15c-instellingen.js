@@ -62,6 +62,7 @@
     { id: 'crowd', name: 'Drukte', note: "Minder mensen en auto's is lichter voor een telefoon", opts: [[1, 'Vol'], [0.5, 'Rustig'], [0.25, 'Weinig']], get: () => setState.crowd || 1, set: v => { setState.crowd = v; PERF.crowd = v; peopleDirty = true; carsDirty = true; } },
     { id: 'perf', name: 'Prestatiemeter', note: 'Beelden per seconde en wat de videokaart tekent', opts: [['fps', 'Alleen fps'], [true, 'Uitgebreid'], [false, 'Uit']], get: () => setState.perf === 'fps' ? 'fps' : !!setState.perf, set: v => setPerf(v) },
     { id: 'clouds', name: 'Wolken', opts: [[true, 'Aan'], [false, 'Uit']], get: () => setState.clouds, set: v => { setState.clouds = v; clouds.setOn(v); } },
+    { id: 'underchk', name: 'Terreincontrole', note: 'Alles wat onder het maaiveld ligt wordt paars: zo zie je gaten en scheuren in het terrein (niet bewaard)', opts: [[true, 'Aan'], [false, 'Uit']], get: () => underChk.on, set: v => underSet(v) },
     { sub: 'Bouwen' },
     { id: 'grid', name: 'Raster', opts: [[true, 'Aan'], [false, 'Uit']], get: () => gridOn, set: v => { if (v !== gridOn) optGrid.click(); } },
     { id: 'contour', name: 'Hoogtelijnen', note: 'Tijdens het boetseren van het terrein', opts: [[true, 'Aan'], [false, 'Uit']], get: () => setState.contour, set: v => { setState.contour = v; terrU.uContour.value = v && TERR_TOOLS.has(tool) ? 1 : 0; } },
