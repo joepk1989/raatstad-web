@@ -421,6 +421,11 @@ Gemeten in het bestand: vak R = 9 m, verdieping 3 m, vloer 0,3 m dik; steek 6,75
 - **Snelheid**: `deckCells` eerst een numerieke vingerafdruk (plek, draaiing, laag, module-identiteit, terrVer); `isRoofMod`/`isDeckMod` per module gecachet (WeakMap).
 - **Heuveldorp**: hoogte per zeshoekring `[20, 20, 17,5, 15, 12,5, 10, 7,5, 5, 2,5]`, ringweg op ring 9; slingerstraat over hoekvakken `(9,1) (6,1) (6,2) (6,3) (3,3) (3,4) (3,5) (1,5)`; steegjes `[richting, van, tot] = [0,9,2] [2,6,2] [4,9,3]`. In Unity: dezelfde ringhoogtes als terrein-stappen, de straat als spline over die hoekpunten.
 
+## 32. Terreinveld aangesloten (1 nov; `07a`/`07b`)
+- Het Unity-veld (`makeTerrainField`) tekent nu het low-poly terrein langs wegen die hoger of lager liggen dan het terrein: strakke taluds van 1 op 1,5. Zie `docs/terreinveld.md` › "Zo is het aangesloten".
+- Twee aanvullingen die ook naar Unity kunnen: (1) wegstukken eerst samenvoegen (Douglas–Peucker, 25 cm / 8 cm), anders wordt het veld extreem traag; (2) `roadCap`: onder een wegdek nooit grond boven die weg (haarspelden).
+- **Terreincontrole** (Instellingen): alles onder het maaiveld paars, de onderkant van het terrein ook; handig om gaten te zien.
+
 ## 21. Open punten
 - Unity: noord- en zuidpool op de bol (vraag staat open); `unity/README.md` is niet bijgewerkt sinds het planeet-wegensysteem.
 - Web: eerste klap op een gebouw geeft een korte hapering (omzetten naar stukken); mensen ontwijken brokstukken niet en het loopnetwerk kent de gaten niet; instortingen worden niet bewaard; jagers maken soms nog sprongetjes van 3–7 m.

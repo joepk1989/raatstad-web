@@ -1,6 +1,6 @@
 # Terreinveld
 
-`src/js/07a-terreinveld.js` is de hoogtefunctie langs wegen op een niveau uit Unity (`PlanetCity.GroundField` en `LineGround` in `joepk1989/raatstad-unity`), overgezet naar het platte raster van de webversie. Het zijn losse functies zonder three.js. Het bestand definieert alleen `makeTerrainField` en wordt nog nergens aangeroepen: het spel werkt dus nog precies als voorheen. Het is bedoeld voor `07b-terrein.js`, waar het `roadAdjust` en `lpRoad` vervangt in de buurt van wegen die hoger of lager liggen dan het terrein.
+`src/js/07a-terreinveld.js` is de hoogtefunctie langs wegen op een niveau uit Unity (`PlanetCity.GroundField` en `LineGround` in `joepk1989/raatstad-unity`), overgezet naar het platte raster van de webversie. Het zijn losse functies zonder three.js. Het is aangesloten in `07b-terrein.js` voor het low-poly terrein (de standaard): zie **Zo is het aangesloten** hieronder. Hoog en normaal (glad terrein, stap 4) gebruiken nog `roadAdjust`.
 
 Testen (vanuit de hoofdmap, alleen Node nodig):
 
@@ -27,7 +27,15 @@ De test bevat 41 controles:
 
 `cutTriangle` tekent het veld exact. Het rekent het veld in dezelfde volgorde als `at()` op stukjes van een driehoek, en elk stukje is één vlak. Er wordt alleen gesneden waar iets verandert, en stukjes in hetzelfde vlak gaan daarna weer samen. Zo worden taluds strakke vlakken met rechte randen, net als in Unity. Rond een weg komen er ongeveer een kwart meer driehoeken bij.
 
-## Aansluiten in `07b-terrein.js`
+## Zo is het aangesloten (1 nov)
+
+- **Veld**: `tField = makeTerrainField()`; in `terrRoadsChanged` na het vullen van `tRoadSegs`: `tField.fromRoadSegs(fieldSegs(tRoadSegs), terrainHeightAt)`.
+- **`fieldSegs`**: de webversie levert wegen in stukjes van 1,5 m. Zo kreeg het veld in het heuveldorp 1484 stukken en kostte één terreinstuk 81 s. Daarom worden aaneengesloten stukjes van dezelfde weg (zelfde rand, bereik en vlaggen) eerst samengevoegd met Douglas–Peucker: hooguit 25 cm opzij en 8 cm in hoogte van de rechte lijn. In het heuveldorp blijven er 77 over, en laden duurt ±7 s op de trage testmachine.
+- **Tekenen**: in `lpMesh` gaat eerst de driehoek zonder wegen (`lpTri(…, false)`) naar `cutTriangle`. Snijdt die niets, dan wordt hij getekend zoals vroeger (`lpTri(…, true)`). Het tekenen zelf staat in `addTri`.
+- **Hoogte**: `lpHeight(x, z, true)` geeft bij een weg in de buurt (`nearAny`) `tField.at(x, z, lpHeight zonder wegen)`.
+- **Extra regel `roadCap`**: onder het wegdek van een weg (rand `s[8]`) komt de grond nooit hoger dan die weg − 5 cm, voor elke hoek van een getekend stukje en bij het opvragen van de hoogte. In een haarspeld duwde het veld anders het talud van het hogere stuk straat over het lagere heen, omdat de hoogste dijk wint. Dit kan ook naar Unity.
+
+## Aansluiten in `07b-terrein.js` (oorspronkelijk plan)
 
 `build.js` voegt de bestanden in `src/js/` op naam samen, dus `07a-terreinveld.js` staat al vóór `07b-terrein.js`, binnen dezelfde omsluitende functie.
 
