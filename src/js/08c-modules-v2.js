@@ -552,6 +552,19 @@
   const modBatchGroup = new THREE.Group(); modBatchGroup.name = 'modBatch'; scene.add(modBatchGroup);
   const modBatches = new Map();   // buurt → { sig, meshes }
   const BATCH_ON = { v: true };
+  // Fundering: een module op het terrein (laag 0) staat op een zeshoekige sokkel van natuursteen onder elk van zijn vakken,
+  // van de vloer tot op nul. Waar het terrein eromheen lager ligt (een terras op een helling) zie je zo een keermuur onder
+  // het huis of de tuin in plaats van een gat of een grasrand; waar het terrein hoger ligt verdwijnt de sokkel erin.
+  const foundGeo = (() => { const g = new THREE.CylinderGeometry(R, R, 1, 6, 1); g.translate(0, -0.5, 0); return g; })();
+  function addFoundation(I, group) {
+    const G = gH(I.q, I.r); if (G < 0.05) return;   // de vloer van de hele module ligt op de hoogte van het middenvak
+    for (const [q, r] of mv2Area(I)) {
+      if (terrCut(q, r)) continue;
+      const w = cellToWorld(q, r), m = new THREE.Mesh(foundGeo, plinthStone);
+      m.scale.y = G - 0.02; m.position.set(w.x, -0.02, w.z); m.receiveShadow = true; m.castShadow = true; m.userData.found = true;   // bovenkant 2 cm onder de vloer
+      group.add(m);
+    }
+  }
   function batchMods(live) {
     const by = new Map();
     for (const I of live) { const e = modGroups.get(I); if (!e || !e.group || e.collapsed) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6); let L = by.get(k); if (!L) by.set(k, L = []); L.push(e); }
@@ -660,6 +673,7 @@
       if (e && e.sig === sig) { /* ongewijzigd */ } else {
         if (e) { e.group.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); }); scene.remove(e.group); }
         const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+        if (!instLv(I)) addFoundation(I, b.group);   // op een terras: een stenen fundering onder elk vak
         b.group.position.y += G; b.group.userData.inst = I; doors.clear(I); for (const d of b.doors) { d.y += G; doors.add(I, d); } e = { cand: b.cand, off: b.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join(''), group: b.group, col: shiftCol({ surfaces: b.surfaces, walls: b.walls }, G), sig, roofed: !!cov.mask, mask: cov.mask, skip, style: cov.style }; scene.add(e.group); modGroups.set(I, e); touched = true;
       }
       e.col.tag = (I.m.name || '') + ' @' + I.q + ',' + I.r + ' lv' + instLv(I) + ' rot' + I.rot + (I.mir ? ' mir' : '');
