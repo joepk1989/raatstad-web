@@ -11,8 +11,11 @@
   // flat …): die modules blijven staan en de weg ligt erop. Een gewone weg haalt ze nog steeds weg.
   function isRoofMod(m) { if (!m || m.v !== 2) return false; let c = roofKind_.get(m); if (!c) { const d = isDeckMod(m); c = [d || modMeta(m).top === 'plat', d]; roofKind_.set(m, c); } return c[0]; }
   // vak → hoogte (absoluut) van het dak van het hoogste wegdek (deckMap_) en van het hoogste platte dak (roofMap_) op dat vak
-  let deckFast_ = null;
+  let deckFast_ = null, deckTask_ = false;   // deckTask_: binnen deze taak al nagekeken (vervalt aan het eind van de taak, of als de modules opnieuw gebouwd worden)
+  const deckInvalidate = () => { deckTask_ = false; };
   function deckCells() {
+    if (deckTask_ && deckFast_ && deckFast_[1] === cells.inst) return deckMap_;
+    deckTask_ = true; Promise.resolve().then(deckInvalidate);
     // snelle vingerafdruk eerst (deze functie wordt bij elke hoogtevraag aan een weg aangeroepen): plek, draaiing, laag en module van elk exemplaar, en het terrein
     const L0 = cells.inst || []; let fh = L0.length + 7 * terrVer; for (const I of L0) fh = (fh * 31 + I.q * 7919 + I.r * 104729 + (I.rot || 0) * 13 + (I.lv || 0) * 101 + (I.m && I.m.lv ? I.m.lv.length : 0)) % 2147483647;
     const fk = L0.length + ':' + fh; if (deckFast_ && deckFast_[0] === fk && deckFast_[1] === L0) { let same = true; for (let i = 0; i < L0.length; i++) if (deckFast_[3][i] !== L0[i].m) { same = false; break; } if (same) return deckMap_; }

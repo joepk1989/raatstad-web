@@ -212,8 +212,14 @@
   }
   // Onder een wegdek (met stoep) komt de grond nooit boven die weg uit: in een haarspeld duwt het veld anders het talud van
   // het hogere stuk straat over het lagere heen (in het veld wint de hoogste dijk)
+  let capB = null, capSrc = null;   // emmers van 16 m met de wegstukken die erin reiken
+  function capBuckets() {
+    if (capSrc === tRoadSegs) return capB; capSrc = tRoadSegs; capB = new Map();
+    for (const s2 of tRoadSegs) { const m = s2[8]; for (let i = Math.floor((Math.min(s2[0], s2[2]) - m) / 16); i <= Math.floor((Math.max(s2[0], s2[2]) + m) / 16); i++) for (let j = Math.floor((Math.min(s2[1], s2[3]) - m) / 16); j <= Math.floor((Math.max(s2[1], s2[3]) + m) / 16); j++) { const k = i * 4096 + j; let L = capB.get(k); if (!L) capB.set(k, L = []); L.push(s2); } }
+    return capB;
+  }
   function roadCapH(x, z, h) {
-    for (const s2 of tRoadSegs) {
+    for (const s2 of capBuckets().get(Math.floor(x / 16) * 4096 + Math.floor(z / 16)) || []) {
       const m = s2[8]; if (x < Math.min(s2[0], s2[2]) - m || x > Math.max(s2[0], s2[2]) + m || z < Math.min(s2[1], s2[3]) - m || z > Math.max(s2[1], s2[3]) + m) continue;
       const dx = s2[2] - s2[0], dz = s2[3] - s2[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - s2[0]) * dx + (z - s2[1]) * dz) / l2));
       if (Math.hypot(s2[0] + dx * f - x, s2[1] + dz * f - z) > m) continue;
@@ -230,7 +236,7 @@
       const P = pathProf(p), edge = def.hw + (p.t === 'pad' ? 0.6 : def.walk) + 0.6;
       for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p)]); }   // brug over een weg: geen dijk eronder
     }
-    tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z), 1.6);   // pas 1,6 m boven of onder het terrein ligt een weg op een eigen niveau: een straat die een getrapte helling volgt (terrassen van 2,5 m, ±1,25 m verschil) gaat met de gewone, vloeiende aansluiting (anders een talud met omgevouwen stukken in elke bocht)
+    tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z), -1);   // elke weg: de grond onder weg en stoep (plus 1,5 m) ligt op weghoogte, daarbuiten een talud naar het terrein; één bron van waarheid voor terrein en weg
     const touch = segs => { for (const s of segs) { const r = s[7] + 2; for (let i = Math.floor((Math.min(s[0], s[2]) - r) / TSZ); i <= Math.floor((Math.max(s[0], s[2]) + r) / TSZ); i++) for (let j = Math.floor((Math.min(s[1], s[3]) - r) / TSZ); j <= Math.floor((Math.max(s[1], s[3]) + r) / TSZ); j++) { const c = tChunks.get(i + ',' + j); if (c) { c.fin = null; c.dirty = true; } else if (!s[6]) tChunks.set(i + ',' + j, { dirty: true }); } } };
     touch(old); touch(tRoadSegs);
     terrFlush();

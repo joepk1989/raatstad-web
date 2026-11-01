@@ -139,7 +139,10 @@
     let cur = p[0];
     for (let i = 1; i < p.length - 1; i++) {
       const A = cur, P = p[i], B = p[i + 1], la = Math.hypot(P[0] - A[0], P[1] - A[1]), lb = Math.hypot(B[0] - P[0], B[1] - P[1]);
-      const d = Math.min(8, la * 0.45, lb * 0.45);
+      // afstand van de knik tot het begin van de boog: normaal 8 m, maar zo veel meer dat de straal minstens 7 m is (een scherpe
+      // bocht met een straal kleiner dan de halve weg met stoep vouwt de binnenstoep dubbel); nooit meer dan 45 % van een stuk
+      const cosT = ((A[0] - P[0]) * (B[0] - P[0]) + (A[1] - P[1]) * (B[1] - P[1])) / (la * lb || 1), half = Math.acos(Math.max(-1, Math.min(1, cosT))) / 2;   // half: de halve hoek tussen de twee stukken
+      const d = Math.min(Math.max(8, half > 0.05 ? 7 / Math.tan(half) : 8), la * 0.45, lb * 0.45);
       if (d < 0.3) { lineTo(cur, P); cur = P; continue; }
       const P1 = [P[0] + (A[0] - P[0]) / la * d, P[1] + (A[1] - P[1]) / la * d], P2 = [P[0] + (B[0] - P[0]) / lb * d, P[1] + (B[1] - P[1]) / lb * d];
       lineTo(cur, P1);

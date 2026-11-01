@@ -26,8 +26,17 @@
     const hairIn = [];
     for (const [n, k] of [[6, 3], [3, 5]]) { const [cq, cr] = corner(n, k), A = NEIGH[(k + 3) % 6], B = NEIGH[(k + 4) % 6], q = cq + A[0] + B[0], r = cr + A[1] + B[1]; c.terr[key(q, r)] = H[n]; hairIn.push(key(q, r)); const [lq, lr] = corner(n - 1, k); c.terr[key(lq, lr)] = H[n]; }   // ook het eerste vak omhoog na de bocht: een vlak bordes, de straat klimt pas daarna (daar ±35 %, steil zoals in een echt bergdorp; half zo hoog gaf weer een kreukende binnenstoep)
     const sl = [[FOOT, 1], [6, 1], [6, 2], [6, 3], [3, 3], [3, 4], [3, 5], [1, 5]].map(([n, k]) => W(...corner(n, k))), slP = [sl[0]];
-    for (let i = 1; i < sl.length - 1; i++) { const A = sl[i - 1], B = sl[i], C = sl[i + 1], ux = B[0] - A[0], uz = B[1] - A[1], vx = C[0] - B[0], vz = C[1] - B[1], lu = Math.hypot(ux, uz), lv = Math.hypot(vx, vz);
-      if ((ux * vx + uz * vz) / (lu * lv) < -0.2) slP.push(P(B[0] - ux / lu * 8, B[1] - uz / lu * 8), P(B[0] + vx / lv * 8, B[1] + vz / lv * 8)); else slP.push(B); }
+    // Een haarspeld (draai van 120°) wordt een echte cirkelboog met een straal van 9 m, als punten om de 2 m: de binnenstoep
+    // (4,5 m uit het midden) blijft dan ruim binnen de boog. Gewone hoeken (60°) rondt de weg zelf af.
+    const RH = 9;
+    for (let i = 1; i < sl.length - 1; i++) {
+      const A = sl[i - 1], B = sl[i], C = sl[i + 1], lu = Math.hypot(B[0] - A[0], B[1] - A[1]), lv = Math.hypot(C[0] - B[0], C[1] - B[1]);
+      const u = [(B[0] - A[0]) / lu, (B[1] - A[1]) / lu], v = [(C[0] - B[0]) / lv, (C[1] - B[1]) / lv], turn = Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1])));
+      if (turn < 1.5) { slP.push(B); continue; }
+      const t = RH * Math.tan(turn / 2), T1 = [B[0] - u[0] * t, B[1] - u[1] * t], side = Math.sign(u[0] * v[1] - u[1] * v[0]), nrm = [-u[1] * side, u[0] * side], M = [T1[0] + nrm[0] * RH, T1[1] + nrm[1] * RH];
+      const a0 = Math.atan2(T1[1] - M[1], T1[0] - M[0]), n = Math.ceil(RH * turn / 2);
+      for (let k = 0; k <= n; k++) { const a = a0 + side * turn * k / n; slP.push([M[0] + Math.cos(a) * RH, M[1] + Math.sin(a) * RH]); }   // niet afronden op 10 cm: dat gaf knikjes in de boog
+    }
     slP.push(sl[sl.length - 1]);
     c.paths.push({ t: 'klink', l: 0, r: 0, p: slP });
     for (const k of [3, 5]) c.paths.push({ t: 'weg', l: 0, r: 0, p: [W(...corner(FOOT, k)), W(...corner(FOOT + 4, k))] });   // twee wegen naar buiten

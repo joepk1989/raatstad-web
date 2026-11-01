@@ -703,7 +703,7 @@
     for (const [I, keys] of per) { const sk = new Set(); for (const k of keys) if (best.get(k).I !== I) sk.add(k); out.set(I, sk); }
     return out;
   }
-  function buildModNet() {
+  function buildModNet() { deckInvalidate();
     nearbyClear();
     // een vernieuwde standaardmodule (lib10 en later): geplaatste exemplaren in elke stad krijgen de nieuwe versie
     if (typeof modules !== 'undefined' && (cells.inst || []).length) { let byId = null; for (const I of cells.inst) { if (!I.mid || !I.m || I.m.v !== 2) continue; byId = byId || new Map(modules.map(m => [m.id, m])); const M = byId.get(I.mid); if (M && M.v === 2 && M.lib && (I.m.lib || 0) < M.lib) { I.m = instData(M, I.mir); I.m.lib = M.lib; } } }

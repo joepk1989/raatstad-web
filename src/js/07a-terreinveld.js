@@ -199,19 +199,23 @@
     }
     function mergePlanar(Q) {   // Q: [{ pts, sl }]; alleen stukjes met dezelfde sl (talud of niet) samen
       const P = Q.map(q => q.pts), S = Q.map(q => q.sl), pl = P.map(planeOf);
-      for (let again = true; again;) {
-        again = false;
-        for (let i = 0; i < P.length && !again; i++) for (let j = i + 1; j < P.length && !again; j++) {
-          if (S[i] !== S[j] || !pl[i] || !onPlane(pl[i], P[j])) continue;
-          const a = P[i], b = P[j];
-          for (let e = 0; e < a.length && !again; e++) {
-            const a0 = a[e], a1 = a[(e + 1) % a.length], f = b.findIndex(q => same(q, a1)); if (f < 0 || !same(b[(f + 1) % b.length], a0)) continue;
-            const m = []; for (let t = 0; t < a.length; t++) m.push(a[(e + 1 + t) % a.length]);   // a vanaf a1 rond tot a0
-            for (let t = 2; t < b.length; t++) m.push(b[(f + t) % b.length]);                       // dan b na a0 tot vóór a1
-            if (!convex(m)) continue;
-            P[i] = tidy(m); P.splice(j, 1); S.splice(j, 1); pl.splice(j, 1); again = true;
-          }
+      // Niet na elke samenvoeging helemaal opnieuw beginnen (dat was kubisch en kostte de helft van de laadtijd): stuk i
+      // neemt alle buren in hetzelfde vlak op die het kan, dan het volgende stuk; een tweede ronde alleen als er iets veranderde
+      const tryMerge = (i, j) => {
+        if (S[i] !== S[j] || !pl[i] || !onPlane(pl[i], P[j])) return false;
+        const a = P[i], b = P[j];
+        for (let e = 0; e < a.length; e++) {
+          const a0 = a[e], a1 = a[(e + 1) % a.length], f = b.findIndex(q => same(q, a1)); if (f < 0 || !same(b[(f + 1) % b.length], a0)) continue;
+          const m = []; for (let t = 0; t < a.length; t++) m.push(a[(e + 1 + t) % a.length]);   // a vanaf a1 rond tot a0
+          for (let t = 2; t < b.length; t++) m.push(b[(f + t) % b.length]);                       // dan b na a0 tot vóór a1
+          if (!convex(m)) continue;
+          P[i] = tidy(m); P.splice(j, 1); S.splice(j, 1); pl.splice(j, 1); return true;
         }
+        return false;
+      };
+      for (let changed = true; changed;) {
+        changed = false;
+        for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) if (tryMerge(i, j)) { changed = true; j = i; }
       }
       return P.map((p, i) => ({ pts: tidy(p), sl: S[i] }));
     }
