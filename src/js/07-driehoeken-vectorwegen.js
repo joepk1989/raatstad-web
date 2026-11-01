@@ -157,10 +157,73 @@
   const profCache = new Map();
   let terrVer = 0;   // telt op bij elke verandering van de vakken (terrein): profielen worden dan opnieuw berekend
   const ROAD_MAX_OFF = 12;
+  // Kruisingen op een helling: elke weg volgt het terrein op zijn eigen manier (gemiddeld over ±6 m), dus twee wegen die
+  // elkaar raken kunnen daar meer dan een meter verschillen. Dan scheurt het kruispunt. Daarom krijgt elk kruispunt één
+  // hoogte: een weg die óp een andere uitkomt sluit aan op de hoogte van de doorgaande weg, twee wegen die elkaar kruisen
+  // ontmoeten elkaar halverwege. De weg loopt er geleidelijk naartoe (≤ 10 %). Een weg die er 3 m of meer boven of onder
+  // ligt gaat eroverheen (viaduct, brug): die blijft zoals hij is.
+  const profBaseCache = new WeakMap(), profBusy = new Set();
+  let netSig_ = null;
+  function netSig() {   // vingerafdruk van alle wegen; één keer per taak berekend
+    if (netSig_ !== null) return netSig_;
+    let s = 0, n = 0; for (const p of cells.paths || []) { if (!p.p) continue; n++; for (const q of p.p) s = (s * 31 + q[0] * 7 + q[1] * 13) % 1e9; if (p.y) for (const v of p.y) s = (s * 17 + (+v || 0)) % 1e9; s = (s + (p.abs ? 3 : 0) + (p.dak ? 5 : 0) + p.t.length) % 1e9; }
+    netSig_ = n + ':' + s; Promise.resolve().then(() => { netSig_ = null; }); return netSig_;
+  }
+  const joinable = p => p && p.p && p.p.length > 1 && p.t !== 'snel' && p.t !== 'rot' && !p.abs && !p.dak && !(Array.isArray(p.y) && p.y.some(v => +v));
+  function pathJoins(path, B) {   // [{ s0 (plek langs deze weg), J (doelhoogte) }]
+    const others = (cells.paths || []).filter(o => o !== path && joinable(o)), out = [];
+    if (!joinable(path) || !others.length) return out;
+    const { pts, S, h } = B, L = S[S.length - 1];
+    const at = (P, x, z) => { let bi = 0, bf = 0, bd = 1e9; for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)), d = Math.hypot(a[0] + dx * f - x, a[1] + dz * f - z); if (d < bd) { bd = d; bi = i; bf = f; } } return { d: bd, h: P.h[bi] + ((P.h[bi + 1] ?? P.h[bi]) - P.h[bi]) * bf, s: P.S[bi] + (P.S[Math.min(bi + 1, P.S.length - 1)] - P.S[bi]) * bf }; };
+    let wO = 2;   // halve breedte van de rijbaan van de andere weg (+1 m): zo ver ligt het kruispunt vlak
+    const add = (s0, J) => { const hA = h[Math.max(0, Math.min(h.length - 1, S.findIndex(v => v >= s0)))]; if (Math.abs(J - hA) >= 3) return; const o = out.find(o => Math.abs(o.s0 - s0) < 1.5); if (o) { o.w = Math.max(o.w, wO); return; } out.push({ s0, J, w: wO }); };
+    const rank = p => p.t === 'pad' || p.t === 'fiets' ? 0 : 1, myR = rank(path);   // een pad of fietspad volgt de straat, niet andersom
+    for (const o of others) {
+      const O = profBase(o), LO = O.S[O.S.length - 1];
+      if (O.bb[0] > B.bb[2] + 2 || O.bb[2] < B.bb[0] - 2 || O.bb[1] > B.bb[3] + 2 || O.bb[3] < B.bb[1] - 2) continue;   // ver weg: snel overslaan
+      { const dO = PATH_DEF[o.t] || { hw: 2.5, walk: 2 }; wO = dO.hw + 1; }   // vlak over de rijbaan van de andere weg (de stoep mag al hellen)
+      // mijn uiteinden op de ander
+      for (const [ei, s0] of [[0, 0], [pts.length - 1, L]]) { const e = pts[ei], r = at(O, e[0], e[1]); if (r.d > 1.2) continue; const oEnd = r.s < 3 || r.s > LO - 3; add(s0, oEnd || rank(o) < myR ? (h[ei] + r.h) / 2 : profBusy.has(o) ? r.h : pathH(o, e[0], e[1])); }   // de doorgaande weg zoals hij echt ligt (met zijn eigen kruisingen)
+      // zijn uiteinden op mij: hij sluit op mij aan op mijn hoogte, maar daar lig ik vlak (anders sluit het kruispunt niet: ik helde eronderdoor)
+      if (rank(o) >= myR) for (const e of [O.pts[0], O.pts[O.pts.length - 1]]) { const r = at(B, e[0], e[1]); if (r.d > 1.2 || r.s < 3 || r.s > L - 3) continue; add(r.s, r.h); }
+      // kruisingen midden op beide wegen
+      for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], ax0 = Math.min(a[0], b[0]), ax1 = Math.max(a[0], b[0]), az0 = Math.min(a[1], b[1]), az1 = Math.max(a[1], b[1]);
+        if (ax0 > O.bb[2] || ax1 < O.bb[0] || az0 > O.bb[3] || az1 < O.bb[1]) continue;
+        for (let j = 0; j < O.pts.length - 1; j++) {
+        const c = O.pts[j], d = O.pts[j + 1]; if ((c[0] < ax0 && d[0] < ax0) || (c[0] > ax1 && d[0] > ax1) || (c[1] < az0 && d[1] < az0) || (c[1] > az1 && d[1] > az1)) continue;
+        const x = segX(a, b, c, d); if (!x) continue;
+        const s0 = S[i] + (S[i + 1] - S[i]) * x[0], so = O.S[j] + (O.S[j + 1] - O.S[j]) * x[1]; if (s0 < 3 || s0 > L - 3 || so < 3 || so > LO - 3) continue;
+        const hA = h[i] + (h[i + 1] - h[i]) * x[0], hB = O.h[j] + (O.h[j + 1] - O.h[j]) * x[1], oR = rank(o);
+        if (oR < myR) continue;   // een pad over mij heen: ik blijf liggen
+        if (oR > myR) { const cx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * x[0], cz = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * x[0]; add(s0, profBusy.has(o) ? hB : pathH(o, cx, cz)); continue; }
+        add(s0, (hA + hB) / 2);
+      } }
+    }
+    return out;
+  }
   function pathProf(path) {
-    const snels = path.t === 'snel' ? [] : (cells.paths || []).filter(p => p.t === 'snel' && p.p && p.p.length > 1);
-    const sig = terrVer + '|' + JSON.stringify(path.p) + '|' + (path.y ? path.y.join(',') : '') + '|' + snels.map(p => JSON.stringify(p.p)).join(';') + '|' + deckKey();
+    const sig = profBase(path).sig + '|' + (joinable(path) ? netSig() : '') + '|' + deckKey();
     let P = profCache.get(path); if (P && P.sig === sig) return P;
+    const B = profBase(path), pts = B.pts, S = B.S, live = B.live; let h = B.h.slice();
+    if (live) { profBusy.add(path); let J0; try { J0 = pathJoins(path, B); } finally { profBusy.delete(path); }
+      for (const { s0, J, w } of J0) {   // naar de hoogte van het kruispunt (één keer: de overgang reikt nooit tot het vlakke stuk van het volgende kruispunt)
+        const i0 = Math.max(0, S.findIndex(v => v >= s0)), diff = J - h[i0]; const R = Math.max(6, Math.min(30, Math.abs(J - B.h[i0]) / 0.1));
+        let gap = 1e9; for (const o of J0) if (o.s0 !== s0) gap = Math.min(gap, Math.abs(o.s0 - s0)); const fl = Math.max(0.4, Math.min(w, gap / 2 - 1));
+        // de overgang moet het verschil aan de rand van het vlakke stuk overbruggen (de weg loopt daar al verder op of af), gemiddeld ≤ 8 %
+        // en de weg stijgt tijdens de overgang zelf ook nog (helling sb): het steilste stuk is ongeveer 1,25 · sb + 1,5 · edge / R, en dat moet onder 25 % blijven
+        let edge = 0, sb = 0; for (let k = 0; k < S.length - 1; k++) { const dd = Math.abs(S[k] - s0) - fl; if (Math.abs(dd) < 1.5) edge = Math.max(edge, Math.abs(B.h[k] - J)); if (dd > -1 && dd < 8) sb = Math.max(sb, Math.abs(B.h[k + 1] - B.h[k]) / Math.max(0.1, S[k + 1] - S[k])); }
+        const Rr = Math.min(Math.max(R, Math.min(30, 1.5 * edge / Math.max(0.05, 0.25 - 1.25 * sb))), Math.max(1, gap - 2 * fl));   // vlak over de breedte van de andere weg; kruispunten vlak naast elkaar: kleiner vlak stuk, kortere overgang
+        h = h.map((v, k) => { const d = Math.abs(S[k] - s0), w = d <= fl ? 1 : d >= Rr + fl ? 0 : smooth01(1 - (d - fl) / Rr); return v + (J - v) * w; });   // op het kruispunt zelf (±2 m) vlak
+      } }
+    let dk = null; if (live) { const h0 = h; h = deckLift(pts, S, h, !!path.dak); if (h !== h0) dk = h.map((v, i) => v - h0[i] > 0.3 ? 1 : 0); }   // over een wegdek: de weg ligt op het dak, met opritten (08l); dk: daar geen dijk maar een wand
+    let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); z0 = Math.min(z0, p[1]); x1 = Math.max(x1, p[0]); z1 = Math.max(z1, p[1]); }
+    P = { sig, pts, S, h, dk, bb: [x0, z0, x1, z1], flat: !h.some(v => Math.abs(v) > 0.01) };
+    profCache.set(path, P); return P;
+  }
+  function profBase(path) {   // het profiel zonder kruispunten en wegdekken: terrein, ophoging, viaduct over de snelweg
+    const snels = path.t === 'snel' ? [] : (cells.paths || []).filter(p => p.t === 'snel' && p.p && p.p.length > 1);
+    const sig = terrVer + '|' + JSON.stringify(path.p) + '|' + (path.y ? path.y.join(',') : '') + '|' + snels.map(p => JSON.stringify(p.p)).join(';');
+    let P = profBaseCache.get(path); if (P && P.sig === sig) return P;
     const sp = smoothPts(path.p), pts = [], S = [];
     for (let i = 0; i < sp.length - 1; i++) { const a = sp[i], b = sp[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(l / 1.5)); for (let j = 0; j < n; j++) pts.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); }
     pts.push(sp[sp.length - 1]); for (let i = 0; i < pts.length; i++) S.push(i ? S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) : 0);
@@ -190,10 +253,8 @@
         }
       }
     }
-    let dk = null; if (live) { const h0 = h; h = deckLift(pts, S, h, !!path.dak); if (h !== h0) dk = h.map((v, i) => v - h0[i] > 0.3 ? 1 : 0); }   // over een wegdek: de weg ligt op het dak, met opritten (08l); dk: daar geen dijk maar een wand
     let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); z0 = Math.min(z0, p[1]); x1 = Math.max(x1, p[0]); z1 = Math.max(z1, p[1]); }
-    P = { sig, pts, S, h, dk, bb: [x0, z0, x1, z1], flat: !h.some(v => Math.abs(v) > 0.01) };
-    profCache.set(path, P); return P;
+    P = { sig, pts, S, h, live, bb: [x0, z0, x1, z1] }; profBaseCache.set(path, P); return P;
   }
   function pathH(path, x, z) {   // hoogte van de weg bij het dichtstbijzijnde punt van zijn middenlijn
     const P = pathProf(path); if (P.flat) return 0;
@@ -648,6 +709,8 @@
     const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), Y = 0.1;
     ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink);
     const surfOf = n => GR.nodes[n].edges.every(id => GR.edges.get(id).t === 'klink') ? klink : asph;   // knoop met alleen klinkerstraten: klinkers
+    // gemengd (klinkers op asfalt): het asfaltvlak iets hoger, anders vechten het vlak en het klinkerlint (even hoog) om dezelfde pixels
+    const surfY = n => surfOf(n) === asph && GR.nodes[n].edges.some(id => GR.edges.get(id).t === 'klink') ? Y + 0.04 : Y + 0.02;
     let gid = 0;
     const rots = P.filter(p => p.t === 'rot' && p.p && p.p.length).map(p => ({ c: p.p[0], src: p, arms: [] }));
     const GR = vecGraphOf(P), heads = GR.nodes.map((_, n) => vecHead(GR, n)).filter(Boolean);
@@ -670,12 +733,13 @@
       for (const pts of rots.length ? rotClip(pts0, rots) : [pts0]) {
         if (path.t === 'pad' || path.t === 'fiets') {   // pad: klinkers; fietspad: rood asfalt met een witte streep in het midden
           const L = path.t === 'fiets' ? bike : pave;
-          ribbonInto(kerb, pts, def.hw + 0.3, Y + 0.01); pts.length && [pts[0], pts[pts.length - 1]].forEach(p => discInto(kerb, p, def.hw + 0.3, Y + 0.01));
-          ribbonInto(L, pts, def.hw, Y + 0.02); [pts[0], pts[pts.length - 1]].forEach(p => discInto(L, p, def.hw, Y + 0.02));
+          // net onder het wegdek (asfalt 0,02, klinkers 0,012): waar een pad op een straat uitkomt of hem kruist, wint de straat
+          ribbonInto(kerb, pts, def.hw + 0.3, Y + 0.002); pts.length && [pts[0], pts[pts.length - 1]].forEach(p => discInto(kerb, p, def.hw + 0.3, Y + 0.002));
+          ribbonInto(L, pts, def.hw, Y + 0.007); [pts[0], pts[pts.length - 1]].forEach(p => discInto(L, p, def.hw, Y + 0.007));
           if (path.t === 'fiets') dashesInto(dash, pts, 0.06, Y + 0.03, 1.5, 1.5);
           continue;
         }
-        const t0 = headTrim(pts[0]), t1 = headTrim(pts[pts.length - 1]); ribbonInto(def.klink ? klink : asph, t0 || t1 ? trimPts(pts, t0, t1) : pts, def.hw + 0.3, Y + 0.02);
+        const t0 = headTrim(pts[0]), t1 = headTrim(pts[pts.length - 1]); ribbonInto(def.klink ? klink : asph, t0 || t1 ? trimPts(pts, t0, t1) : pts, def.hw + 0.3, def.klink ? Y + 0.012 : Y + 0.02);   // klinkers net onder asfalt: waar een klinkerstraat op een asfaltweg uitkomt houden de klinkers op aan de rand van het asfalt
       }   // de ronde kop komt alleen op een doodlopend eind (zie de knopen hieronder)
     }
     // Stoepen per tak van de graaf: 25 cm hoog (als bij de gewone wegen) met een stoeprand; ze houden op bij
@@ -718,7 +782,7 @@
       const B = vecBend(GR, n); if (!B) continue;
       ctx(nodeHF(n), gid++);
       const N = GR.nodes[n], hw = B.hw, ow = hw + B.walk, kw = hw + 0.3, tr = vecBendTrim(GR, n, ow + 0.3);
-      discInto(surfOf(n), [N.x, N.z], kw, Y + 0.02);
+      discInto(surfOf(n), [N.x, N.z], kw, surfY(n));
       const bis = [B.A.d[0] + B.B.d[0], B.A.d[1] + B.B.d[1]], bl = Math.hypot(bis[0], bis[1]) || 1; bis[0] /= bl; bis[1] /= bl;
       const outN = d => { let nx = -d[1], nz = d[0]; if (nx * bis[0] + nz * bis[1] > 0) { nx = -nx; nz = -nz; } return [nx, nz]; };   // normaal naar de buitenkant van de bocht
       const nA = outN(B.A.d), nB = outN(B.B.d), a0 = Math.atan2(nA[1], nA[0]); let a1 = Math.atan2(nB[1], nB[0]);
@@ -760,7 +824,7 @@
         const bc = corner(vecWalkPts(GR, A.e, A.dir, sA * (dA.hw + KERB_IN))[0], vecWalkPts(GR, B.e, B.dir, sB * (dB.hw + KERB_IN))[0]);
         const tc = corner(vecWalkPts(GR, A.e, A.dir, sA * (dA.hw + KERB_OUT))[0], vecWalkPts(GR, B.e, B.dir, sB * (dB.hw + KERB_OUT))[0]);
         slopeInto(kerb, bc, tc, Y + 0.015, PW_H);
-        polyInto(surfOf(n), [[N.x, N.z], ...kc], Y + 0.02);   // het kruisingsvak zelf: tot aan de stoephoek dicht met asfalt
+        polyInto(surfOf(n), [[N.x, N.z], ...kc], surfY(n));   // het kruisingsvak zelf: tot aan de stoephoek dicht met asfalt
         for (let k = 0; k < kc.length - 1; k++) {
           const ki = kc[k], kj = kc[k + 1], oi = oc[k], oj = oc[k + 1], lerp = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
           polyInto(walk, [tc[k], oi, oj, tc[k + 1]], PW_H);

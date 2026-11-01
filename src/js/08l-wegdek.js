@@ -5,13 +5,19 @@
   // Boven een weg (of op een leeg vak) kan een module ook zweven, als de onderkant minstens 4,5 m boven de weg ligt:
   // hij krijgt zeshoekige poten op de hoekpunten die niet op de rijbaan staan (deckLegs, gebouwd in buildModNet).
   var deckSig_ = '', deckMap_ = new Map(), roofMap_ = new Map(), railForce_ = false;
-  function isDeckMod(m) { return !!m && m.v === 2 && (!!m.deck || /^(Wegdek|Parkeergarage)/.test(m.name || '')); }
+  const roofKind_ = new WeakMap();   // module → [plat dak, wegdek]; een module verandert niet ter plekke (de Raatmaker geeft exemplaren een nieuwe kopie)
+  function isDeckMod(m) { if (!m || m.v !== 2) return false; const c = roofKind_.get(m); if (c) return c[1]; return !!m.deck || /^(Wegdek|Parkeergarage)/.test(m.name || ''); }
   // Dakweg: een weg die je op een plat dak begint te slepen (path.dak) mag over elk plat dak (winkelcentrum, kantoor,
   // flat …): die modules blijven staan en de weg ligt erop. Een gewone weg haalt ze nog steeds weg.
-  function isRoofMod(m) { return !!m && m.v === 2 && (isDeckMod(m) || modMeta(m).top === 'plat'); }
+  function isRoofMod(m) { if (!m || m.v !== 2) return false; let c = roofKind_.get(m); if (!c) { const d = isDeckMod(m); c = [d || modMeta(m).top === 'plat', d]; roofKind_.set(m, c); } return c[0]; }
   // vak → hoogte (absoluut) van het dak van het hoogste wegdek (deckMap_) en van het hoogste platte dak (roofMap_) op dat vak
+  let deckFast_ = null;
   function deckCells() {
-    const live = (cells.inst || []).filter(I => I.m && I.m.v === 2);
+    // snelle vingerafdruk eerst (deze functie wordt bij elke hoogtevraag aan een weg aangeroepen): plek, draaiing, laag en module van elk exemplaar, en het terrein
+    const L0 = cells.inst || []; let fh = L0.length + 7 * terrVer; for (const I of L0) fh = (fh * 31 + I.q * 7919 + I.r * 104729 + (I.rot || 0) * 13 + (I.lv || 0) * 101 + (I.m && I.m.lv ? I.m.lv.length : 0)) % 2147483647;
+    const fk = L0.length + ':' + fh; if (deckFast_ && deckFast_[0] === fk && deckFast_[1] === L0) { let same = true; for (let i = 0; i < L0.length; i++) if (deckFast_[3][i] !== L0[i].m) { same = false; break; } if (same) return deckMap_; }
+    deckFast_ = [fk, L0, 0, L0.map(I => I.m)];
+    const live = L0.filter(I => I.m && I.m.v === 2);
     let sig = ''; for (const I of live) if (isRoofMod(I.m)) sig += I.q + ',' + I.r + ',' + I.rot + ',' + (I.lv || 0) + ',' + I.m.lv.length + ',' + gH(I.q, I.r) + (isDeckMod(I.m) ? 'd' : '') + ';';
     if (sig === deckSig_) return deckMap_;
     deckSig_ = sig; deckMap_ = new Map(); roofMap_ = new Map();

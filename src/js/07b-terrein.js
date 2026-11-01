@@ -109,14 +109,19 @@
   function lpRoad(x, z) {   // hoogte van de dichtstbijzijnde weg bij dit punt
     const k = Math.round(x * 4) + ',' + Math.round(z * 4); let v = LPR.get(k);
     if (v !== undefined) return v;
-    v = null; let dB = 1e9;
+    // Ligt het punt onder een of meer wegen (binnen de rand met stoep), dan de laagste daarvan: op een kruispunt kan het
+    // punt onder de ene weg liggen terwijl de middenlijn van de andere dichterbij is (dan stak het gras door het wegdek).
+    v = null; let dB = 1e9, under = null;
     for (const s of tRoadSegs) {
       const m = s[8] + 2 * R;
       if (x < Math.min(s[0], s[2]) - m || x > Math.max(s[0], s[2]) + m || z < Math.min(s[1], s[3]) - m || z > Math.max(s[1], s[3]) + m) continue;
       const dx = s[2] - s[0], dz = s[3] - s[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - s[0]) * dx + (z - s[1]) * dz) / l2));
-      const d = Math.hypot(s[0] + dx * f - x, s[1] + dz * f - z); if (d >= dB) continue;
-      dB = d; v = Math.max(0, s[4] + (s[5] - s[4]) * f - 0.15);
+      const d = Math.hypot(s[0] + dx * f - x, s[1] + dz * f - z), hh = Math.max(0, s[4] + (s[5] - s[4]) * f - 0.15);
+      if (d <= s[8] + 0.3) under = under === null ? hh : Math.min(under, hh);
+      if (d >= dB) continue;
+      dB = d; v = hh;
     }
+    if (under !== null) v = under;
     LPR.set(k, v); return v;
   }
   // de vakken rond hoekpunt i van een vak (dat vak zelf en de twee buren)

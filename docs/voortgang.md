@@ -15,7 +15,8 @@ Technische details per onderdeel: `claude/unity-overdracht-webversie.md` (§ 0�
   - Module boven de weg: klik op een weg, de module komt op laag 2 (6 m) op zeshoekige poten; poten dragen bij instorten.
   - Trappenhuis-poot: een zeshoekige wenteltrap naar de deur van een zwevende module; mensen lopen hem op.
   - Een wegdek is grond: modules erop, en daken/dekken sluiten aan op de stoep van een dakweg.
-- **Heuveldorp** (Menu → Heuveldorp): Italiaans dorp op een heuvel met spiraalstraat, steile straten, groene paden, parkjes en sluipsteegjes door Steeg-modules (overdekte doorgang onder een huis). Wegen op een helling blijven terrein (geen dek), straten sluiten aan.
+- **Heuveldorp** (Menu → Heuveldorp): zeshoekige terrassen, één slingerstraat zonder kruisingen op de helling, sluipsteegjes door steeg-huizen (overdekte doorgang) en tuintjes, plein met kerk en café.
+- **Kruispunten op een helling** sluiten nu aan (één hoogte per kruispunt, vlak over de rijbaan); geen gras of klinkers meer door het asfalt; grote stad laadt ±4× sneller.
 - Kleine fixes: trapeinde volgt de driehoeken, hellingen niet meer doorzichtig (voetgangersbrug).
 
 ## Volgende stappen (voorstel)

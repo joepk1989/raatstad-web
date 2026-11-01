@@ -25,7 +25,7 @@ const { OUT } = require('./helper');
  await p.evaluate(() => { document.querySelector('#fbSheet [data-close]').click(); document.getElementById('menuBtn').click(); document.querySelector('[data-act=credits]').click(); }); await p.waitForTimeout(400);
  await p.screenshot({ path: OUT + '/beta_credits.png' });
  // een fout in het spel: melding, en het spel loopt door
- await p.evaluate(() => document.querySelector('#crSheet [data-close]').click()); await p.addScriptTag({ content: "setTimeout(() => { throw new Error('testfout'); }, 10);" }); await p.waitForTimeout(800);
+ await p.evaluate(() => document.querySelector('#crSheet [data-close]').click()); await p.addScriptTag({ content: "setTimeout(() => { throw new Error('testfout'); }, 10);" }); await p.waitForTimeout(3000);   // de testmachine is traag (±1 beeld per seconde)
  const f1 = await p.evaluate(() => ({ melding: !document.querySelector('.err-bar').hidden, n: document.querySelectorAll('.err-bar').length, zicht: getComputedStyle(document.querySelector('.err-bar')).display }));
  console.log('pageerrors', errs);
  const t0 = await p.evaluate(() => window.__SC().people.agents.length);
