@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
    return out; });
  const scheef = J.filter(d => Math.abs(d) > 0.1);
  console.log('kruispunten', J.length, scheef.length ? 'FOUT scheef: ' + scheef.join(', ') : 'allemaal even hoog');
- const steil = r.wegen.filter(w => w[0] !== 'pad' && parseInt(w[3]) > 30); if (steil.length) console.log('FOUT te steil', JSON.stringify(steil));
+ const steil = r.wegen.filter(w => w[0] !== 'pad' && parseInt(w[3]) > 36); if (steil.length) console.log('FOUT te steil', JSON.stringify(steil));
  if (!r.soorten['Steeg · natuursteen'] || !r.soorten['Steeg · wit']) console.log('FOUT geen steegjes');
  const shot = async (n, x, y, z, th, ph, d) => { await p.evaluate(([x, y, z, th, ph, d]) => { const S = window.__SC(); S.orbit.target.set(x, y, z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [x, y, z, th, ph, d]); await p.waitForTimeout(2500); await p.screenshot({ path: OUT + '/heuvel_' + n + '.png' }); };
  await shot('ver', 0, 8, 0, 0.5, 1.15, 300);

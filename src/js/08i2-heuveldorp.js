@@ -24,7 +24,7 @@
     // De binnenkant van een haarspeld (ring 6 hoek 3, ring 3 hoek 5): daar ligt een vak van de hogere ring tussen de twee
     // benen van de straat, en dat bolde over de stoep. Afgegraven tot de hoogte van de bocht: de haarspeld ligt vlak, de straat klimt pas daarna (in een klimmende krappe bocht kreukte de binnenstoep).
     const hairIn = [];
-    for (const [n, k] of [[6, 3], [3, 5]]) { const [cq, cr] = corner(n, k), A = NEIGH[(k + 3) % 6], B = NEIGH[(k + 4) % 6], q = cq + A[0] + B[0], r = cr + A[1] + B[1]; c.terr[key(q, r)] = H[n]; hairIn.push(key(q, r)); }
+    for (const [n, k] of [[6, 3], [3, 5]]) { const [cq, cr] = corner(n, k), A = NEIGH[(k + 3) % 6], B = NEIGH[(k + 4) % 6], q = cq + A[0] + B[0], r = cr + A[1] + B[1]; c.terr[key(q, r)] = H[n]; hairIn.push(key(q, r)); const [lq, lr] = corner(n - 1, k); c.terr[key(lq, lr)] = H[n]; }   // ook het eerste vak omhoog na de bocht: een vlak bordes, de straat klimt pas daarna (daar ±35 %, steil zoals in een echt bergdorp; half zo hoog gaf weer een kreukende binnenstoep)
     const sl = [[FOOT, 1], [6, 1], [6, 2], [6, 3], [3, 3], [3, 4], [3, 5], [1, 5]].map(([n, k]) => W(...corner(n, k))), slP = [sl[0]];
     for (let i = 1; i < sl.length - 1; i++) { const A = sl[i - 1], B = sl[i], C = sl[i + 1], ux = B[0] - A[0], uz = B[1] - A[1], vx = C[0] - B[0], vz = C[1] - B[1], lu = Math.hypot(ux, uz), lv = Math.hypot(vx, vz);
       if ((ux * vx + uz * vz) / (lu * lv) < -0.2) slP.push(P(B[0] - ux / lu * 8, B[1] - uz / lu * 8), P(B[0] + vx / lv * 8, B[1] + vz / lv * 8)); else slP.push(B); }
