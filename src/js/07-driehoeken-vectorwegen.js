@@ -420,9 +420,20 @@
   }
   const vecTrimW0 = (G, n) => { if (G.nodes[n] && G.nodes[n].rot) return 2.6; /* de stoep van de weg begint net in de rotondestoep */ const H = vecHead(G, n); if (H) return H.trimW; const t = vecJunctionTrim(G, n); if (t) return t + 0.3; const B = vecBend(G, n); return B ? vecBendTrim(G, n, B.hw + B.walk + 0.3) : 0; };
   const vecTrimW = (G, n) => { const c = G.trimW || (G.trimW = new Map()); let v = c.get(n); if (v === undefined) c.set(n, v = vecTrimW0(G, n)); return v; };   // per graaf onthouden (de graaf wordt bij elke wijziging nieuw gebouwd)   // stoep: net voorbij de stopstreep
+  // Bochtstraal bij punt i (over ±2 punten) en aan welke kant (langs de normaal n = (−dz, dx)) het middelpunt ligt.
+  // Een lint dat verder dan de straal naar binnen schuift vouwt dubbel (puntige stukken stoep in een krappe bocht):
+  // naar binnen gaat het daarom hooguit tot 90 % van de straal.
+  function bendAt(pts, i, nx, nz) {
+    const a = pts[Math.max(0, i - 2)], p = pts[i], b = pts[Math.min(pts.length - 1, i + 2)];
+    const ux = p[0] - a[0], uz = p[1] - a[1], vx = b[0] - p[0], vz = b[1] - p[1], lu = Math.hypot(ux, uz), lv = Math.hypot(vx, vz);
+    if (lu < 1e-6 || lv < 1e-6) return { r: 1e9, side: 0 };
+    const th = Math.acos(Math.max(-1, Math.min(1, (ux * vx + uz * vz) / (lu * lv)))); if (th < 1e-3) return { r: 1e9, side: 0 };
+    return { r: (lu + lv) / 2 / th, side: Math.sign(((a[0] + b[0]) / 2 - p[0]) * nx + ((a[1] + b[1]) / 2 - p[1]) * nz) };
+  }
+  const bendClamp = (lat, B) => B.side && Math.sign(lat) === B.side && Math.abs(lat) > 0.9 * B.r ? B.side * 0.9 * B.r : lat;
   function offsetPts(src, off) {   // de lijn opzij geschoven (rechts van de looprichting bij off > 0)
     const out = [];
-    for (let i = 0; i < src.length; i++) { const a = src[Math.max(0, i - 1)], b = src[Math.min(src.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; out.push([src[i][0] - dz * off, src[i][1] + dx * off]); }
+    for (let i = 0; i < src.length; i++) { const a = src[Math.max(0, i - 1)], b = src[Math.min(src.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; const o = bendClamp(off, bendAt(src, i, -dz, dx)); out.push([src[i][0] - dz * o, src[i][1] + dx * o]); }
     return out;
   }
   function trimPts(pts, t0, t1) {   // t0 van het begin en t1 van het eind afknippen
@@ -534,9 +545,9 @@
     for (let i = 0; i < pts.length; i++) {
       const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
       let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
-      const nx = -dz, nz = dx, cx = pts[i][0] + nx * off, cz = pts[i][1] + nz * off;
+      const nx = -dz, nz = dx, Bd = bendAt(pts, i, nx, nz), l1 = bendClamp(off + hw, Bd), l2 = bendClamp(off - hw, Bd);   // in een krappe bocht niet voorbij het middelpunt
       const h = hy(pts[i][0], pts[i][1]);   // dwars over de weg: één hoogte (vlak wegdek)
-      L.pos.push(cx + nx * hw, y + h, cz + nz * hw, cx - nx * hw, y + h, cz - nz * hw);
+      L.pos.push(pts[i][0] + nx * l1, y + h, pts[i][1] + nz * l1, pts[i][0] + nx * l2, y + h, pts[i][1] + nz * l2);
     }
     for (let i = 0; i < pts.length - 1; i++) { const a = base + i * 2; L.idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
@@ -652,8 +663,10 @@
       for (let i = 0; i < pos.length; i += 3) { lo = Math.min(lo, pos[i + 1]); x0 = Math.min(x0, pos[i]); x1 = Math.max(x1, pos[i]); z0 = Math.min(z0, pos[i + 2]); z1 = Math.max(z1, pos[i + 2]); }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       const col = { surfaces: [{ kind: 'tris', cx: 0, cz: 0, B: triBuckets(g), base: 0, bottom: lo - 0.35, road: true }], walls: [] };
-      const [qa, ra] = worldToCell(x0, z0), [qb, rb] = worldToCell(x1, z1), seen = new Set();
-      for (let q = Math.min(qa, qb) - 2; q <= Math.max(qa, qb) + 2; q++) for (let r = Math.min(ra, rb) - 2; r <= Math.max(ra, rb) + 2; r++) {
+      // alle vier de hoeken: in zeshoekcoördinaten (q, r) is een rechthoek scheef, met twee hoeken mis je bij een lange weg een derde van de vakken
+      const C4 = [worldToCell(x0, z0), worldToCell(x1, z0), worldToCell(x0, z1), worldToCell(x1, z1)], seen = new Set();
+      const qMin = Math.min(...C4.map(c => c[0])), qMax = Math.max(...C4.map(c => c[0])), rMin = Math.min(...C4.map(c => c[1])), rMax = Math.max(...C4.map(c => c[1]));
+      for (let q = qMin - 2; q <= qMax + 2; q++) for (let r = rMin - 2; r <= rMax + 2; r++) {
         const c = cellToWorld(q, r); if (c.x < x0 - R || c.x > x1 + R || c.z < z0 - R || c.z > z1 + R) continue;
         const k = q + ',' + r; if (seen.has(k)) continue; seen.add(k); let L = out.get(k); if (!L) out.set(k, L = []); L.push(col);
       }

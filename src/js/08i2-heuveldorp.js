@@ -21,6 +21,10 @@
     const FOOT = 9, ROAD_K = 1;   // ringweg aan de voet; de slingerstraat begint op hoek 1
     c.paths.push({ t: 'weg', l: 0, r: 0, p: [0, 1, 2, 3, 4, 5, 0].map(k => W(...corner(FOOT, k))) });   // ringweg rond de heuvel
     // de slingerstraat; een haarspeld (120°) wordt twee bochten van 60°, anders is de binnenbocht te krap voor de stoep
+    // De binnenkant van een haarspeld (ring 6 hoek 3, ring 3 hoek 5): daar ligt een vak van de hogere ring tussen de twee
+    // benen van de straat, en dat bolde over de stoep. Afgegraven tot de hoogte van de bocht: de haarspeld ligt vlak, de straat klimt pas daarna (in een klimmende krappe bocht kreukte de binnenstoep).
+    const hairIn = [];
+    for (const [n, k] of [[6, 3], [3, 5]]) { const [cq, cr] = corner(n, k), A = NEIGH[(k + 3) % 6], B = NEIGH[(k + 4) % 6], q = cq + A[0] + B[0], r = cr + A[1] + B[1]; c.terr[key(q, r)] = H[n]; hairIn.push(key(q, r)); }
     const sl = [[FOOT, 1], [6, 1], [6, 2], [6, 3], [3, 3], [3, 4], [3, 5], [1, 5]].map(([n, k]) => W(...corner(n, k))), slP = [sl[0]];
     for (let i = 1; i < sl.length - 1; i++) { const A = sl[i - 1], B = sl[i], C = sl[i + 1], ux = B[0] - A[0], uz = B[1] - A[1], vx = C[0] - B[0], vz = C[1] - B[1], lu = Math.hypot(ux, uz), lv = Math.hypot(vx, vz);
       if ((ux * vx + uz * vz) / (lu * lv) < -0.2) slP.push(P(B[0] - ux / lu * 8, B[1] - uz / lu * 8), P(B[0] + vx / lv * 8, B[1] + vz / lv * 8)); else slP.push(B); }
@@ -42,7 +46,15 @@
     const dirTo = (q, r, x, z) => { const w = cellToWorld(q, r); return ((Math.round(-Math.atan2(z - w.z, x - w.x) / (Math.PI / 3)) % 6) + 6) % 6; };
     const toRoad = (q, r) => { const w = cellToWorld(q, r); let best = null, bd = 1e9; for (const rd of roads) { const pts = rd.pts; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], ex = b[0] - a[0], ez = b[1] - a[1], l2 = ex * ex + ez * ez || 1e-9, t = Math.max(0, Math.min(1, ((w.x - a[0]) * ex + (w.z - a[1]) * ez) / l2)), px = a[0] + ex * t, pz = a[1] + ez * t, d = Math.hypot(px - w.x, pz - w.z); if (d < bd) { bd = d; best = [px, pz]; } } } return best ? dirTo(q, r, best[0], best[1]) : 0; };
     const used = new Set(), free = (q, r) => !has(q, r) && !used.has(key(q, r));
-    const mod = (name, q, r, rot) => { const m = lib(name); if (!m || !free(q, r) || (m.k && !NEIGH.every(([a, b]) => free(q + a, r + b)))) return false; c.inst.push({ mid: m.id, m: instData(m, false), q, r, rot: rot === undefined ? (toRoad(q, r) + 1) % 6 : rot }); used.add(key(q, r)); if (m.k) for (const [a, b] of NEIGH) used.add(key(q + a, r + b)); return true; };
+    for (const k of hairIn) used.add(k);   // de binnenkant van een haarspeld blijft open gras
+    // De deur: naar de dichtstbijzijnde straat (of steeg) die op dezelfde hoogte of hoger ligt, binnen 16 m. Een straat
+    // lager langs het terras (de ringweg beneden) telt niet: dan hing de deur boven de fundering. Geen straat: naar het
+    // midden van de heuvel (de dorpskant).
+    const ringH = (q, r) => { const n = ring(q, r); return n < H.length ? H[n] : 0; };
+    const toEntry = (q, r) => { const w = cellToWorld(q, r), hc = ringH(q, r); let best = null, bd = 16;
+      for (const rd of roads) { const pts = rd.pts; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], ex = b[0] - a[0], ez = b[1] - a[1], l2 = ex * ex + ez * ez || 1e-9, t = Math.max(0, Math.min(1, ((w.x - a[0]) * ex + (w.z - a[1]) * ez) / l2)), px = a[0] + ex * t, pz = a[1] + ez * t, d = Math.hypot(px - w.x, pz - w.z); if (d >= bd) continue; if (ringH(...worldToCell(px, pz)) < hc - 0.5) continue; bd = d; best = [px, pz]; } }
+      return best ? dirTo(q, r, best[0], best[1]) : dirTo(q, r, 0, 0); };
+    const mod = (name, q, r, rot) => { const m = lib(name); if (!m || !free(q, r) || (m.k && !NEIGH.every(([a, b]) => free(q + a, r + b)))) return false; c.inst.push({ mid: m.id, m: instData(m, false), q, r, rot: rot === undefined ? (toEntry(q, r) + 1) % 6 : rot }); used.add(key(q, r)); if (m.k) for (const [a, b] of NEIGH) used.add(key(q + a, r + b)); return true; };
     // de straat en de steegjes houden hun vakken vrij
     const streets = roads.filter((_, i) => c.paths[i].t !== 'pad');
     const onRoad = (q, r) => { const w = cellToWorld(q, r); let d = 1e9; for (const r2 of streets) d = Math.min(d, distPoly(w.x, w.z, r2.pts) - r2.def.hw - r2.def.walk); return d < 7.5; };
@@ -54,7 +66,7 @@
     // de steegjes: om en om een steeg-huis (doorgang langs het steegje) en een tuintje
     for (const [k, a, b] of STEEG) for (let n = Math.min(a, b); n <= Math.max(a, b); n++) {
       const [q, r] = corner(n, k); if (onRoad(q, r) || !free(q, r)) continue;
-      if (n % 2) mod(n % 4 === 1 ? 'Steeg · natuursteen' : 'Steeg · wit', q, r, k); else mod(n % 4 ? 'Park · plantsoen' : 'Grasveld · leeg', q, r, k);
+      if (n % 2) mod(n % 4 === 1 ? 'Steeg · natuursteen' : 'Steeg · wit', q, r, k);   // daartussen geen tuintje: dat is vlak en het steegje loopt schuin (dan verdween het pad onder het gras); het pad ligt daar op het terrein
       used.add(key(q, r));
     }
     // winkels en zo langs de straat

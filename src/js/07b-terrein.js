@@ -81,7 +81,7 @@
   // onder en naast de weg liggen dan in het vlak van de weg en de flank begint precies aan de rand.
   const lpOn = () => terrQ === 'laag';
   const LPC = new Map(), LPV = new Map(), LPR = new Map(), LPRC = new Map();   // LPR en LPRC hangen alleen van de wegen af, niet van de hoogte van het terrein
-  const lpClear = () => { LPC.clear(); LPV.clear(); LPR.clear(); LPRC.clear(); };
+  const lpClear = () => { LPC.clear(); LPV.clear(); LPR.clear(); LPRC.clear(); if (typeof LPT !== 'undefined') LPT.clear(); };
   const LPA = [0, 1, 2, 3, 4, 5].map(i => { const a = (30 + 60 * i) * Math.PI / 180; return [Math.cos(a), Math.sin(a)]; });
   function lpCell(q, r) { const k = q + ',' + r; let v = LPC.get(k); if (!v) LPC.set(k, v = { g: gH(q, r), occ: terrOcc(q, r), cut: terrCut(q, r) }); return v; }
   function lpCorner(x, z, i) {   // basishoogte van hoekpunt i van het vak waarvan (x, z) het hoekpunt is
@@ -124,13 +124,27 @@
     if (under !== null) v = under;
     LPR.set(k, v); return v;
   }
+  // Talud langs een weg: een hoekpunt tot 8 m naast de stoeprand komt hooguit 0,6 m per meter boven die rand uit. Anders
+  // loopt de grove driehoek (9 m) naar een hoger terras al over de stoeprand omhoog en steekt het gras door de stoep.
+  const LPT = new Map();
+  function lpTalud(x, z) {
+    const k = Math.round(x * 4) + ',' + Math.round(z * 4); let v = LPT.get(k); if (v !== undefined) return v;
+    v = 1e9;
+    for (const s of tRoadSegs) {
+      const m = s[8] + 8; if (x < Math.min(s[0], s[2]) - m || x > Math.max(s[0], s[2]) + m || z < Math.min(s[1], s[3]) - m || z > Math.max(s[1], s[3]) + m) continue;
+      const dx = s[2] - s[0], dz = s[3] - s[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - s[0]) * dx + (z - s[1]) * dz) / l2));
+      const d = Math.hypot(s[0] + dx * f - x, s[1] + dz * f - z) - s[8]; if (d > 8) continue;
+      v = Math.min(v, s[4] + (s[5] - s[4]) * f - 0.15 + Math.max(0, d) * 0.6);
+    }
+    LPT.set(k, v); return v;
+  }
   // de vakken rond hoekpunt i van een vak (dat vak zelf en de twee buren)
   const lpAround = (x, z, i) => { const [ax, az] = LPA[i]; return [Math.PI, Math.PI / 3, -Math.PI / 3].map(t => { const ca = Math.cos(t), sa = Math.sin(t); return worldToCell(x + (ax * ca - az * sa) * 2, z + (ax * sa + az * ca) * 2); }); };
   // de drie hoekpunten (x, z, h) van de driehoek van vak (q, r) waarin (x, z) ligt; roads: met de wegvakken
   function lpTri(q, r, x, z, roads) {
     const c = cellToWorld(q, r), C = lpCell(q, r);
     let a = Math.atan2(z - c.z, x - c.x) * 180 / Math.PI - 30; a = ((a % 360) + 360) % 360; const i = Math.min(5, Math.floor(a / 60)), j = (i + 1) % 6;
-    const road = (px, pz, b, around) => { if (roads && around.some(([q2, r2]) => lpRoadCell(q2, r2))) { const h = lpRoad(px, pz); if (h !== null && h - b <= 4.5) return h; } return b; };
+    const road = (px, pz, b, around) => { if (roads && around.some(([q2, r2]) => lpRoadCell(q2, r2))) { const h = lpRoad(px, pz); if (h !== null && h - b <= 4.5) return h; } return roads ? Math.min(b, lpTalud(px, pz)) : b; };
     const corner = k => { const px = c.x + LPA[k][0] * R, pz = c.z + LPA[k][1] * R; return [px, pz, road(px, pz, C.occ ? C.g : lpCorner(px, pz, k), lpAround(px, pz, k))]; };
     return [[c.x, c.z, road(c.x, c.z, C.g, [[q, r]])], corner(i), corner(j)];
   }
@@ -216,7 +230,7 @@
       const P = pathProf(p), edge = def.hw + (p.t === 'pad' ? 0.6 : def.walk) + 0.6;
       for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p)]); }   // brug over een weg: geen dijk eronder
     }
-    tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z));
+    tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z), 1.6);   // pas 1,6 m boven of onder het terrein ligt een weg op een eigen niveau: een straat die een getrapte helling volgt (terrassen van 2,5 m, ±1,25 m verschil) gaat met de gewone, vloeiende aansluiting (anders een talud met omgevouwen stukken in elke bocht)
     const touch = segs => { for (const s of segs) { const r = s[7] + 2; for (let i = Math.floor((Math.min(s[0], s[2]) - r) / TSZ); i <= Math.floor((Math.max(s[0], s[2]) + r) / TSZ); i++) for (let j = Math.floor((Math.min(s[1], s[3]) - r) / TSZ); j <= Math.floor((Math.max(s[1], s[3]) + r) / TSZ); j++) { const c = tChunks.get(i + ',' + j); if (c) { c.fin = null; c.dirty = true; } else if (!s[6]) tChunks.set(i + ',' + j, { dirty: true }); } } };
     touch(old); touch(tRoadSegs);
     terrFlush();
