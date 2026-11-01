@@ -428,6 +428,7 @@ Gemeten in het bestand: vak R = 9 m, verdieping 3 m, vloer 0,3 m dik; steek 6,75
 
 ## 33. Detailniveaus voor modules (1 nov; `08c`)
 - Twee versies per module: de echte en `far` (dichte muren met donkere ramen, zonder trappen, inrichting, kozijnen, hekjes, hoekpaaltjes, plafonds en bedekte vloeren). Gebundeld per 6 × 6 vakken in vier klassen (near, far, inner, frame), die per bundel zichtbaar worden naar de afstand: 90 / 70 / 50 m. Unity: LODGroup per gebouw met LOD0 = modulair, LOD1 = deze far-versie; inrichting als aparte renderer met een kleinere cull-afstand.
+- Verder (1 nov): leuningen per stuk stad en ver weg uit (net als kozijnen); in de eenvoudige versie rechte muurstukken samengevoegd en ramen als vlak (rijhuis ±630 driehoeken); mensen buiten beeld of verder dan 200 m worden niet geposeerd of getekend; dwarsliggers van het spoor in blokken van ±80 m met eigen begrenzing, verder dan 450 m uit. Heuveldorp 1,1 → 0,41 miljoen driehoeken, startdorp 0,68 → 0,28 miljoen.
 - Ook: muurhoekpaaltjes zeshoekig, gewrichtsbolletjes van mensen 20 driehoeken, funderingen onder modules op een terras (§ heuveldorp).
 
 ## 21. Open punten

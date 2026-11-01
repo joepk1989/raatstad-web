@@ -1328,10 +1328,15 @@
       put('head', pose.head, a.skin);
       put('hairShort', pose.head, a.hair);
     }
+    // alleen wie in beeld is en dichter dan 200 m: de rest is hooguit een paar pixels (en poseren kost rekenwerk)
+    const VIEW_F = new THREE.Frustum(), VIEW_M = new THREE.Matrix4(), VIEW_S = new THREE.Sphere(new THREE.Vector3(), 1.4);
     function render() {
       for (const k in meshes) cnt[k] = 0;
+      VIEW_F.setFromProjectionMatrix(VIEW_M.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
       for (const a of agents) {
         if (a.state === 'inside') continue;
+        if (a.state !== 'rag' && a.state !== 'getup') { const ay = (a.y || 0) + 1; if ((a.x - cx) ** 2 + (ay - cy) ** 2 + (a.z - cz) ** 2 > 40000) continue; VIEW_S.center.set(a.x, ay, a.z); if (!VIEW_F.intersectsSphere(VIEW_S)) continue; }
         if (a.state === 'rag' || a.state === 'getup') ragPose(a); else animPose(a);
         emit(a);
       }

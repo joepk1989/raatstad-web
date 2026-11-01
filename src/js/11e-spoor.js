@@ -112,19 +112,25 @@
         for (let s = SLEEP / 2; s < L.len; s += SLEEP) sl.push(L, s);
       }
       if (bal.length) { group.add(meshOf(bal, mats.ballast)); group.add(meshOf(rail, mats.rail)); }
-      const n = sl.length;   // twee sporen per monster
-      if (n) {
-        const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 0.14, 2.5), mats.sleeper, n), M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = {}, p2 = {};
-        let k = 0;
-        for (let i = 0; i < sl.length; i += 2) {
-          const L = sl[i], s = sl[i + 1];
+      // Dwarsliggers in blokken van 120 rijen (±80 m), elk met een eigen begrenzing: zo valt een blok buiten beeld weg
+      // (three r128 kent de omvang van een InstancedMesh niet), en verder dan 450 m gaan ze uit (sleeperLod in tick)
+      const box = new THREE.BoxGeometry(0.24, 0.14, 2.5), M4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = {}, p2 = {}, CH = 120;
+      for (let i0 = 0; i0 < sl.length; i0 += CH * 2) {
+        const rows = Math.min(CH, (sl.length - i0) / 2), g = box.clone(), im = new THREE.InstancedMesh(g, mats.sleeper, rows * 2);
+        let k = 0, x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+        for (let i = i0; i < i0 + rows * 2; i += 2) {
+          const L = sl[i], s2 = sl[i + 1];
           for (const t of [-TRACK, TRACK]) {
-            at(L, s, t, p); at(L, s + 0.5, t, p2); e.set(0, -Math.atan2(p2.z - p.z, p2.x - p.x), 0); q.setFromEuler(e);
+            at(L, s2, t, p); at(L, s2 + 0.5, t, p2); e.set(0, -Math.atan2(p2.z - p.z, p2.x - p.x), 0); q.setFromEuler(e);
             M4.compose(new THREE.Vector3(p.x, p.y + TOP + 0.05, p.z), q, new THREE.Vector3(1, 1, 1)); im.setMatrixAt(k++, M4);
+            x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z);
           }
         }
-        im.count = k; im.receiveShadow = true; im.frustumCulled = false; group.add(im);
+        const c = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2 + TOP, (z0 + z1) / 2);
+        g.boundingSphere = new THREE.Sphere(c, Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2 + 2);
+        im.count = k; im.receiveShadow = true; im.frustumCulled = true; im.userData.sleep = c; group.add(im);
       }
+      box.dispose();
     }
     // treinstations naast de lijn: daar stopt de trein (s langs de lijn)
     function stationsOn(L) {
@@ -185,7 +191,9 @@
       for (let u = 0; u < L.len; u += 10) { const s = dir > 0 ? u : L.len - u; if (farFrom(L, s) > 120) best = u; else break; }
       return best;
     }
+    function sleeperLod() { const cp = camera.position; for (const o of group.children) { const c = o.userData.sleep; if (c) o.visible = c.distanceTo(cp) < 450 + 45; } }
     function tick(dt) {
+      sleeperLod();
       if (!lines.length) return;
       dt = Math.min(dt, 0.05);
       for (const L of lines) {

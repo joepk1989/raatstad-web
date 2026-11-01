@@ -106,7 +106,7 @@
   const OFF_ROAD = new Set(['tree', 'bush', 'bench', 'bin', 'table', 'bike', 'planter']);
   const INNER_OBJ = new Set(['kitchen', 'sofa', 'bed', 'desk', 'shelf', 'counter', 'screen']);   // inrichting binnen
   const FAR_OBJ = new Set(['tree', 'bush', 'fountain', 'chimney', 'solar', 'turbine', 'pillar', 'hpillar', 'shelter', 'goal', 'container', 'boat', 'slide', 'swing', 'table', 'bench']);   // wat ook ver weg blijft
-  const FAR_WIN = new THREE.MeshStandardMaterial({ color: '#3b4a56', roughness: 0.35, metalness: 0.2 });   // ramen in de eenvoudige versie
+  const FAR_WIN = new THREE.MeshStandardMaterial({ color: '#3b4a56', roughness: 0.35, metalness: 0.2, side: THREE.DoubleSide });   // ramen in de eenvoudige versie
   const OBJ_MAT = new Map(), om = (c, r = 0.75) => { const k = c + '|' + r; let m = OBJ_MAT.get(k); if (!m) OBJ_MAT.set(k, m = new THREE.MeshStandardMaterial({ color: c, roughness: r })); return m; };   // één materiaal per kleur (minder tekenbeurten)   // zie offSpot
   const onRoadNow = (x, z) => typeof roadTop === 'function' && roadTop(x, z, 0) !== null;
   // Staat op dit punt (met kruin erbij) een weg, stoep of een gebouw van een ander vak? Dan komt er geen boom of bankje.
@@ -214,6 +214,11 @@
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); put(mat, g);
     };
     const railBar = (mat, A, ya, B, yb, t = 0.05) => { const pa = tfp(A), pb = tfp(B), va = new THREE.Vector3(pa[0], ya, pa[1]), vb = new THREE.Vector3(pb[0], yb, pb[1]), L2 = va.distanceTo(vb); if (L2 < 0.01) return; const g = new THREE.BoxGeometry(t, t, L2); g.lookAt(vb.clone().sub(va)); g.translate((va.x + vb.x) / 2, (va.y + vb.y) / 2, (va.z + vb.z) / 2); put(mat, g); };
+    const farWin = (a, b, yb, yt, off) => {   // donker raamvlak aan beide kanten van de muur (ver weg)
+      const A = tfp(a), B = tfp(b), dx = B[0] - A[0], dz = B[1] - A[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l * off, nz = dx / l * off, pos = [];
+      for (const sg of [1, -1]) { const ax = A[0] + nx * sg, az = A[1] + nz * sg, bx = B[0] + nx * sg, bz = B[1] + nz * sg; pos.push(ax, yb, az, bx, yb, bz, bx, yt, bz, ax, yb, az, bx, yt, bz, ax, yt, az); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); put(FAR_WIN, g);
+    };
     const railPost = (mat, A, yb, yt) => { const p2 = tfp(A), g = new THREE.CylinderGeometry(0.03, 0.03, yt - yb, 6); g.translate(p2[0], (yb + yt) / 2, p2[1]); put(mat, g); };
     const doorsOut = [];   // deurbladen (09b), in wereld-xz, y nog zonder de hoogte van het exemplaar
     const addWall = (a, b, y0, y1, half = MV2.WALL_T / 2) => { const A = tfp(a), B = tfp(b); walls.push({ ax: A[0], az: A[1], bx: B[0], bz: B[1], y0, y1, half }); };
@@ -287,6 +292,7 @@
           const Wp = tf(c[0], c[1]); g.translate(Wp[0], y0 + h / 2, Wp[1]); put(mat, g);
         } }
       // --- muren ---
+      const farWalls = [];
       for (const id in L.w) {
         const W = L.w[id]; if (!W) continue;
         const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue;
@@ -311,8 +317,8 @@
         const o = W.o || '', isGlass = W.m === 'glass';
         if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
           if (o === 'open' || o === 'gate') continue;
-          wallBox(mat, a, b, y0, y0 + LH, isGlass ? 0.06 : T);
-          if (o === 'window' && !isGlass) { const ow2 = Math.max(0.6, len - 0.8), g0 = (len - ow2) / 2 / len; wallBox(FAR_WIN, lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.9, y0 + 2.15, T + 0.03); }
+          farWalls.push({ a, b, mat, t: isGlass ? 0.06 : T, d });   // rechte stukken worden straks samengevoegd
+          if (o === 'window' && !isGlass) { const ow2 = Math.max(0.6, len - 0.8), g0 = (len - ow2) / 2 / len; farWin(lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.9, y0 + 2.15, T / 2 + 0.015); }
           continue;
         }
         if (!o) { wallBox(mat, a, b, y0, y0 + LH, isGlass ? 0.06 : T); if (isGlass) { wallBox(Mt.frame, a, b, y0, y0 + 0.12, T); wallBox(Mt.frame, a, b, y0 + LH - 0.12, y0 + LH, T); } addWall(a, b, y0, y0 + LH); continue; }
@@ -330,6 +336,15 @@
             doorsOut.push({ hx: A[0], hz: A[1], y: y0, w: tl, h: oy1, tx: (B[0] - A[0]) / tl, tz: (B[1] - A[1]) / tl, inx: (Nw[0] - Mw[0]) / nl, inz: (Nw[1] - Mw[1]) / nl, col: W.m === 'glass' || W.m === 'curtain' ? '#2b3a44' : W.m === 'wood' || W.m === 'slats' ? '#4a2e18' : '#5a3a22' }); }
           wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.06, y0 + oy1, T + 0.08); for (const p of [p0, p1]) wallBox(Mt.trim, p, lerp(p, p === p0 ? p1 : p0, 0.06 / ow), y0, y0 + oy1, T + 0.08); }
         if (o === 'gate') { wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.1, y0 + oy1, T + 0.1); }
+      }
+      if (farWalls.length) {   // ver weg: aaneensluitende stukken in dezelfde richting en van hetzelfde materiaal worden één blok
+        const pk = p => Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100), starts = new Map(), used = new Set();
+        for (const w of farWalls) { const k = w.d + '|' + pk(w.a); let Lw = starts.get(k); if (!Lw) starts.set(k, Lw = []); Lw.push(w); }
+        for (const w of farWalls) {
+          if (used.has(w)) continue; used.add(w); let end = w.b;
+          for (;;) { const nx = (starts.get(w.d + '|' + pk(end)) || []).find(v => !used.has(v) && v.mat === w.mat && v.t === w.t); if (!nx) break; used.add(nx); end = nx.b; }
+          wallBox(w.mat, w.a, end, y0, y0 + LH, w.t);
+        }
       }
       // --- trappen en hellingen ---
       for (const S of far ? [] : L.s || []) {
@@ -592,7 +607,7 @@
   const LOD_D = { near: 90, frame: 70, inner: 50 };
   function batchLod() {
     const cx = camera.position.x, cz = camera.position.z, cy = camera.position.y;
-    for (const m of modBatchGroup.children) { const c = m.userData.lodC; if (!c) continue; const d = Math.hypot(c[0] - cx, c[1] - cz, Math.max(0, cy - 20) * 0.5) - 50, L = m.userData.lod;
+    for (const m of [...modBatchGroup.children, ...railGroup.children]) { const c = m.userData.lodC; if (!c) continue; const d = Math.hypot(c[0] - cx, c[1] - cz, Math.max(0, cy - 20) * 0.5) - 50, L = m.userData.lod;
       m.visible = L === 'far' ? d >= LOD_D.near : d < (LOD_D[L] || LOD_D.near); }
   }
   setInterval(() => { try { batchLod(); } catch (e) { } }, 250);
@@ -737,8 +752,10 @@
   const railParts = I => (railData.get(I) || { parts: [] }).parts;
   function railsMesh() {
     for (const c of railGroup.children) c.geometry.dispose(); railGroup.clear();
-    const list = []; for (const [I, R0] of railData) if (!railHidden.has(I)) list.push(...R0.parts);
-    if (list.length) { const mesh = new THREE.Mesh(mergeGeos(list), mv2Mats().metal); mesh.castShadow = true; railGroup.add(mesh); }
+    // per stuk stad (6 × 6 vakken, als de bundels): ver weg gaan ze uit (batchLod, net als kozijnen); geen schaduw (dunne latjes)
+    const by = new Map(); for (const [I, R0] of railData) { if (railHidden.has(I)) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6); let L = by.get(k); if (!L) by.set(k, L = []); L.push(...R0.parts); }
+    for (const [k, list] of by) { if (!list.length) continue; const mesh = new THREE.Mesh(mergeGeos(list), mv2Mats().metal), [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.castShadow = false; mesh.userData.lod = 'frame'; mesh.userData.lodC = [c.x, c.z]; railGroup.add(mesh); }
+    try { batchLod(); } catch (e) { }
   }
   function railsHide(I, hide) {
     const R0 = railData.get(I); if (hide) railHidden.add(I); else railHidden.delete(I); if (!R0) return;
@@ -788,7 +805,7 @@
         let j = i; while (j < NS && !open[j]) j++; const g0 = geos.length;
         const f0 = i / NS, f1 = j / NS, A = [E.A[0] + ex * f0 - nx * 0.04, E.A[1] + ez * f0 - nz * 0.04], B = [E.A[0] + ex * f1 - nx * 0.04, E.A[1] + ez * f1 - nz * 0.04];
         bar(A, B, y0 + 0.98, y0 + 1.05, 0.05); bar(A, B, y0 + 0.45, y0 + 0.49, 0.03);
-        for (const P of [A, B]) { const pk = Math.round(P[0] * 10) + ',' + Math.round(P[1] * 10) + ',' + Math.round(y0 * 10); if (posts.has(pk)) continue; posts.add(pk); const g = new THREE.CylinderGeometry(0.03, 0.03, 1.05, 6); g.translate(P[0], y0 + 0.525, P[1]); geos.push(g); }
+        for (const P of [A, B]) { const pk = Math.round(P[0] * 10) + ',' + Math.round(P[1] * 10) + ',' + Math.round(y0 * 10); if (posts.has(pk)) continue; posts.add(pk); const g = new THREE.BoxGeometry(0.05, 1.05, 0.05); g.translate(P[0], y0 + 0.525, P[1]); geos.push(g); }
         { const w = { ax: A[0], az: A[1], bx: B[0], bz: B[1], y0, y1: y0 + 1.05, half: 0.06 }; col.walls.push(w); R0.cols.push([col, w]); }
         R0.parts.push(mergeGeos(geos.slice(g0)));   // dit stukje hek als los stuk voor instorten
         i = j;
