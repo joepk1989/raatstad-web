@@ -28,7 +28,11 @@ def plaats(naam, q, r, z, A=None):
 # zodat het midden van elk Plateau · 3 m precies op het midden van een vak valt
 P0 = [[n, list(m)] for n, m in B['plaatsen']]
 mids = [(m[12] / 100 + m[0] * CX + m[4] * CY, m[13] / 100 + m[1] * CX + m[5] * CY) for n, m in P0 if n == 'Plateau · 3 m']
-dx = sum(x - mid(*cell(x, y))[0] for x, y in mids) / len(mids); dy = sum(y - mid(*cell(x, y))[1] for x, y in mids) / len(mids)
+# de verschuiving van één plateau, en daarna per plateau het kleine restje (modulo het raster), gemiddeld
+v0 = (mids[0][0] - mid(*cell(*mids[0]))[0], mids[0][1] - mid(*cell(*mids[0]))[1])
+rest = [((x - v0[0]) - mid(*cell(x - v0[0], y - v0[1]))[0], (y - v0[1]) - mid(*cell(x - v0[0], y - v0[1]))[1]) for x, y in mids]
+dx = v0[0] + sum(r[0] for r in rest) / len(rest); dy = v0[1] + sum(r[1] for r in rest) / len(rest)
+assert max(math.hypot(r[0] - (dx - v0[0]), r[1] - (dy - v0[1])) for r in rest) < 0.05, 'de plateaus van het fort liggen niet op één raster'
 for n, m in P0: m[12] = round(m[12] - dx * 100); m[13] = round(m[13] - dy * 100)
 uit = [list(p) for p in P0]
 # welk vak hoort bij een module: het vak waar het grootste deel van zijn grondvlak in ligt (dus ook halve en kleine stukken)

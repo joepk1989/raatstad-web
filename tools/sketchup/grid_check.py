@@ -34,6 +34,13 @@ def check(fn):
         info.append(dict(i=i, n=n, q=q, r=r, off=off, ang=ang, det=det, sc=sc, z0=z0, z1=z1, T=T))
     # 1. op het raster
     los = [d for d in info if abs(d['sc'] - 1) > 0.01 or abs(((d['ang'] + 1) % 60) - 1) > 0.5 or abs(d['z0'] * 2 - round(d['z0'] * 2)) > 0.02]
+    # 1b. het midden van het vak van de module (de hoek van het vak is de oorsprong, midden op (7,79, 9)) moet op het midden
+    # van een vak van het spel vallen; uitzondering: stukken die bewust een half of een deel van een vak zijn
+    DEEL = ('Gebouw · halve', 'Vulstuk', 'Pad · bocht binnen', 'Pad · halve ring', 'Dak · halve', 'Deel ·')
+    for d, (n, m) in zip(info, P):
+        fx = m[12] / 100 + m[0] * 7.79 + m[4] * 9.0; fy = m[13] / 100 + m[1] * 7.79 + m[5] * 9.0
+        q, r = cell(fx, fy); mx, my = mid(q, r); d['frame'] = math.hypot(fx - mx, fy - my)
+        if d['frame'] > 0.05 and not n.startswith(DEEL) and d not in los: los.append(d)
     # 2. overlap: per paar modules met overlappende hoogte, de gedeelde grondvlakte (raster van 0,5 m), alleen dichte delen
     def vlak(d):
         if 'mask' in d: return d['mask']
@@ -57,5 +64,5 @@ def check(fn):
 if __name__ == '__main__':
     info, los, paren = check(sys.argv[1] if len(sys.argv) > 1 else 'raatstad-berg-af.json')
     print(len(info), 'modules;', len(los), 'niet op het raster;', len(paren), 'overlappen')
-    for d in los: print('  los:', d['n'], (d['q'], d['r']), 'hoek', round(d['ang'], 1), 'schaal', round(d['sc'], 3), 'z', round(d['z0'], 2))
+    for d in los: print('  los:', d['n'], (d['q'], d['r']), 'hoek', round(d['ang'], 1), 'schaal', round(d['sc'], 3), 'z', round(d['z0'], 2), 'naast het midden', round(d.get('frame', 0), 2))
     for p in sorted(paren, reverse=True): print('  overlap', p)
