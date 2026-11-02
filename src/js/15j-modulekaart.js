@@ -14,7 +14,7 @@
     const LOOPKLEUR = { 1: '#2fb3c4', 2: '#d9573f', 3: '#8fcf72' };
     const kort = n => n.replace(/^\S+ · /, ''), nl = v => String(+(+v).toFixed(1)).replace('.', ',');
     let wantView = 'gewoon'; try { wantView = localStorage.getItem('raatstad-mk-view') || 'gewoon'; } catch (e) { /* geen opslag */ }
-    const st = { soort: 'Alle', bron: 'alle', delen: false, bijna: false, q: '', sel: null, view: wantView };
+    const st = { page: 'modules', soort: 'Alle', bron: 'alle', delen: false, bijna: false, q: '', sel: null, view: wantView };
     const css = document.createElement('style');
     css.textContent = `
 .mk{position:fixed;inset:0;z-index:60;background:#12171c;color:var(--ink);display:flex;flex-direction:column;font-family:var(--font-ui)}
@@ -62,6 +62,7 @@
 .mk-pair{display:flex;gap:10px;align-items:center;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .mk-pair canvas{width:64px;margin:0;flex:none}
 .mk-pair small{display:block;color:var(--ink-dim)}
+.mk-fort{flex:1;position:relative;min-width:0}.mk-fort .fk-cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}.mk-fort .fk-btns{position:absolute;left:12px;bottom:12px;display:flex;gap:6px}.mk-fort .fk-btns button{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:rgba(18,23,28,.85);color:var(--ink);font:700 12px var(--font-ui);cursor:pointer}.mk-fort .fk-hint{position:absolute;right:12px;bottom:12px;color:var(--ink-dim);font-size:12px;background:rgba(18,23,28,.7);padding:4px 8px;border-radius:6px}.mk-mod{display:flex;justify-content:space-between;gap:8px;width:100%;padding:5px 8px;border:0;border-radius:6px;background:transparent;color:var(--ink);font:600 13px var(--font-ui);text-align:left;cursor:pointer}.mk-mod:hover{background:rgba(255,255,255,.06)}.mk-mod[aria-pressed=true]{background:var(--signal);color:var(--signal-ink)}.mk-mod small{opacity:.75;font-variant-numeric:tabular-nums}
 .mk-leeg{color:var(--ink-dim);font-size:13px;line-height:1.45}
 @media (max-width:760px){.mk-head{flex-wrap:wrap}.mk-sum{order:3;width:100%}.mk-q{flex:1;max-width:none}.mk-body{flex-direction:column}.mk-side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:42vh}.mk-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}}
 `;
@@ -69,9 +70,9 @@
     const el = document.createElement('div'); el.className = 'mk'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Modulekaart');
     const nN = D.mods.filter(m => m.b === 'n').length;
     el.innerHTML = `<div class="mk-head"><h2>Modulekaart</h2><span class="mk-sum">${D.mods.length} modules · ${nN} nieuw, ${D.mods.length - nN} uit het concept · ${D.paren.filter(p => p.soort === 'dubbel').length ? D.paren.filter(p => p.soort === 'dubbel').length + ' dubbel' : 'niets dubbel'}</span><span class="sp"></span><input class="mk-q" type="search" placeholder="Zoek een module" aria-label="Zoeken"><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button></div>
-      <div class="mk-tools" data-tools></div><div class="mk-cats" data-cats></div><div class="mk-body"><div class="mk-grid" data-grid></div><aside class="mk-side" data-side></aside></div>`;
+      <div class="mk-tools" data-tools></div><div class="mk-cats" data-cats></div><div class="mk-body"><div class="mk-grid" data-grid></div><div class="mk-fort" data-fort hidden></div><aside class="mk-side" data-side></aside></div>`;
     document.body.appendChild(el);
-    const grid = el.querySelector('[data-grid]'), side = el.querySelector('[data-side]'), tools = el.querySelector('[data-tools]'), cats = el.querySelector('[data-cats]'), q = el.querySelector('.mk-q');
+    const fortHost = el.querySelector('[data-fort]'), grid = el.querySelector('[data-grid]'), side = el.querySelector('[data-side]'), tools = el.querySelector('[data-tools]'), cats = el.querySelector('[data-cats]'), q = el.querySelector('.mk-q');
 
     // ---------- tekenen ----------
     const shade = (hex, z) => { const k = Math.min(1.25, 0.82 + z * 0.06); const n = parseInt(hex.slice(1), 16); return `rgb(${[n >> 16, (n >> 8) & 255, n & 255].map(v => Math.min(255, Math.round(v * k)))})`; };
@@ -111,10 +112,13 @@
     function check(label, on, fn) { const l = document.createElement('label'); l.className = 'mk-check'; l.innerHTML = `<input type="checkbox"${on ? ' checked' : ''}> `; l.append(label); l.querySelector('input').onchange = e => fn(e.target.checked); return l; }
     function renderTools() {
       tools.innerHTML = '';
+      tools.append(seg([['modules', 'Alle modules'], ...fortKijker.forten.map((n, i) => ['fort' + i, n])], st.page, v => { st.page = v; st.sel = null; render(); }));
       tools.append(seg([['gewoon', 'Gewoon'], ['lopen', 'Lopen']], st.view, v => { st.view = v; try { localStorage.setItem('raatstad-mk-view', v); } catch (e) { /* geen opslag */ } render(); }));
-      tools.append(seg([['alle', 'Alles'], ['n', 'Nieuw'], ['c', 'Concept']], st.bron, v => { st.bron = v; render(); }));
-      tools.append(check('Onderdelen tonen', st.delen, v => { st.delen = v; render(); }));
-      if (D.paren.length) tools.append(check('Alleen (bijna) dubbel', st.bijna, v => { st.bijna = v; render(); }));
+      if (st.page === 'modules') {
+        tools.append(seg([['alle', 'Alles'], ['n', 'Nieuw'], ['c', 'Concept']], st.bron, v => { st.bron = v; render(); }));
+        tools.append(check('Onderdelen tonen', st.delen, v => { st.delen = v; render(); }));
+        if (D.paren.length) tools.append(check('Alleen (bijna) dubbel', st.bijna, v => { st.bijna = v; render(); }));
+      }
       if (st.view === 'lopen') { const lg = document.createElement('div'); lg.className = 'mk-legend'; lg.innerHTML = `<span><i style="background:${LOOPKLEUR[1]}"></i>pad</span><span><i style="background:${LOOPKLEUR[3]}"></i>gras, zand</span><span><i style="background:${LOOPKLEUR[2]}"></i>fietspad</span><span><i style="background:#4a4d53"></i>niet te belopen</span><span><i class="dot"></i>ingang (pad)</span>`; tools.append(lg); }
     }
     function renderCats() {
@@ -135,8 +139,21 @@
       requestAnimationFrame(() => draw(cv, m, Math.max(80, cv.clientWidth || 140)));
       return b;
     }
+    function renderFort() {
+      const fi = +st.page.slice(4); cats.hidden = true; grid.hidden = true; fortHost.hidden = false;
+      if (!fortKijker.kijker || fortKijker.kijker.fort !== SKP_FORTEN.forten[fi]) {
+        fortHost.innerHTML = '';
+        fortKijker.open(fortHost, fi, st.view, n => { st.sel = n; renderSide(); fortKijker.kijker.highlight(n); });
+        fortHost.insertAdjacentHTML('beforeend', '<div class="fk-btns"><button type="button" data-v="schuin">Schuin</button><button type="button" data-v="top">Van boven</button></div><div class="fk-hint">Slepen draait · rechts of Shift slepen schuift · wiel zoomt · klik een module</div>');
+        fortHost.querySelector('[data-v=schuin]').onclick = () => fortKijker.kijker.schuin(); fortHost.querySelector('[data-v=top]').onclick = () => fortKijker.kijker.top();
+      } else fortKijker.kijker.setView(st.view);
+      fortKijker.kijker.highlight(st.sel); renderSide();
+    }
     function render() {
-      renderTools(); renderCats(); grid.innerHTML = '';
+      renderTools();
+      if (st.page !== 'modules') { renderFort(); return; }
+      if (fortKijker.kijker) fortKijker.close(); cats.hidden = false; grid.hidden = false; fortHost.hidden = true;
+      renderCats(); grid.innerHTML = '';
       const L = list();
       if (!L.length) grid.innerHTML = '<p class="mk-leeg">Geen modules met deze keuze.</p>';
       for (const s of SOORTEN) { const R = L.filter(m => m.s === s); if (!R.length) continue; const h = document.createElement('p'); h.className = 'mk-cat'; h.innerHTML = `${s}<small>${R.length}</small>`; grid.appendChild(h); R.forEach(m => grid.appendChild(card(m))); }
@@ -144,6 +161,13 @@
     }
     const ZIJ = ['rechts', 'rechtsboven', 'linksboven', 'links', 'linksonder', 'rechtsonder'];
     function renderSide() {
+      if (st.page !== 'modules') {
+        const fi = +st.page.slice(4), tel = fortKijker.telling(fi), tot = tel.reduce((a, b) => a + b[1], 0);
+        side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · uit het concept</div><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
+        const l = side.querySelector('[data-l]');
+        for (const [n, c] of tel) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-mod'; b.setAttribute('aria-pressed', st.sel === n); b.innerHTML = '<span></span><small>' + c + '×</small>'; b.firstChild.textContent = n; b.onclick = () => { st.sel = st.sel === n ? null : n; fortKijker.kijker.highlight(st.sel); renderSide(); }; l.appendChild(b); }
+        return;
+      }
       const m = byName.get(st.sel);
       if (!m) {
         side.innerHTML = `<h3>Overzicht</h3><p class="mk-leeg">Klik een module voor de details.<br><br><b>Gewoon</b> toont de kleuren uit SketchUp. <b>Lopen</b> toont wat beloopbaar is: zo kunnen mensen hun weg vinden. De witte stippen zijn de ingangen op de rand van het vak, met de hoogte waarop je binnenkomt.<br><br>Onderdelen (Deel) staan standaard uit: dat zijn stukken waar de modules uit bestaan.</p>${D.paren.length ? '<h4>Bijna dubbel</h4><ul class="mk-leeg">' + D.paren.map(p => `<li>${kort(p.a)} en ${kort(p.b)}</li>`).join('') + '</ul>' : ''}`;
@@ -166,7 +190,7 @@
     }
     q.addEventListener('input', () => { st.q = q.value; render(); });
     el.querySelector('[data-x]').onclick = () => toggle(false);
-    function toggle(on = el.hidden) { el.hidden = !on; if (on) render(); }
+    function toggle(on = el.hidden) { el.hidden = !on; if (on) render(); else fortKijker.close(); }
     // toetsen: K opent en sluit, L wisselt Gewoon en Lopen; zolang de kaart open is gaan toetsen niet naar de bouwplaats
     window.addEventListener('keydown', e => {
       const typing = e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
