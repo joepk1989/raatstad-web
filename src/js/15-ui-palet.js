@@ -324,6 +324,7 @@
     }
     if (act === 'welcome') { sheet.hidden = true; openWelcome(); return; }
     if (act === 'feedback') { sheet.hidden = true; beta.feedback(); return; }
+    if (act === 'modkaart') { sheet.hidden = true; modKaart.toggle(true); return; }
     if (act === 'credits') { sheet.hidden = true; beta.credits(); return; }
     if (act === 'savefile') { beta.saveFile(); return; }
     if (act === 'openfile') { beta.openFile(); return; }
