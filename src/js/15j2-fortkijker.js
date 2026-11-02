@@ -6,10 +6,10 @@
     const F = SKP_FORTEN;
     const KL = { pad: [0.184, 0.702, 0.769], gras: [0.561, 0.812, 0.447], fiets: [0.851, 0.341, 0.247], niet: [0.29, 0.30, 0.33] };
     const GRAS = new Set(['7ab256', 'e2cc96']), FIETS = new Set(['a8483c', 'f0f0ec']), NIET = new Set(['468cbe', '6e5034', '569440', 'ece8e0', '3c4248', '70543c', '78aa46']);
-    let geo = null;   // per module: { g: BufferGeometry, gewoon: Float32Array, lopen: Float32Array }
-    function build() {
-      if (geo) return geo;
-      geo = F.mods.map(m => {
+    const geo = [];   // per module, pas gemaakt als hij nodig is: { g: BufferGeometry, gewoon: Float32Array, lopen: Float32Array }
+    const vorm = mi => geo[mi] || (geo[mi] = maak(F.mods[mi]));
+    function maak(m) {
+      {
         let n = 0; for (const v of m.v) n += v.length;
         const pos = new Float32Array(n), cg = new Float32Array(n), cl = new Float32Array(n); let o = 0;
         m.v.forEach((v, ci) => {
@@ -26,12 +26,11 @@
         });
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(cg.slice(), 3)); g.computeVertexNormals();
         return { g, gewoon: cg, lopen: cl };
-      });
-      return geo;
+      }
     }
     let R = null;   // de open kijker
     function open(host, fi, view, onPick) {
-      close(); build();
+      close();
       const fort = F.forten[fi], cv = document.createElement('canvas'); cv.className = 'fk-cv'; host.appendChild(cv);
       const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true }); renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.setClearColor(0x20272e);
       const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(40, 1, 0.5, 3000);
@@ -47,7 +46,7 @@
           const S = (v) => [v[0], v[2], -v[1]];   // vector van SketchUp naar three
           const X = S(a), Y = S(c), Z = S(b).map(v => -v);   // three-x = su-x, three-y = su-z, three-z = -su-y
           M.set(X[0], Y[0], Z[0], t[0], X[1], Y[1], Z[1], t[2], X[2], Y[2], Z[2], -t[1], 0, 0, 0, 1);
-          const me = new THREE.Mesh(geo[mi].g, matOf(mi, Math.round(t[2] / 3))); me.userData.mi = mi; me.matrixAutoUpdate = false; me.matrix.copy(M); me.matrixWorldNeedsUpdate = true; scene.add(me); meshes.push(me);
+          const me = new THREE.Mesh(vorm(mi).g, matOf(mi, Math.round(t[2] / 3))); me.userData.mi = mi; me.matrixAutoUpdate = false; me.matrix.copy(M); me.matrixWorldNeedsUpdate = true; scene.add(me); meshes.push(me);
         });
         ps.forEach(p => box.expandByPoint(new THREE.Vector3(p[10] / 100, p[12] / 100, -p[11] / 100)));
       }
@@ -69,13 +68,13 @@
       cv.addEventListener('contextmenu', e => e.preventDefault());
       cv.addEventListener('wheel', e => { e.preventDefault(); orb.d = Math.max(15, Math.min(size * 3, orb.d * (e.deltaY > 0 ? 1.12 : 0.89))); draw(); }, { passive: false });
       const ro = new ResizeObserver(draw); ro.observe(host);
-      R = { renderer, cv, ro, meshes, mats, draw, orb, fort, setView(v) { for (const im of meshes) { const G = geo[im.userData.mi]; G.g.attributes.color.array.set(v === 'lopen' ? G.lopen : G.gewoon); G.g.attributes.color.needsUpdate = true; } draw(); },
+      R = { renderer, cv, ro, meshes, mats, draw, orb, fort, setView(v) { for (const im of meshes) { const G = vorm(im.userData.mi); G.g.attributes.color.array.set(v === 'lopen' ? G.lopen : G.gewoon); G.g.attributes.color.needsUpdate = true; } draw(); },
         highlight(name) { for (const mt of mats.values()) { const on = F.mods[mt.userData.mi].n === name, k = mt.userData.tint; if (!name) mt.color.setScalar(k); else if (on) mt.color.setRGB(1.2, 0.95, 0.5); else mt.color.setScalar(k * 0.5); } draw(); },
         top() { orb.ph = 0.05; orb.th = 0; draw(); }, schuin() { orb.ph = 0.85; orb.th = -0.7; draw(); } };
       R.setView(view); return R;
     }
     function close() { if (!R) return; R.ro.disconnect(); R.mats.forEach(m => m.dispose()); R.renderer.dispose(); R.cv.remove(); R = null; }
     const telling = fi => { const c = new Map(); for (const p of F.forten[fi].p) { const n = F.mods[p[0]].n; c.set(n, (c.get(n) || 0) + 1); } return [...c].sort((a, b) => b[1] - a[1]); };
-    return { open, close, telling, forten: F.forten.map(f => f.naam), get kijker() { return R; } };
+    return { open, close, telling, vorm, forten: F.forten.map(f => f.naam), get kijker() { return R; } };
   })();
   window.__fortKijker = fortKijker;   // voor de visuele tests

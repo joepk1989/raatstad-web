@@ -63,6 +63,7 @@
 .mk-pair canvas{width:64px;margin:0;flex:none}
 .mk-pair small{display:block;color:var(--ink-dim)}
 .mk-fort{flex:1;position:relative;min-width:0}.mk-fort .fk-cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}.mk-fort .fk-btns{position:absolute;left:12px;bottom:12px;display:flex;gap:6px}.mk-fort .fk-btns button{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:rgba(18,23,28,.85);color:var(--ink);font:700 12px var(--font-ui);cursor:pointer}.mk-fort .fk-hint{position:absolute;right:12px;bottom:12px;color:var(--ink-dim);font-size:12px;background:rgba(18,23,28,.7);padding:4px 8px;border-radius:6px}.mk-mod{display:flex;justify-content:space-between;gap:8px;width:100%;padding:5px 8px;border:0;border-radius:6px;background:transparent;color:var(--ink);font:600 13px var(--font-ui);text-align:left;cursor:pointer}.mk-mod:hover{background:rgba(255,255,255,.06)}.mk-mod[aria-pressed=true]{background:var(--signal);color:var(--signal-ink)}.mk-mod small{opacity:.75;font-variant-numeric:tabular-nums}
+.mk-zet{display:block;width:100%;margin:10px 0 4px;height:36px;border-radius:10px;background:var(--signal);color:var(--signal-ink);border:0;font:800 14px var(--font-ui);cursor:pointer}
 .mk-leeg{color:var(--ink-dim);font-size:13px;line-height:1.45}
 @media (max-width:760px){.mk-head{flex-wrap:wrap}.mk-sum{order:3;width:100%}.mk-q{flex:1;max-width:none}.mk-body{flex-direction:column}.mk-side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:42vh}.mk-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}}
 `;
@@ -163,7 +164,8 @@
     function renderSide() {
       if (st.page !== 'modules') {
         const fi = +st.page.slice(4), tel = fortKijker.telling(fi), tot = tel.reduce((a, b) => a + b[1], 0);
-        side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · opgebouwd uit de modules van de kaart</div><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
+        side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · opgebouwd uit de modules van de kaart</div><button class="btn mk-zet" type="button" data-zet>In de stad zetten</button><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
+        side.querySelector('[data-zet]').onclick = () => { toggle(false); skpBouw.start({ fort: fi }); };
         const l = side.querySelector('[data-l]');
         for (const [n, c] of tel) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-mod'; b.setAttribute('aria-pressed', st.sel === n); b.innerHTML = '<span></span><small>' + c + '×</small>'; b.firstChild.textContent = n; b.onclick = () => { st.sel = st.sel === n ? null : n; fortKijker.kijker.highlight(st.sel); renderSide(); }; l.appendChild(b); }
         return;
@@ -178,6 +180,7 @@
       side.innerHTML = `<h3></h3><div class="sub">${m.s} · ${m.b === 'n' ? 'nieuw padblok' : 'uit het concept'}</div><canvas></canvas>
         <dl><dt>Maat</dt><dd>${nl(m.w)} × ${nl(m.d)} m, ${nl(m.h)} m hoog</dd>${m.g ? `<dt>Gebruikt</dt><dd>${m.g}× in het concept</dd>` : ''}<dt>Lopen</dt><dd>${m.l}% pad${m.lg ? `, ${m.lg}% gras of zand` : ''}${m.lf ? `, ${m.lf}% fietspad` : ''}</dd><dt>Ingangen</dt><dd>${ing || (m.w > 16 || m.d > 19 ? 'groter dan één vak' : 'geen pad naar de rand')}</dd>${gras.length ? `<dt>Over het gras</dt><dd>${gras.join(', ')}</dd>` : ''}${m.o ? '<dt>Oude naam</dt><dd class="o"></dd>' : ''}</dl>`;
       side.querySelector('h3').textContent = m.n; if (m.o) side.querySelector('.o').textContent = m.o;
+      side.querySelector('dl').insertAdjacentHTML('afterend', '<button class="btn mk-zet" type="button" data-zet>Neerzetten in de stad</button>'); side.querySelector('[data-zet]').onclick = () => { toggle(false); skpBouw.start({ naam: m.n }); };
       const cv = side.querySelector('canvas'); requestAnimationFrame(() => draw(cv, m, cv.clientWidth || 300, true));
       if (ps.length) side.insertAdjacentHTML('beforeend', '<h4>Lijkt op</h4>');
       for (const p of ps) {

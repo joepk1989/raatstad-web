@@ -115,6 +115,7 @@
     lodProxy(); buildEdgeNet(); buildPathNet(); buildTriNet(); buildModNet(); peopleDirty = true; carsDirty = true;
     try { spoor.build(); } catch (e) { console.warn('spoor', e); }
     terrHold = false; terrFlush();
+    try { skpBouw.build(); } catch (e) { if (!(e instanceof ReferenceError)) console.warn('skp-modules', e); }   // SketchUp-modules (15j3)
   }
 
   // ---------- Botsing tijdens lopen ----------
