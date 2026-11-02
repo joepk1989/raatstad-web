@@ -8,7 +8,7 @@ const path = require('path');
   console.log(JSON.stringify(info));
   await p.screenshot({ path: path.join(OUT, 'modulekaart-alles.png') });
   await p.evaluate(() => [...document.querySelectorAll('.mk-bar button')].find(x => x.textContent === 'Alleen dubbel').click()); await p.waitForTimeout(400);
-  await p.evaluate(() => document.querySelector('.mk-card.dubbel').click()); await p.waitForTimeout(400);
+  await p.evaluate(() => (document.querySelector('.mk-card.dubbel') || document.querySelector('.mk-card.bijna')).click()); await p.waitForTimeout(400);
   await p.screenshot({ path: path.join(OUT, 'modulekaart-dubbel.png') });
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   console.log('dicht na Esc:', await p.evaluate(() => document.querySelector('.mk').hidden));

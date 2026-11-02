@@ -51,7 +51,7 @@
     document.head.appendChild(css);
     const el = document.createElement('div'); el.className = 'mk'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Modulekaart');
     const nD = D.paren.filter(p => p.soort === 'dubbel').length, nB = D.paren.length - nD;
-    el.innerHTML = `<div class="mk-head"><h2>Modulekaart</h2><span class="mk-sum">${D.mods.length} modules uit SketchUp · <b>${nD}</b> keer dubbel · ${nB} bijna dubbel</span><span class="sp"></span><input class="mk-q" type="search" placeholder="Zoek een module" aria-label="Zoeken"><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button></div>
+    el.innerHTML = `<div class="mk-head"><h2>Modulekaart</h2><span class="mk-sum">${D.mods.length} modules uit SketchUp · ${nD ? `<b>${nD}</b> keer dubbel` : 'niets meer dubbel'} · ${nB} bijna dubbel</span><span class="sp"></span><input class="mk-q" type="search" placeholder="Zoek een module" aria-label="Zoeken"><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button></div>
       <div class="mk-bar" data-bar></div><div class="mk-body"><div class="mk-grid" data-grid></div><aside class="mk-side" data-side></aside></div>`;
     document.body.appendChild(el);
     const grid = el.querySelector('[data-grid]'), side = el.querySelector('[data-side]'), bar = el.querySelector('[data-bar]'), q = el.querySelector('.mk-q');
@@ -110,7 +110,7 @@
     function renderSide() {
       const m = byName.get(st.sel);
       if (!m) {
-        const rows = D.paren.filter(p => p.soort === 'dubbel').map(p => `<li>${kort(p.a)} = ${kort(p.b)}</li>`).join('');
+        const rows = D.paren.map(p => `<li>${p.soort === 'dubbel' ? '<b>dubbel</b>' : 'bijna'}: ${kort(p.a)} en ${kort(p.b)}</li>`).join('');
         side.innerHTML = `<h3>Wat is dubbel?</h3><p class="leeg">Klik een module voor de details. Rood: echt dubbel (zelfde vorm, eventueel gedraaid of gespiegeld). Geel: zelfde bovenkant, andere opbouw.</p><ul class="leeg">${rows}</ul>`;
         return;
       }
