@@ -58,7 +58,7 @@ for i, j in itertools.combinations(range(len(M)), 2):
 GRAS = {'#7ab256', '#e2cc96'}                                              # gras en zand: te belopen, maar geen pad
 # 1 = pad (verhard: bestrating, natuursteen, beton, hout, en kleurloze vlakken uit het concept), 2 = fietspad, 3 = gras of zand
 FIETS = {'#a8483c', '#f0f0ec'}                                              # fietspad rood en de belijning erop
-NIET = {'#a0503a', '#5d6268', '#8a8f94', '#468cbe', '#6e5034', '#569440', '#ece8e0', '#3c4248', '#70543c', '#78aa46'}   # daken (pannen, bitumen, rand), water, stam, blad, stucwerk, metaal, aarde, groente
+NIET = {'#ece9e2', '#a0503a', '#5d6268', '#8a8f94', '#468cbe', '#6e5034', '#569440', '#ece8e0', '#3c4248', '#70543c', '#78aa46'}   # daken (pannen, bitumen, rand), water, stam, blad, stucwerk, metaal, aarde, groente
 def loopbaar(f):
     P = np.array(f['p'], float)
     if len(P) < 3: return 0, 0

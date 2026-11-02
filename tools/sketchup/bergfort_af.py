@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Maakt het bergfort af, alleen met modules (zoveel mogelijk dezelfde): schrijft raatstad-berg-af.json.
   1. de berg: onder elk vak van het fort Plateau · 3 m tot op de grond, en een voet van één laag eromheen
-  2. daken:   Dak · halve zeshoek plat op de twee hallen, Dak · zeshoek plat op de pilaren, Dak · zeshoek spits op de torentjes
+  2. daken:   Joeps Dak · zeshoek met lichtkoepel op de torentjes (in plaats van de kuil) en op de pilaren, Dak · halve zeshoek plat op de twee hallen
   3. aan de voet, bij het begin van de wenteltrap: een parkeerplaats (Parkeren · twaalf plekken ×3) met een rijbaan ernaartoe
 Vakken in assen van het spel (q, r); SketchUp-assen: x = x, y = -z van het spel."""
 import json, math, os
@@ -89,11 +89,13 @@ for c, lijst in vak.items():
         if n == 'Gebouw · halve zeshoek aan de weg':
             boven = [zz for zz, nn, *_ in lijst if nn == 'Deel · wand halve zeshoek' and zz >= top - 0.01]
             erop('Dak · halve zeshoek plat', m, (max(boven) + 3) if boven else top)
-        elif n == 'Vloer · kuil': erop('Dak · zeshoek spits', m, top)
     pil = [(z, m) for z, n, A, m in lijst if n.startswith('Pilaren') or n == 'Plein · twee pilaren']
     if pil:
         hoog = max(z for z, _ in pil) + 3
-        if not any(abs(z - hoog) < 0.01 for z, *_ in lijst): erbij('Dak · zeshoek plat', *c, hoog)
+        if not any(abs(z - hoog) < 0.01 for z, *_ in lijst): erbij('Dak · zeshoek met lichtkoepel', *c, hoog)
 
+# Joeps dak (dak.skp) is de nieuwe vorm van Vloer · kuil: de kuilen op de torens worden dat dak
+for p in uit:
+    if p[0] == 'Vloer · kuil': p[0] = 'Dak · zeshoek met lichtkoepel'; tel['Dak · zeshoek met lichtkoepel'] = tel.get('Dak · zeshoek met lichtkoepel', 0) + 1
 json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
 print('bergfort:', len(B['plaatsen']), '+', len(uit) - len(B['plaatsen']), '=', len(uit), 'modules; erbij:', tel, '; begin trap', start, '; voet', len(voet), 'vakken')

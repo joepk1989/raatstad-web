@@ -59,9 +59,14 @@ def plat_dak(naam, poly):
         ia = (a[0] + (cx - a[0]) * 0.035, a[1] + (cy - a[1]) * 0.035); ib = (b[0] + (cx - b[0]) * 0.035, b[1] + (cy - b[1]) * 0.035)
         m.prisma([a, b, ib, ia], 0.3, 0.6, KL['rand'])
     return m
-mods.append(plat_dak('Dak · zeshoek plat', hexpoly(R)))
+# het dak dat Joep tekende (dak.skp): een zeshoek met schuine kanten en een lichtkoepel; in zijn bestand de nieuwe
+# vorm van Vloer · kuil, dus het komt op de plek van de kuilen op de torens. Getekend rond x = 0, hier in het vak van het concept.
+_d = json.load(open(os.path.join(HERE, 'raatstad-dak.json')))['vorm']
+lk = Mod('Dak · zeshoek met lichtkoepel', 'Dak')
+for kleur, v in _d.items():
+    lk.tri[kleur or 'ece9e2'] = [v[i] + (779 if i % 3 == 0 else 0) for i in range(len(v))]
+mods.append(lk)
 mods.append(plat_dak('Dak · halve zeshoek plat', [(0.0, 0.0), (15.59, 0.0), (15.59, 9.0), (7.79, 13.5), (0.0, 9.0)]))   # past op Gebouw · halve zeshoek aan de weg
-sp = Mod('Dak · zeshoek spits', 'Dak'); sp.prisma(hexpoly(R + 0.4), 0, 0.25, KL['rand']); sp.piramide(hexpoly(R + 0.4), 0.25, 5.0, KL['dak']); mods.append(sp)
 
 # ---------- parkeren: een vak met een rijbaan langs x (zijde 0 en 3) en aan weerszijden parkeervakken ----------
 pk = Mod('Parkeren · twaalf plekken', 'Parkeren')
