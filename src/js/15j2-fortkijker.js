@@ -78,4 +78,4 @@
     const telling = fi => { const c = new Map(); for (const p of F.forten[fi].p) { const n = F.mods[p[0]].n; c.set(n, (c.get(n) || 0) + 1); } return [...c].sort((a, b) => b[1] - a[1]); };
     return { open, close, telling, forten: F.forten.map(f => f.naam), get kijker() { return R; } };
   })();
-  window.__fortKijker = fortKijker;
+  window.__fortKijker = fortKijker;   // voor de visuele tests

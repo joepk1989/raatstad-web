@@ -163,7 +163,7 @@
     function renderSide() {
       if (st.page !== 'modules') {
         const fi = +st.page.slice(4), tel = fortKijker.telling(fi), tot = tel.reduce((a, b) => a + b[1], 0);
-        side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · uit het concept</div><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
+        side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · opgebouwd uit de modules van de kaart</div><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
         const l = side.querySelector('[data-l]');
         for (const [n, c] of tel) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-mod'; b.setAttribute('aria-pressed', st.sel === n); b.innerHTML = '<span></span><small>' + c + '×</small>'; b.firstChild.textContent = n; b.onclick = () => { st.sel = st.sel === n ? null : n; fortKijker.kijker.highlight(st.sel); renderSide(); }; l.appendChild(b); }
         return;
