@@ -53,18 +53,64 @@ for i, j in itertools.combinations(range(len(M)), 2):
     elif top >= 0.99:
         paren.append({'a': M[i]['naam'], 'b': M[j]['naam'], 'soort': 'bijna', 'vorm': round(float(pts), 3), 'boven': round(float(top), 3), 'draai': deg, 'spiegel': mir})
 
+# ---------- beloopbaar: waar kun je lopen (voor het zoeken van looproutes) ----------
+GRAS = {'#7ab256', '#e2cc96'}                                              # gras en zand: te belopen, maar geen pad
+# 1 = pad (verhard: bestrating, natuursteen, beton, hout, en kleurloze vlakken uit het concept), 2 = fietspad, 3 = gras of zand
+FIETS = {'#a8483c', '#f0f0ec'}                                              # fietspad rood en de belijning erop
+NIET = {'#468cbe', '#6e5034', '#569440', '#ece8e0', '#3c4248', '#70543c', '#78aa46'}   # water, stam, blad, stucwerk, metaal, aarde, groente
+def loopbaar(f):
+    P = np.array(f['p'], float)
+    if len(P) < 3: return 0, 0
+    n = np.zeros(3)
+    for i in range(len(P)): a, b = P[i], P[(i + 1) % len(P)]; n += [(a[1] - b[1]) * (a[2] + b[2]), (a[2] - b[2]) * (a[0] + b[0]), (a[0] - b[0]) * (a[1] + b[1])]
+    area = np.linalg.norm(n) / 2
+    if area < 1.0: return 0, 0
+    n = n / (np.linalg.norm(n) or 1); helling = math.hypot(n[0], n[1]) / max(abs(n[2]), 1e-6)
+    if helling > 0.6: return 0, 0                                                  # steiler dan 31 graden: niet te belopen
+    omtrek = sum(np.linalg.norm(P[i][:2] - P[(i + 1) % len(P)][:2]) for i in range(len(P)))
+    if 2 * area / max(omtrek, 1e-6) < 0.33: return 0, 0                             # te smal: muurtjes, leuningen, randen
+    c = (f['c'] or '').lower()
+    if c in FIETS: return 2, area
+    if c in NIET: return 0, 0
+    if c in GRAS: return 3, area
+    return 1, area
 mods = []
 for m in M:
     P = np.array(m['punten'], float); mn = P.min(0); mx = P.max(0); cx, cy = (mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2
     # concept-modules liggen met hun vak tussen (0, 0) en (15,6, 18): teken ze op de plek in hun vak, niet midden in hun eigen kader
     if m['bron'] != 'nieuw' and mn[0] > -0.2 and mn[1] > -0.8 and mx[0] < 15.8 and mx[1] < 18.8: cx, cy = 7.79, 9.0
-    faces = []
+    faces = []; loopvl = []; opp = 0
     for f in sorted(m['boven'], key=lambda f: sum(p[2] for p in f['p']) / len(f['p'])):
         if len(f['p']) < 3: continue
         z = sum(p[2] for p in f['p']) / len(f['p']) - mn[2]
-        faces.append([f['c'] or '', round(z, 2)] + [v for p in f['p'] for v in (round(p[0] - cx, 2), round(p[1] - cy, 2))])
+        fl, ar = loopbaar(f); opp += ar if fl == 1 else 0
+        faces.append([f['c'] or '', round(z, 2), fl] + [v for p in f['p'] for v in (round(p[0] - cx, 2), round(p[1] - cy, 2))])
+        if fl: loopvl.append((np.array(f['p'], float) - [cx, cy, mn[2]], fl))
+    # deel van het bovenaanzicht dat beloopbaar is (wat je van boven ziet: het hoogste vlak telt)
+    zt = np.full(len(GRID), -99.0); ft = np.zeros(len(GRID), int)
+    for F in faces:
+        ins = Path(np.array(F[3:]).reshape(-1, 2)).contains_points(GRID); up = ins & (F[1] > zt); zt[up] = F[1]; ft[up] = F[2]
+    bedekt = zt > -99; pct = round(100 * (ft[bedekt] == 1).sum() / max(1, bedekt.sum())); fpct = round(100 * (ft[bedekt] == 2).sum() / max(1, bedekt.sum())); gpct = round(100 * (ft[bedekt] == 3).sum() / max(1, bedekt.sum()))
+    # aansluitingen: op welke zijden van het vak kun je het blok in of uit lopen, en op welke hoogte (hoogte van het vlak daar)
+    aan = []
+    if m['bron'] == 'nieuw' or (cx, cy) == (7.79, 9.0):
+        for k in range(6):
+            q = np.array([0.93 * 7.794 * math.cos(math.radians(60 * k)), 0.93 * 7.794 * math.sin(math.radians(60 * k))])
+            hs = []
+            for P, fl in loopvl:
+                if not Path(P[:, :2]).contains_point(q): continue
+                c0 = P.mean(0); n = np.cross(P[1] - P[0], P[2] - P[0])
+                for i in range(2, len(P) - 1):
+                    if np.linalg.norm(n) > 1e-6: break
+                    n = np.cross(P[i] - P[0], P[i + 1] - P[0])
+                hs.append((c0[2] - (n[0] * (q[0] - c0[0]) + n[1] * (q[1] - c0[1])) / n[2] if abs(n[2]) > 1e-6 else c0[2], fl))
+            hs.sort(); groep = []
+            for h, fl in hs:   # vlakken die minder dan 35 cm verschillen zijn één ingang: de bovenste telt
+                if groep and h - groep[-1][0] < 0.35: groep[-1] = (h, fl)
+                else: groep.append((h, fl))
+            for h, fl in groep: aan.append([k, round(h, 1), fl])
     mods.append({'n': m['naam'], 's': m['soort'], 'b': 'n' if m['bron'] == 'nieuw' else 'c', 'w': round(mx[0] - mn[0], 2), 'd': round(mx[1] - mn[1], 2), 'h': round(mx[2] - mn[2], 2),
-                 'g': G['gebruik'].get(m['naam'], 0), 'o': G['oud'].get(m['naam'], ''), 'f': faces})
+                 'g': G['gebruik'].get(m['naam'], 0), 'o': G['oud'].get(m['naam'], ''), 'f': faces, 'a': aan, 'l': pct, 'lf': fpct, 'lg': gpct})
 
 data = {'bron': 'hexgrid paden bibliotheek.skp', 'mods': mods, 'paren': paren}
 out = os.path.join(HERE, '..', '..', 'src', 'js', '08m-sketchup-modules.js')

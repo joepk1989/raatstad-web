@@ -1,141 +1,181 @@
-  // ---------- Modulekaart: alle SketchUp-modules plat van boven, met wat dubbel is (toets K of Menu) ----------
+  // ---------- Modulekaart: alle SketchUp-modules plat van boven (toets K of Menu) ----------
   // Leest SKP_MODS (08m, gemaakt door tools/sketchup/maak-2d.py uit de SketchUp-bibliotheek). Elke kaart toont het
-  // bovenaanzicht op ware schaal met de zeshoek van één vak (straal 9 m) als maat. Dubbel = dezelfde vorm, ook als hij
-  // 60°, 120° … gedraaid of gespiegeld is; bijna dubbel = dezelfde bovenkant, maar anders van opbouw.
+  // bovenaanzicht op ware schaal, met de zeshoek van één vak (straal 9 m) als maat.
+  // Twee weergaven: Gewoon (kleuren uit SketchUp) en Lopen (wat beloopbaar is, voor het zoeken van looproutes):
+  //   pad (verhard) = blauwgroen, gras en zand = lichtgroen, fietspad = rood, de rest grijs.
+  //   De stippen op de rand zijn de ingangen: daar kun je het vak in of uit lopen, met de hoogte erbij.
+  // Per vlak staat in de data: [kleur, hoogte, loop (0 niet, 1 pad, 2 fiets, 3 gras), x, y, x, y …]; per module
+  // a = ingangen [[zijde, hoogte, soort]] (zijde 0 = rechts, dan tegen de klok in per 60°; soort zoals bij de vlakken).
   const modKaart = (() => {
     const D = SKP_MODS, byName = new Map(D.mods.map(m => [m.n, m]));
     const pairsOf = new Map(); for (const p of D.paren) for (const [x, y] of [[p.a, p.b], [p.b, p.a]]) { if (!pairsOf.has(x)) pairsOf.set(x, []); pairsOf.get(x).push({ ...p, other: y }); }
-    const SOORTEN = [...new Set(D.mods.map(m => m.s))];
-    const kort = n => n.replace(/^\S+ · /, '');
-    const st = { soort: 'Alle', bron: 'alle', dubbel: false, q: '', sel: null };
+    const VOLG = ['Pad', 'Plein', 'Plateau', 'Helling', 'Trap', 'Brug', 'Tunnel', 'Steeg', 'Vlonder', 'Fietspad', 'Tuin', 'Toren', 'Vloer', 'Blok', 'Vulstuk', 'Pilaren', 'Gebouw', 'Raster', 'Vak', 'Deel'];
+    const SOORTEN = [...new Set(D.mods.map(m => m.s))].sort((a, b) => (VOLG.indexOf(a) + 1 || 99) - (VOLG.indexOf(b) + 1 || 99));
+    const LOOPKLEUR = { 1: '#2fb3c4', 2: '#d9573f', 3: '#8fcf72' };
+    const kort = n => n.replace(/^\S+ · /, ''), nl = v => String(+(+v).toFixed(1)).replace('.', ',');
+    let wantView = 'gewoon'; try { wantView = localStorage.getItem('raatstad-mk-view') || 'gewoon'; } catch (e) { /* geen opslag */ }
+    const st = { soort: 'Alle', bron: 'alle', delen: false, bijna: false, q: '', sel: null, view: wantView };
     const css = document.createElement('style');
     css.textContent = `
-.mk{position:fixed;inset:0;z-index:60;background:rgba(14,18,23,.96);color:var(--ink);display:flex;flex-direction:column;font-family:var(--font-ui)}
-.mk-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px var(--gutter-r) 10px var(--gutter-l);border-bottom:1px solid var(--line)}
-.mk-head h2{margin:0;font:800 24px/1 var(--font-display);letter-spacing:.02em}
-.mk-sum{color:var(--ink-dim);font-size:13px;font-variant-numeric:tabular-nums}
-.mk-sum b{color:var(--signal)}
+.mk{position:fixed;inset:0;z-index:60;background:#12171c;color:var(--ink);display:flex;flex-direction:column;font-family:var(--font-ui)}
+.mk-head{display:flex;align-items:center;gap:12px;padding:12px var(--gutter-r) 10px var(--gutter-l)}
+.mk-head h2{margin:0;font:800 26px/1 var(--font-display);letter-spacing:.02em}
+.mk-sum{color:var(--ink-dim);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mk-head .sp{flex:1}
-.mk-bar{display:flex;flex-wrap:wrap;gap:6px;padding:8px var(--gutter-r) 8px var(--gutter-l);border-bottom:1px solid var(--line)}
-.mk-bar button{height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);font:700 12px var(--font-ui);cursor:pointer}
-.mk-bar button[aria-pressed=true]{background:var(--signal);color:var(--signal-ink);border-color:var(--signal)}
-.mk-bar .gap{width:10px}
-.mk-q{height:26px;min-width:150px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font:600 13px var(--font-ui)}
+.mk-q{height:30px;width:220px;max-width:40vw;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font:600 13px var(--font-ui)}
+.mk-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:0 var(--gutter-r) 10px var(--gutter-l)}
+.mk-seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.mk-seg button{height:28px;padding:0 12px;border:0;background:transparent;color:var(--ink-dim);font:700 12.5px var(--font-ui);cursor:pointer}
+.mk-seg button+button{border-left:1px solid var(--line)}
+.mk-seg button[aria-pressed=true]{background:var(--signal);color:var(--signal-ink)}
+.mk-check{display:inline-flex;align-items:center;gap:6px;color:var(--ink-dim);font:700 12.5px var(--font-ui);cursor:pointer}
+.mk-check input{accent-color:var(--signal)}
+.mk-legend{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--ink-dim);font-size:12px}
+.mk-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mk-legend .dot{border-radius:50%;background:#fff;border:2px solid #12171c;box-shadow:0 0 0 1px #fff}
+.mk-cats{display:flex;gap:6px;overflow-x:auto;padding:0 var(--gutter-r) 10px var(--gutter-l);border-bottom:1px solid var(--line);scrollbar-width:thin}
+.mk-cats button{flex:none;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink-dim);font:700 12.5px var(--font-ui);cursor:pointer;white-space:nowrap}
+.mk-cats button small{font-weight:600;opacity:.7;margin-left:4px}
+.mk-cats button[aria-pressed=true]{background:var(--ink);color:#12171c;border-color:var(--ink)}
 .mk-body{flex:1;display:flex;min-height:0}
-.mk-grid{flex:1;overflow:auto;padding:12px var(--gutter-r) 24px var(--gutter-l);display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-content:start}
-.mk-cat{grid-column:1/-1;margin:8px 0 0;font:800 16px var(--font-display);letter-spacing:.04em;color:var(--ink-dim);text-transform:uppercase}
-.mk-card{position:relative;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.03);padding:6px 6px 8px;cursor:pointer;text-align:left;color:inherit;font:inherit}
+.mk-grid{flex:1;overflow:auto;padding:10px var(--gutter-r) 28px var(--gutter-l);display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;align-content:start}
+.mk-cat{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;margin:12px 0 0;font:800 17px var(--font-display);letter-spacing:.05em;text-transform:uppercase}
+.mk-cat small{font:600 12px var(--font-ui);letter-spacing:0;text-transform:none;color:var(--ink-dim)}
+.mk-card{position:relative;border:1px solid var(--line);border-radius:10px;background:#181e24;padding:6px 6px 8px;cursor:pointer;text-align:left;color:inherit;font:inherit}
 .mk-card:hover{border-color:rgba(238,241,236,.4)}
 .mk-card.sel{outline:2px solid var(--signal);outline-offset:1px}
-.mk-card.dubbel{border-color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger)}
-.mk-card.bijna{border-color:var(--signal)}
 .mk-card canvas{display:block;width:100%;aspect-ratio:1;border-radius:6px;background:#20272e}
-.mk-card .nm{display:block;margin-top:5px;font-weight:700;font-size:12.5px;line-height:1.25}
-.mk-card .meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.mk-card .nm{display:block;margin-top:6px;font-weight:700;font-size:12.5px;line-height:1.25}
+.mk-card .meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .mk-tag{font:700 10px/1 var(--font-ui);padding:3px 5px;border-radius:5px;border:1px solid var(--line);color:var(--ink-dim)}
 .mk-tag.n{color:#9fd88a;border-color:rgba(159,216,138,.4)}
-.mk-tag.d{color:#fff;background:var(--danger);border-color:var(--danger)}
 .mk-tag.b{color:var(--signal-ink);background:var(--signal);border-color:var(--signal)}
-.mk-side{width:340px;max-width:45vw;border-left:1px solid var(--line);overflow:auto;padding:14px 16px 24px}
-.mk-side h3{margin:0 0 4px;font:800 20px/1.1 var(--font-display)}
-.mk-side canvas{display:block;width:100%;aspect-ratio:1;border-radius:8px;background:#20272e;margin:8px 0}
-.mk-side dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:8px 0;font-size:13px}
+.mk-tag.l{color:#7fdbe6;border-color:rgba(47,179,196,.5)}
+.mk-side{width:340px;max-width:45vw;border-left:1px solid var(--line);overflow:auto;padding:14px 16px 24px;background:#151a20}
+.mk-side h3{margin:0 0 2px;font:800 21px/1.1 var(--font-display)}
+.mk-side .sub{color:var(--ink-dim);font-size:13px}
+.mk-side canvas{display:block;width:100%;aspect-ratio:1;border-radius:8px;background:#20272e;margin:10px 0}
+.mk-side dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:6px 0 10px;font-size:13px}
 .mk-side dt{color:var(--ink-dim)}
 .mk-side dd{margin:0}
-.mk-pair{display:flex;gap:10px;align-items:center;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
-.mk-pair canvas{width:70px;margin:0;flex:none}
+.mk-side h4{margin:14px 0 4px;font:800 14px var(--font-display);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-dim)}
+.mk-pair{display:flex;gap:10px;align-items:center;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.mk-pair canvas{width:64px;margin:0;flex:none}
 .mk-pair small{display:block;color:var(--ink-dim)}
-.mk-side .leeg{color:var(--ink-dim);font-size:13px}
-@media (max-width:700px){.mk-body{flex-direction:column}.mk-side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:45vh}.mk-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
+.mk-leeg{color:var(--ink-dim);font-size:13px;line-height:1.45}
+@media (max-width:760px){.mk-head{flex-wrap:wrap}.mk-sum{order:3;width:100%}.mk-q{flex:1;max-width:none}.mk-body{flex-direction:column}.mk-side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:42vh}.mk-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}}
 `;
     document.head.appendChild(css);
     const el = document.createElement('div'); el.className = 'mk'; el.hidden = true; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Modulekaart');
-    const nD = D.paren.filter(p => p.soort === 'dubbel').length, nB = D.paren.length - nD;
-    el.innerHTML = `<div class="mk-head"><h2>Modulekaart</h2><span class="mk-sum">${D.mods.length} modules uit SketchUp · ${nD ? `<b>${nD}</b> keer dubbel` : 'niets meer dubbel'} · ${nB} bijna dubbel</span><span class="sp"></span><input class="mk-q" type="search" placeholder="Zoek een module" aria-label="Zoeken"><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button></div>
-      <div class="mk-bar" data-bar></div><div class="mk-body"><div class="mk-grid" data-grid></div><aside class="mk-side" data-side></aside></div>`;
+    const nN = D.mods.filter(m => m.b === 'n').length;
+    el.innerHTML = `<div class="mk-head"><h2>Modulekaart</h2><span class="mk-sum">${D.mods.length} modules · ${nN} nieuw, ${D.mods.length - nN} uit het concept · ${D.paren.filter(p => p.soort === 'dubbel').length ? D.paren.filter(p => p.soort === 'dubbel').length + ' dubbel' : 'niets dubbel'}</span><span class="sp"></span><input class="mk-q" type="search" placeholder="Zoek een module" aria-label="Zoeken"><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button></div>
+      <div class="mk-tools" data-tools></div><div class="mk-cats" data-cats></div><div class="mk-body"><div class="mk-grid" data-grid></div><aside class="mk-side" data-side></aside></div>`;
     document.body.appendChild(el);
-    const grid = el.querySelector('[data-grid]'), side = el.querySelector('[data-side]'), bar = el.querySelector('[data-bar]'), q = el.querySelector('.mk-q');
+    const grid = el.querySelector('[data-grid]'), side = el.querySelector('[data-side]'), tools = el.querySelector('[data-tools]'), cats = el.querySelector('[data-cats]'), q = el.querySelector('.mk-q');
 
-    // ---------- tekenen: vlakken van laag naar hoog, kleurloze vlakken grijs naar hoogte ----------
-    const shade = (hex, z) => { const k = Math.min(1.25, 0.82 + z * 0.06); const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.min(255, Math.round(v * k))); return `rgb(${c})`; };
+    // ---------- tekenen ----------
+    const shade = (hex, z) => { const k = Math.min(1.25, 0.82 + z * 0.06); const n = parseInt(hex.slice(1), 16); return `rgb(${[n >> 16, (n >> 8) & 255, n & 255].map(v => Math.min(255, Math.round(v * k)))})`; };
     const grey = z => { const v = Math.round(Math.min(235, 120 + z * 14)); return `rgb(${v},${v},${v + 4})`; };
-    function draw(cv, m, px) {
+    const fill = (f, loop) => {
+      if (!loop) return f[0] ? shade(f[0], f[1]) : grey(f[1]);
+      if (!f[2]) { const v = Math.round(Math.min(110, 58 + f[1] * 4)); return `rgb(${v},${v + 2},${v + 6})`; }
+      return shade(LOOPKLEUR[f[2]], Math.min(f[1], 6) * 0.5);   // hoger = lichter
+    };
+    function draw(cv, m, px, big) {
+      const loop = st.view === 'lopen';
       const dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cv.height = Math.round(px * dpr);
       const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, px, px);
-      const span = Math.max(m.w, m.d, 18.6) * 1.08, s = px / span, cx = px / 2, cy = px / 2;
-      // de zeshoek van één vak als maat (punt boven, zoals in SketchUp)
-      g.beginPath(); for (let k = 0; k < 6; k++) { const a = (30 + 60 * k) * Math.PI / 180; g[k ? 'lineTo' : 'moveTo'](cx + 9 * Math.cos(a) * s, cy - 9 * Math.sin(a) * s); }
+      const span = Math.max(m.w, m.d, 18.6) * (big ? 1.32 : 1.1), s = px / span, cx = px / 2, cy = px / 2;
+      const P = (x, y) => [cx + x * s, cy - y * s];
+      g.beginPath(); for (let k = 0; k < 6; k++) { const a = (30 + 60 * k) * Math.PI / 180; g[k ? 'lineTo' : 'moveTo'](...P(9 * Math.cos(a), 9 * Math.sin(a))); }
       g.closePath(); g.setLineDash([3, 3]); g.strokeStyle = 'rgba(238,241,236,.22)'; g.lineWidth = 1; g.stroke(); g.setLineDash([]);
       for (const f of m.f) {
-        const col = f[0], z = f[1]; g.beginPath();
-        for (let i = 2; i < f.length; i += 2) g[i > 2 ? 'lineTo' : 'moveTo'](cx + f[i] * s, cy - f[i + 1] * s);
-        g.closePath(); g.fillStyle = col ? shade(col, z) : grey(z); g.fill();
-        g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 0.6; g.stroke();
+        g.beginPath(); for (let i = 3; i < f.length; i += 2) g[i > 3 ? 'lineTo' : 'moveTo'](...P(f[i], f[i + 1]));
+        g.closePath(); g.fillStyle = fill(f, loop); g.fill(); g.strokeStyle = loop ? 'rgba(0,0,0,.45)' : 'rgba(0,0,0,.35)'; g.lineWidth = 0.6; g.stroke();
       }
-      // schaalstreep van 3 m
+      if (loop && m.a) for (const [k, h, t] of m.a) {   // ingangen op de rand: wit = pad, rood = fietspad, open rondje = over het gras
+        const a = k * Math.PI / 3, r = 7.6, [x, y] = P(r * Math.cos(a), r * Math.sin(a)), rr = (big ? 6 : 3.6) * (t === 3 ? 0.75 : 1);
+        g.beginPath(); g.arc(x, y, rr, 0, 7); g.lineWidth = 2; g.strokeStyle = '#12171c';
+        if (t === 3) { g.stroke(); g.lineWidth = 1.5; g.strokeStyle = '#fff'; g.stroke(); } else { g.fillStyle = t === 2 ? LOOPKLEUR[2] : '#fff'; g.fill(); g.stroke(); }
+        if (big) { g.font = '700 12px system-ui'; g.fillStyle = '#fff'; const t = nl(h) + ' m', ox = Math.cos(a) * 14, oy = -Math.sin(a) * 14; g.textAlign = Math.abs(ox) < 4 ? 'center' : ox > 0 ? 'left' : 'right'; g.fillText(t, x + ox + (ox > 0 ? 2 : ox < 0 ? -2 : 0), y + oy + 4); g.textAlign = 'left'; }
+      }
       g.fillStyle = 'rgba(238,241,236,.6)'; g.fillRect(6, px - 8, 3 * s, 2); g.font = '600 9px system-ui'; g.fillText('3 m', 8 + 3 * s, px - 5);
     }
-    const flag = n => { const ps = pairsOf.get(n) || []; return ps.some(p => p.soort === 'dubbel') ? 'dubbel' : ps.length ? 'bijna' : ''; };
-    const draaiTxt = p => (p.draai ? p.draai + '° gedraaid' : 'zelfde stand') + (p.spiegel ? ', gespiegeld' : '');
 
-    function renderBar() {
-      const chip = (label, on, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', on); b.onclick = fn; bar.appendChild(b); };
-      bar.innerHTML = '';
-      for (const s of ['Alle', ...SOORTEN]) chip(s, st.soort === s, () => { st.soort = s; render(); });
-      bar.appendChild(Object.assign(document.createElement('span'), { className: 'gap' }));
-      for (const [k, l] of [['alle', 'Alles'], ['n', 'Nieuw'], ['c', 'Uit het concept']]) chip(l, st.bron === k, () => { st.bron = k; render(); });
-      chip('Alleen dubbel', st.dubbel, () => { st.dubbel = !st.dubbel; render(); });
-    }
+    // ---------- lijsten ----------
     function list() {
       const qq = st.q.trim().toLowerCase();
-      return D.mods.filter(m => (st.soort === 'Alle' || m.s === st.soort) && (st.bron === 'alle' || m.b === st.bron) && (!st.dubbel || pairsOf.has(m.n)) && (!qq || m.n.toLowerCase().includes(qq) || (m.o || '').toLowerCase().includes(qq)));
+      return D.mods.filter(m => (st.delen || m.s !== 'Deel' || st.soort === 'Deel') && (st.soort === 'Alle' || m.s === st.soort) && (st.bron === 'alle' || m.b === st.bron) && (!st.bijna || pairsOf.has(m.n)) && (!qq || m.n.toLowerCase().includes(qq) || (m.o || '').toLowerCase().includes(qq)));
     }
+    function seg(opts, cur, fn) { const w = document.createElement('div'); w.className = 'mk-seg'; for (const [k, l] of opts) { const b = document.createElement('button'); b.type = 'button'; b.textContent = l; b.setAttribute('aria-pressed', cur === k); b.onclick = () => fn(k); w.appendChild(b); } return w; }
+    function check(label, on, fn) { const l = document.createElement('label'); l.className = 'mk-check'; l.innerHTML = `<input type="checkbox"${on ? ' checked' : ''}> `; l.append(label); l.querySelector('input').onchange = e => fn(e.target.checked); return l; }
+    function renderTools() {
+      tools.innerHTML = '';
+      tools.append(seg([['gewoon', 'Gewoon'], ['lopen', 'Lopen']], st.view, v => { st.view = v; try { localStorage.setItem('raatstad-mk-view', v); } catch (e) { /* geen opslag */ } render(); }));
+      tools.append(seg([['alle', 'Alles'], ['n', 'Nieuw'], ['c', 'Concept']], st.bron, v => { st.bron = v; render(); }));
+      tools.append(check('Onderdelen tonen', st.delen, v => { st.delen = v; render(); }));
+      if (D.paren.length) tools.append(check('Alleen (bijna) dubbel', st.bijna, v => { st.bijna = v; render(); }));
+      if (st.view === 'lopen') { const lg = document.createElement('div'); lg.className = 'mk-legend'; lg.innerHTML = `<span><i style="background:${LOOPKLEUR[1]}"></i>pad</span><span><i style="background:${LOOPKLEUR[3]}"></i>gras, zand</span><span><i style="background:${LOOPKLEUR[2]}"></i>fietspad</span><span><i style="background:#4a4d53"></i>niet te belopen</span><span><i class="dot"></i>ingang (pad)</span>`; tools.append(lg); }
+    }
+    function renderCats() {
+      cats.innerHTML = ''; const base = D.mods.filter(m => (st.delen || m.s !== 'Deel') && (st.bron === 'alle' || m.b === st.bron));
+      for (const s of ['Alle', ...SOORTEN]) {
+        const n = s === 'Alle' ? base.length : D.mods.filter(m => m.s === s && (st.bron === 'alle' || m.b === st.bron)).length; if (!n && s !== st.soort) continue;
+        const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', st.soort === s); b.innerHTML = `${s}<small>${n}</small>`; b.onclick = () => { st.soort = s; render(); grid.scrollTop = 0; }; cats.appendChild(b);
+      }
+    }
+    const ingN = m => new Set((m.a || []).filter(x => x[2] !== 3).map(x => x[0])).size;
     function card(m) {
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-card ' + flag(m.n) + (st.sel === m.n ? ' sel' : ''); b.dataset.n = m.n;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-card' + (st.sel === m.n ? ' sel' : ''); b.dataset.n = m.n;
       const cv = document.createElement('canvas'); b.appendChild(cv);
-      const fl = flag(m.n);
-      b.insertAdjacentHTML('beforeend', `<span class="nm"></span><span class="meta">${m.b === 'n' ? '<span class="mk-tag n">nieuw</span>' : '<span class="mk-tag">concept</span>'}${m.g > 1 ? `<span class="mk-tag" title="Zo vaak gebruikt in het concept">${m.g}×</span>` : ''}${m.h >= 0.5 ? `<span class="mk-tag">${String(+m.h.toFixed(1)).replace('.', ',')} m</span>` : ''}${fl === 'dubbel' ? '<span class="mk-tag d">dubbel</span>' : fl === 'bijna' ? '<span class="mk-tag b">bijna dubbel</span>' : ''}</span>`);
+      const loopTag = st.view === 'lopen' ? `<span class="mk-tag l" title="Deel van het bovenaanzicht dat pad is">${m.l}% pad</span>${ingN(m) ? `<span class="mk-tag" title="Zijden waar een pad het vak in of uit gaat">${ingN(m)} ingang${ingN(m) > 1 ? 'en' : ''}</span>` : ''}` : '';
+      b.insertAdjacentHTML('beforeend', `<span class="nm"></span><span class="meta">${m.b === 'n' ? '<span class="mk-tag n">nieuw</span>' : ''}${m.g > 1 ? `<span class="mk-tag" title="Zo vaak gebruikt in het concept">${m.g}×</span>` : ''}${m.h >= 0.5 ? `<span class="mk-tag">${nl(m.h)} m</span>` : ''}${loopTag}${pairsOf.has(m.n) ? '<span class="mk-tag b">bijna dubbel</span>' : ''}</span>`);
       b.querySelector('.nm').textContent = kort(m.n);
       b.onclick = () => { st.sel = m.n; grid.querySelectorAll('.mk-card.sel').forEach(c => c.classList.remove('sel')); b.classList.add('sel'); renderSide(); };
       requestAnimationFrame(() => draw(cv, m, Math.max(80, cv.clientWidth || 140)));
       return b;
     }
     function render() {
-      renderBar(); grid.innerHTML = '';
+      renderTools(); renderCats(); grid.innerHTML = '';
       const L = list();
-      if (!L.length) { grid.innerHTML = '<p class="leeg">Geen modules met deze keuze.</p>'; }
-      for (const s of SOORTEN) { const R = L.filter(m => m.s === s); if (!R.length) continue; const h = document.createElement('p'); h.className = 'mk-cat'; h.textContent = s + ' · ' + R.length; grid.appendChild(h); R.forEach(m => grid.appendChild(card(m))); }
+      if (!L.length) grid.innerHTML = '<p class="mk-leeg">Geen modules met deze keuze.</p>';
+      for (const s of SOORTEN) { const R = L.filter(m => m.s === s); if (!R.length) continue; const h = document.createElement('p'); h.className = 'mk-cat'; h.innerHTML = `${s}<small>${R.length}</small>`; grid.appendChild(h); R.forEach(m => grid.appendChild(card(m))); }
       renderSide();
     }
+    const ZIJ = ['rechts', 'rechtsboven', 'linksboven', 'links', 'linksonder', 'rechtsonder'];
     function renderSide() {
       const m = byName.get(st.sel);
       if (!m) {
-        const rows = D.paren.map(p => `<li>${p.soort === 'dubbel' ? '<b>dubbel</b>' : 'bijna'}: ${kort(p.a)} en ${kort(p.b)}</li>`).join('');
-        side.innerHTML = `<h3>Wat is dubbel?</h3><p class="leeg">Klik een module voor de details. Rood: echt dubbel (zelfde vorm, eventueel gedraaid of gespiegeld). Geel: zelfde bovenkant, andere opbouw.</p><ul class="leeg">${rows}</ul>`;
+        side.innerHTML = `<h3>Overzicht</h3><p class="mk-leeg">Klik een module voor de details.<br><br><b>Gewoon</b> toont de kleuren uit SketchUp. <b>Lopen</b> toont wat beloopbaar is: zo kunnen mensen hun weg vinden. De witte stippen zijn de ingangen op de rand van het vak, met de hoogte waarop je binnenkomt.<br><br>Onderdelen (Deel) staan standaard uit: dat zijn stukken waar de modules uit bestaan.</p>${D.paren.length ? '<h4>Bijna dubbel</h4><ul class="mk-leeg">' + D.paren.map(p => `<li>${kort(p.a)} en ${kort(p.b)}</li>`).join('') + '</ul>' : ''}`;
         return;
       }
       const ps = pairsOf.get(m.n) || [];
-      side.innerHTML = `<h3></h3><canvas></canvas><dl><dt>Soort</dt><dd>${m.s}</dd><dt>Bron</dt><dd>${m.b === 'n' ? 'nieuw padblok' : 'concept (bergfort)'}</dd>${m.o ? '<dt>Oude naam</dt><dd class="o"></dd>' : ''}<dt>Maat</dt><dd>${m.w.toFixed(1).replace('.', ',')} × ${m.d.toFixed(1).replace('.', ',')} m, ${m.h.toFixed(1).replace('.', ',')} m hoog</dd>${m.g ? `<dt>Gebruikt</dt><dd>${m.g}× in het concept</dd>` : ''}</dl>
-        ${ps.length ? '<p class="leeg">Lijkt op:</p>' : '<p class="leeg">Niet dubbel: deze vorm komt maar één keer voor.</p>'}`;
+      const ing = (m.a || []).filter(x => x[2] !== 3).map(([k, h, t]) => `${ZIJ[k]} op ${nl(h)} m${t === 2 ? ' (fiets)' : ''}`).join(', '), gras = [...new Set((m.a || []).filter(x => x[2] === 3).map(x => ZIJ[x[0]]))];
+      side.innerHTML = `<h3></h3><div class="sub">${m.s} · ${m.b === 'n' ? 'nieuw padblok' : 'uit het concept'}</div><canvas></canvas>
+        <dl><dt>Maat</dt><dd>${nl(m.w)} × ${nl(m.d)} m, ${nl(m.h)} m hoog</dd>${m.g ? `<dt>Gebruikt</dt><dd>${m.g}× in het concept</dd>` : ''}<dt>Lopen</dt><dd>${m.l}% pad${m.lg ? `, ${m.lg}% gras of zand` : ''}${m.lf ? `, ${m.lf}% fietspad` : ''}</dd><dt>Ingangen</dt><dd>${ing || (m.w > 16 || m.d > 19 ? 'groter dan één vak' : 'geen pad naar de rand')}</dd>${gras.length ? `<dt>Over het gras</dt><dd>${gras.join(', ')}</dd>` : ''}${m.o ? '<dt>Oude naam</dt><dd class="o"></dd>' : ''}</dl>`;
       side.querySelector('h3').textContent = m.n; if (m.o) side.querySelector('.o').textContent = m.o;
-      requestAnimationFrame(() => draw(side.querySelector('canvas'), m, side.querySelector('canvas').clientWidth || 300));
+      const cv = side.querySelector('canvas'); requestAnimationFrame(() => draw(cv, m, cv.clientWidth || 300, true));
+      if (ps.length) side.insertAdjacentHTML('beforeend', '<h4>Lijkt op</h4>');
       for (const p of ps) {
         const o = byName.get(p.other); if (!o) continue;
         const row = document.createElement('div'); row.className = 'mk-pair';
-        row.innerHTML = `<canvas></canvas><div><b></b><small>${p.soort === 'dubbel' ? 'Dubbel' : 'Bijna dubbel'} · ${draaiTxt(p)} · vorm ${Math.round(p.vorm * 100)}%, bovenkant ${Math.round(p.boven * 100)}%</small></div>`;
+        row.innerHTML = `<canvas></canvas><div><b></b><small>${p.soort === 'dubbel' ? 'Dubbel' : 'Zelfde bovenkant, andere opbouw'} · ${p.draai ? p.draai + '° gedraaid' : 'zelfde stand'}${p.spiegel ? ', gespiegeld' : ''}</small></div>`;
         row.querySelector('b').textContent = o.n; row.onclick = () => { st.sel = o.n; render(); const c = grid.querySelector(`[data-n="${CSS.escape(o.n)}"]`); if (c) c.scrollIntoView({ block: 'nearest' }); };
-        side.appendChild(row); requestAnimationFrame(() => draw(row.querySelector('canvas'), o, 70));
+        side.appendChild(row); requestAnimationFrame(() => draw(row.querySelector('canvas'), o, 64));
       }
     }
     q.addEventListener('input', () => { st.q = q.value; render(); });
     el.querySelector('[data-x]').onclick = () => toggle(false);
     function toggle(on = el.hidden) { el.hidden = !on; if (on) render(); }
-    // toetsen: K opent en sluit; zolang de kaart open is gaan toetsen niet naar de bouwplaats
+    // toetsen: K opent en sluit, L wisselt Gewoon en Lopen; zolang de kaart open is gaan toetsen niet naar de bouwplaats
     window.addEventListener('keydown', e => {
       const typing = e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
       if (el.hidden) { if (e.code === 'KeyK' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) { const mm = document.getElementById('mmApp'), sk = document.getElementById('schetsApp'); if ((mm && !mm.hidden) || (sk && !sk.hidden)) return; e.preventDefault(); toggle(true); } return; }
       if (e.code === 'Escape' || (e.code === 'KeyK' && !typing)) { e.preventDefault(); toggle(false); }
+      else if (e.code === 'KeyL' && !typing) { st.view = st.view === 'lopen' ? 'gewoon' : 'lopen'; render(); }
       e.stopImmediatePropagation();
     }, true);
-    return { toggle, data: D, pairsOf };
+    // looproutes: per module de vlakken waar je kunt lopen en de ingangen (voor het zoeken van routes)
+    const loopData = n => { const m = byName.get(n); return m && { ingangen: m.a, vlakken: m.f.filter(f => f[2]).map(f => ({ soort: ['', 'pad', 'fiets', 'gras'][f[2]], z: f[1], punten: f.slice(3) })) }; };
+    return { toggle, data: D, pairsOf, loopData };
   })();
