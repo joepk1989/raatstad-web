@@ -101,5 +101,15 @@ for c, lijst in vak.items():
 # Joeps dak (dak.skp) is de nieuwe vorm van Vloer · kuil: de kuilen op de torens worden dat dak
 for p in uit:
     if p[0] == 'Vloer · kuil': p[0] = 'Dak · zeshoek met lichtkoepel'; tel['Dak · zeshoek met lichtkoepel'] = tel.get('Dak · zeshoek met lichtkoepel', 0) + 1
+# 4. de looproute afmaken: hellingen en trappen (bestaande modules) waar de route ophoudt (pad_af.py zoekt, duurt
+#    een paar minuten per stap; het resultaat staat in raatstad-berg-pad.json, opnieuw zoeken met --zoek)
+import sys, pad_af
+PF = os.path.join(HERE, 'raatstad-berg-pad.json')
+if '--zoek' in sys.argv or not os.path.exists(PF):
+    _, gedaan, nu = pad_af.verbind(uit, len(B['plaatsen']), log=lambda *a: print(*a, flush=True))
+    json.dump({'gedaan': gedaan, 'bereikbaar': nu}, open(PF, 'w'), ensure_ascii=False, indent=0)
+pad = json.load(open(PF)); uit = pad_af.toepassen(uit, pad['gedaan'])
+print('looproute:', len(pad['gedaan']), 'aanpassingen,', round(pad['bereikbaar']), 'm² vloer bereikbaar')
+for g in pad['gedaan']: print('  ', g['wat'])
 json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
 print('bergfort:', len(B['plaatsen']), '+', len(uit) - len(B['plaatsen']), '=', len(uit), 'modules; erbij:', tel, '; begin trap', start, '; voet', len(voet), 'vakken')

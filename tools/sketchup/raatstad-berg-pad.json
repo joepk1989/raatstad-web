@@ -1,0 +1,235 @@
+{
+"gedaan": [
+{
+"wat": "Plateau · met muurtjes en trap in (-5, -1) op 15 m wordt Pad · halve ring met helling",
+"weg": [
+74
+],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+-0.5000000000000004,
+-0.8660254037844384,
+0,
+0,
+0.8660254037844384,
+-0.5000000000000004,
+0,
+0,
+0,
+0,
+1,
+0,
+-8964,
+2475,
+1500,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · twee wanden in (-6, -1) op 18 m wordt Pad · helling tussen twee wanden",
+"weg": [
+26
+],
+"erbij": [
+[
+"Pad · helling tussen twee wanden",
+[
+1.0,
+-1.2246467991473532e-16,
+0,
+0,
+-1.2246467991473532e-16,
+-1.0,
+0,
+0,
+0,
+0,
+1,
+0,
+-10911,
+2250,
+1800,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · halve ring met helling bovenop (-4, -1) op 21 m",
+"weg": [],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+-0.5000000000000001,
+-0.8660254037844386,
+0,
+0,
+-0.8660254037844386,
+0.5000000000000001,
+0,
+0,
+0,
+0,
+1,
+0,
+-5846,
+1575,
+2100,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · bocht binnen en buiten in (-4, 1) op 18 m wordt Pad · helling tussen twee wanden",
+"weg": [
+5
+],
+"erbij": [
+[
+"Pad · helling tussen twee wanden",
+[
+-1.0,
+-0.0,
+0,
+0,
+-0.0,
+1.0,
+0,
+0,
+0,
+0,
+1,
+0,
+-4677,
+-2250,
+1800,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · bocht binnen en buiten in (-3, -1) op 18 m wordt Pad · halve ring met helling",
+"weg": [
+86
+],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+-0.4999999999999998,
+0.8660254037844387,
+0,
+0,
+-0.8660254037844387,
+-0.4999999999999998,
+0,
+0,
+0,
+0,
+1,
+0,
+-4287,
+1125,
+1800,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · bocht binnen en buiten in (-5, -2) op 3 m wordt Pad · halve ring met helling",
+"weg": [
+8
+],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+0.5000000000000001,
+-0.8660254037844386,
+0,
+0,
+0.8660254037844386,
+0.5000000000000001,
+0,
+0,
+0,
+0,
+1,
+0,
+-10522,
+2925,
+300,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · bocht binnen en buiten in (-5, 0) op 15 m wordt Pad · halve ring met helling",
+"weg": [
+7
+],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+0.4999999999999998,
+-0.8660254037844387,
+0,
+0,
+-0.8660254037844387,
+-0.4999999999999998,
+0,
+0,
+0,
+0,
+1,
+0,
+-7404,
+1125,
+1500,
+1
+]
+]
+]
+},
+{
+"wat": "Pad · twee wanden in (-5, 1) op 18 m wordt Pad · halve ring met helling",
+"weg": [
+34
+],
+"erbij": [
+[
+"Pad · halve ring met helling",
+[
+1.0,
+-1.2246467991473532e-16,
+0,
+0,
+-1.2246467991473532e-16,
+-1.0,
+0,
+0,
+0,
+0,
+1,
+0,
+-7794,
+-450,
+1800,
+1
+]
+]
+]
+}
+],
+"bereikbaar": 6057.75
+}

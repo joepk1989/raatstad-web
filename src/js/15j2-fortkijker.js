@@ -68,8 +68,8 @@
       cv.addEventListener('contextmenu', e => e.preventDefault());
       cv.addEventListener('wheel', e => { e.preventDefault(); orb.d = Math.max(15, Math.min(size * 3, orb.d * (e.deltaY > 0 ? 1.12 : 0.89))); draw(); }, { passive: false });
       const ro = new ResizeObserver(draw); ro.observe(host);
-      R = { renderer, cv, ro, meshes, mats, draw, orb, fort, setView(v) { for (const im of meshes) { const G = vorm(im.userData.mi); G.g.attributes.color.array.set(v === 'lopen' ? G.lopen : G.gewoon); G.g.attributes.color.needsUpdate = true; } draw(); },
-        highlight(name) { for (const mt of mats.values()) { const on = F.mods[mt.userData.mi].n === name, k = mt.userData.tint; if (!name) mt.color.setScalar(k); else if (on) mt.color.setRGB(1.2, 0.95, 0.5); else mt.color.setScalar(k * 0.5); } draw(); },
+      R = { renderer, cv, ro, meshes, mats, draw, orb, target, fort, setView(v) { for (const im of meshes) { const G = vorm(im.userData.mi); G.g.attributes.color.array.set(v === 'lopen' ? G.lopen : G.gewoon); G.g.attributes.color.needsUpdate = true; } draw(); },
+        highlight(name) { for (const mt of mats.values()) { const on = Array.isArray(name) ? name.includes(F.mods[mt.userData.mi].n) : F.mods[mt.userData.mi].n === name, k = mt.userData.tint; if (!name) mt.color.setScalar(k); else if (on) mt.color.setRGB(1.2, 0.95, 0.5); else mt.color.setScalar(k * 0.5); } draw(); },
         top() { orb.ph = 0.05; orb.th = 0; draw(); }, schuin() { orb.ph = 0.85; orb.th = -0.7; draw(); } };
       R.setView(view); return R;
     }
