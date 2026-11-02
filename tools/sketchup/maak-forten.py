@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Maakt src/js/08n-forten.js: voorbeelden die in de Modulekaart in 3D uit de modules worden opgebouwd.
-  Bergfort      uit raatstad-berg.json   (export van hex mountainfortress.skp)
+  Bergfort      uit raatstad-berg-af.json (hex mountainfortress.skp, afgemaakt door bergfort_af.py)
   Winkelcentrum uit raatstad-forten.json (export van hexgrid path concept.skp, de groep met 128 modules)
 Per module de volledige vorm (driehoeken per kleur, in cm) en waar elke module staat."""
 import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 berg = json.load(open(os.path.join(HERE, 'raatstad-berg.json')))
+berg_af = json.load(open(os.path.join(HERE, 'raatstad-berg-af.json')))   # afgemaakt door bergfort_af.py: berg, daken, parkeerplaats
 conc = json.load(open(os.path.join(HERE, 'raatstad-forten.json')))
 vorm = dict(conc['modules']); vorm.update(berg['modules'])
 vorm.update(json.load(open(os.path.join(HERE, 'raatstad-vorm.json'))))   # alle modules uit de bibliotheek: los neer te zetten
+vorm.update(json.load(open(os.path.join(HERE, 'raatstad-extra.json')))['vorm'])   # daken en parkeren (extra_modules.py)
 winkel = next(f for f in conc['forten'] if f['n'] == 128)
-bronnen = [('Bergfort', berg['plaatsen']), ('Winkelcentrum', winkel['plaatsen'])]
+bronnen = [('Bergfort', berg_af['plaatsen']), ('Winkelcentrum', winkel['plaatsen'])]
 namen = sorted(n for n in vorm if not n.startswith(('Schaalfiguur', 'Hulp')))
 idx = {n: i for i, n in enumerate(namen)}
 def midden(n):

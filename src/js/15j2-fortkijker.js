@@ -5,7 +5,7 @@
   const fortKijker = (() => {
     const F = SKP_FORTEN;
     const KL = { pad: [0.184, 0.702, 0.769], gras: [0.561, 0.812, 0.447], fiets: [0.851, 0.341, 0.247], niet: [0.29, 0.30, 0.33] };
-    const GRAS = new Set(['7ab256', 'e2cc96']), FIETS = new Set(['a8483c', 'f0f0ec']), NIET = new Set(['468cbe', '6e5034', '569440', 'ece8e0', '3c4248', '70543c', '78aa46']);
+    const GRAS = new Set(['7ab256', 'e2cc96']), FIETS = new Set(['a8483c', 'f0f0ec']), NIET = new Set(['a0503a', '5d6268', '8a8f94', '468cbe', '6e5034', '569440', 'ece8e0', '3c4248', '70543c', '78aa46']);
     const geo = [];   // per module, pas gemaakt als hij nodig is: { g: BufferGeometry, gewoon: Float32Array, lopen: Float32Array }
     const vorm = mi => geo[mi] || (geo[mi] = maak(F.mods[mi]));
     function maak(m) {

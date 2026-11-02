@@ -9,7 +9,7 @@
   const modKaart = (() => {
     const D = SKP_MODS, byName = new Map(D.mods.map(m => [m.n, m]));
     const pairsOf = new Map(); for (const p of D.paren) for (const [x, y] of [[p.a, p.b], [p.b, p.a]]) { if (!pairsOf.has(x)) pairsOf.set(x, []); pairsOf.get(x).push({ ...p, other: y }); }
-    const VOLG = ['Pad', 'Plein', 'Plateau', 'Helling', 'Trap', 'Brug', 'Tunnel', 'Steeg', 'Vlonder', 'Fietspad', 'Tuin', 'Toren', 'Vloer', 'Blok', 'Vulstuk', 'Pilaren', 'Gebouw', 'Raster', 'Vak', 'Deel'];
+    const VOLG = ['Pad', 'Plein', 'Plateau', 'Helling', 'Trap', 'Brug', 'Tunnel', 'Steeg', 'Vlonder', 'Fietspad', 'Tuin', 'Toren', 'Dak', 'Parkeren', 'Vloer', 'Blok', 'Vulstuk', 'Pilaren', 'Gebouw', 'Raster', 'Vak', 'Deel'];
     const SOORTEN = [...new Set(D.mods.map(m => m.s))].sort((a, b) => (VOLG.indexOf(a) + 1 || 99) - (VOLG.indexOf(b) + 1 || 99));
     const LOOPKLEUR = { 1: '#2fb3c4', 2: '#d9573f', 3: '#8fcf72' };
     const kort = n => n.replace(/^\S+ · /, ''), nl = v => String(+(+v).toFixed(1)).replace('.', ',');
