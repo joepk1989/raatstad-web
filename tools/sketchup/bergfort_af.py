@@ -24,21 +24,51 @@ def plaats(naam, q, r, z, A=None):
     tx = x - (A[0] * CX + A[3] * CY); ty = y - (A[1] * CX + A[4] * CY)
     return [naam, [A[0], A[1], A[2], 0, A[3], A[4], A[5], 0, A[6], A[7], A[8], 0, round(tx * 100), round(ty * 100), round(z * 100), 1]]
 
-uit = [list(p) for p in B['plaatsen']]
-vak, onder = {}, {}
-for n, m in B['plaatsen']:
-    A = [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]]; t = (m[12] / 100, m[13] / 100, m[14] / 100)
-    c = cell(t[0] + A[0] * CX + A[3] * CY, t[1] + A[1] * CX + A[4] * CY)
-    vak.setdefault(c, []).append((t[2], n, A)); onder[c] = min(onder.get(c, 99), t[2] + zmin(n))
+# het raster van het fort ligt een half vak verschoven ten opzichte van het raster van het spel: eerst rechtzetten,
+# zodat het midden van elk Plateau · 3 m precies op het midden van een vak valt
+P0 = [[n, list(m)] for n, m in B['plaatsen']]
+mids = [(m[12] / 100 + m[0] * CX + m[4] * CY, m[13] / 100 + m[1] * CX + m[5] * CY) for n, m in P0 if n == 'Plateau · 3 m']
+dx = sum(x - mid(*cell(x, y))[0] for x, y in mids) / len(mids); dy = sum(y - mid(*cell(x, y))[1] for x, y in mids) / len(mids)
+for n, m in P0: m[12] = round(m[12] - dx * 100); m[13] = round(m[13] - dy * 100)
+uit = [list(p) for p in P0]
+# welk vak hoort bij een module: het vak waar het grootste deel van zijn grondvlak in ligt (dus ook halve en kleine stukken)
+import grid_check as G
+from matplotlib.path import Path
+import numpy as np
+def zeshoek(q, r): x, y = mid(q, r); return Path([(x + R * math.cos(math.radians(90 + 60 * k)), y + R * math.sin(math.radians(90 + 60 * k))) for k in range(6)])
+vak, onder, dekt = {}, {}, {}
+for n, m in P0:
+    T, A3 = G.wereld(n, m); d = {'T': T}
+    xy = T[:, :, :2].reshape(-1, 2); c0 = cell(*((xy.min(0) + xy.max(0)) / 2))
+    A = [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]]; z0 = float(T[:, :, 2].min())
+    # grondvlak (vlakke stukken) op een raster van 0,5 m, en per vak in de buurt hoeveel daarvan erin valt
+    N = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); vl = T[np.abs(N[:, 2]) > 0.3 * (np.linalg.norm(N, axis=1) + 1e-9)]
+    pts = []
+    for t in vl:
+        x0, y0 = np.floor(t[:, :2].min(0) / 0.5); x1, y1 = np.ceil(t[:, :2].max(0) / 0.5)
+        gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5); gg = np.c_[gx.ravel(), gy.ravel()] * 0.5
+        pts.extend(map(tuple, gg[Path(t[:, :2]).contains_points(gg)]))
+    pts = np.array(sorted(set(pts))) if pts else np.zeros((0, 2))
+    best = c0; bn = -1
+    for dq in (-1, 0, 1):
+        for dr in (-1, 0, 1):
+            cc = (c0[0] + dq, c0[1] + dr); k = int(zeshoek(*cc).contains_points(pts).sum()) if len(pts) else 0
+            if k > bn: best, bn = cc, k
+            if len(pts) and k > 0.1 * 1123: dekt.setdefault(cc, []).append((z0, n))   # 1123 punten = een heel vak
+    vak.setdefault(best, []).append((z0, n, A, m)); onder[best] = min(onder.get(best, 99), z0)
+for cc, l in dekt.items(): onder[cc] = min(onder.get(cc, 99), min(z for z, _ in l))
 tel = {}
 def erbij(*a): p = plaats(*a); uit.append(p); tel[p[0]] = tel.get(p[0], 0) + 1
+def erop(naam, m, z):
+    """een dak met precies dezelfde assen en plek als de module eronder, alleen hoger"""
+    mm = list(m); mm[14] = round(z * 100); uit.append([naam, mm]); tel[naam] = tel.get(naam, 0) + 1
 
 # 3. parkeerplaats aan de voet, bij het begin van de wenteltrap (het vak met de helling op hoogte 0)
-start = min((c for c in vak if any(n.startswith('Pad · bocht met helling') and z == 0 for z, n, _ in vak[c])), default=(-4, -2))
+start = min((c for c in vak if any(n.startswith('Pad · bocht met helling') and abs(z) < 0.01 for z, n, *_ in vak[c])), default=(-4, -2))
 rij = start[1] - 1
 PARK = [(start[0] - 2, rij), (start[0] - 1, rij), (start[0], rij)]
 RIJ = [(start[0] - 3, rij), (start[0] - 4, rij)]
-vrij = lambda c: c not in vak
+vrij = lambda c: c not in vak and c not in dekt
 for c in PARK: assert vrij(c), c; erbij('Parkeren · twaalf plekken', *c, 0)
 for c in RIJ: assert vrij(c), c; erbij('Parkeren · rijbaan met stoep', *c, 0)
 
@@ -47,23 +77,23 @@ for c, b in onder.items():
     z = 0.0
     while z + 2.99 < b: erbij('Plateau · 3 m', *c, z); z += 3
 buren = lambda c: [(c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1), (c[0] + 1, c[1] - 1), (c[0] - 1, c[1] + 1)]
-voet = {n for c in vak for n in buren(c) if vrij(n) and n not in PARK and n not in RIJ}
+voet = {n for c in list(vak) + list(dekt) for n in buren(c) if vrij(n) and n not in PARK and n not in RIJ}
 voet -= {n for c in PARK + RIJ for n in buren(c)} - set()   # de parkeerplaats blijft vrij bereikbaar
 voet -= set(buren(start))
 for c in sorted(voet): erbij('Plateau · 3 m', *c, 0)
 
 # 2. daken
 for c, lijst in vak.items():
-    for z, n, A in lijst:
+    for z, n, A, m in lijst:
         top = z + 3
         if n == 'Gebouw · halve zeshoek aan de weg':
-            boven = [zz for zz, nn, _ in lijst if nn == 'Deel · wand halve zeshoek' and zz >= top - 0.01]
-            erbij('Dak · halve zeshoek plat', *c, (max(boven) + 3) if boven else top, A)
-        elif n == 'Vloer · kuil': erbij('Dak · zeshoek spits', *c, top)
-    pil = [z for z, n, _ in lijst if n.startswith('Pilaren') or n == 'Plein · twee pilaren']
+            boven = [zz for zz, nn, *_ in lijst if nn == 'Deel · wand halve zeshoek' and zz >= top - 0.01]
+            erop('Dak · halve zeshoek plat', m, (max(boven) + 3) if boven else top)
+        elif n == 'Vloer · kuil': erop('Dak · zeshoek spits', m, top)
+    pil = [(z, m) for z, n, A, m in lijst if n.startswith('Pilaren') or n == 'Plein · twee pilaren']
     if pil:
-        hoog = max(pil) + 3
-        if not any(abs(z - hoog) < 0.01 for z, n, _ in lijst): erbij('Dak · zeshoek plat', *c, hoog)
+        hoog = max(z for z, _ in pil) + 3
+        if not any(abs(z - hoog) < 0.01 for z, *_ in lijst): erbij('Dak · zeshoek plat', *c, hoog)
 
 json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
 print('bergfort:', len(B['plaatsen']), '+', len(uit) - len(B['plaatsen']), '=', len(uit), 'modules; erbij:', tel, '; begin trap', start, '; voet', len(voet), 'vakken')
