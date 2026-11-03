@@ -50,6 +50,12 @@
         });
         ps.forEach(p => box.expandByPoint(new THREE.Vector3(p[10] / 100, p[12] / 100, -p[11] / 100)));
       }
+      // het terrein dat bij het fort hoort: per vak een zeshoekige zuil tot de terreinhoogte (in het spel is het een glad landschap)
+      if (fort.t && fort.t.length) {
+        const tg = new THREE.CylinderGeometry(R, R, 1, 6, 1); tg.translate(0, 0.5, 0);
+        const tm = new THREE.MeshLambertMaterial({ color: 0x7aa553 });
+        for (const [x, y, h] of fort.t) { const me = new THREE.Mesh(tg, tm); me.scale.y = h; me.position.set(x, 0, -y); scene.add(me); box.expandByPoint(me.position); }
+      }
       box.expandByScalar(12);
       const target = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
       const orb = { th: -0.7, ph: 0.85, d: size * 0.95 };

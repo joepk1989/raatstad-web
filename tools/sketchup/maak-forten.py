@@ -25,6 +25,7 @@ def midden(n):
     return [round((x0 + x1) / 2), round((y0 + y1) / 2)]
 mods = [{'n': n, 'c': midden(n), 'k': list(vorm[n].keys()), 'v': list(vorm[n].values())} for n in namen]
 forten = [{'naam': naam, 'p': [[idx[p[0]]] + p[1][:3] + p[1][4:7] + p[1][8:11] + p[1][12:15] for p in pl if p[0] in idx]} for naam, pl in bronnen]
+forten[0]['t'] = berg_af.get('terrein', [])   # terrein van het spel onder het fort: [x, y (SketchUp-assen, m), hoogte (m)] per vak
 out = os.path.join(HERE, '..', '..', 'src', 'js', '08n-forten.js')
 with open(out, 'w') as fh:
     fh.write('  // ---------- Voorbeelden uit SketchUp (bergfort, winkelcentrum): modulevormen in cm en plaatsingen (gemaakt door tools/sketchup/maak-forten.py) ----------\n')

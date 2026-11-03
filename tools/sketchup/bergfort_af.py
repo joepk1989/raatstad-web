@@ -18,7 +18,7 @@ def cell(x, y):
     return (rq, rr)
 def mid(q, r): return (R * SQ3 * (q + r / 2), -(R * 1.5 * r))
 def zmin(naam): v = [c for vv in V[naam].values() for c in vv[2::3]]; return min(v) / 100
-def plaats(naam, q, r, z, A=None):
+def plaats(naam, q, r, z, A=None):  # noqa
     """module in het vak (q, r) op hoogte z: de hoek van het vak is de oorsprong van de module"""
     x, y = mid(q, r); A = A or [1, 0, 0, 0, 1, 0, 0, 0, 1]
     tx = x - (A[0] * CX + A[3] * CY); ty = y - (A[1] * CX + A[4] * CY)
@@ -67,6 +67,7 @@ def erop(naam, m, z):
     """een dak met precies dezelfde assen en plek als de module eronder, alleen hoger"""
     mm = list(m); mm[14] = round(z * 100); uit.append([naam, mm]); tel[naam] = tel.get(naam, 0) + 1
 
+rots_rand = []
 # 3. parkeerplaats aan de voet, bij het begin van de wenteltrap (het vak met de helling op hoogte 0)
 start = min((c for c in vak if any(n.startswith('Pad · bocht met helling') and abs(z) < 0.01 for z, n, *_ in vak[c])), default=(-4, -2))
 rij = start[1] - 1
@@ -76,15 +77,58 @@ vrij = lambda c: c not in vak and c not in dekt
 for c in PARK: assert vrij(c), c; erbij('Parkeren · twaalf plekken', *c, 0)
 for c in RIJ: assert vrij(c), c; erbij('Parkeren · rijbaan met stoep', *c, 0)
 
-# 1. de berg
-for c, b in onder.items():
-    z = 0.0
-    while z + 2.99 < b: erbij('Plateau · 3 m', *c, z); z += 3
+# 1. de berg: het terrein van het spel loopt aan de achterkant en de zijkanten als heuvel tegen het fort op (tot 9 m),
+#    aan de voorkant (de kant van de parkeerplaats) blijft het laag: daar is het een rotswand. Onder elk vak van het fort
+#    staat rots (Rots · wand) van net onder het terrein tot onder de module; om het fort heen een rand van losse
+#    rotsblokken (Rots · top) die trapsgewijs in het terrein overgaan. Elke laag in een andere stand (zes draaiingen,
+#    gespiegeld), zodat de wand niet herhaalt.
+import numpy as np
 buren = lambda c: [(c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1), (c[0] + 1, c[1] - 1), (c[0] - 1, c[1] + 1)]
-voet = {n for c in list(vak) + list(dekt) for n in buren(c) if vrij(n) and n not in PARK and n not in RIJ}
-voet -= {n for c in PARK + RIJ for n in buren(c)} - set()   # de parkeerplaats blijft vrij bereikbaar
-voet -= set(buren(start))
-for c in sorted(voet): erbij('Plateau · 3 m', *c, 0)
+FORT = set(vak) | set(dekt)
+laag = {c: min([z for z, n, *_ in vak.get(c, []) if not n.startswith('Toren')] + [z for z, n in dekt.get(c, []) if not n.startswith('Toren')] + [99]) for c in FORT}
+cent = np.mean([mid(*c) for c in FORT], 0); voor = np.mean([mid(*c) for c in PARK], 0) - cent; voor /= np.linalg.norm(voor)
+vrijhouden = set(PARK) | set(RIJ) | {n for c in PARK + RIJ + [start] for n in buren(c)}
+def heuvel(c):
+    d = np.array(mid(*c)) - cent; l = np.linalg.norm(d)
+    achter = 0.0 if l < 1e-6 else float(-(d @ voor) / l)
+    return 9.0 * min(1.0, max(0.0, (achter + 0.45) / 0.9))
+terr = {c: min(heuvel(c), laag[c]) for c in FORT if c not in vrijhouden}
+for ring in range(3):                                       # drie ringen eromheen, telkens 3,5 m lager
+    nieuw = {}
+    for c in list(terr):
+        for n in buren(c):
+            if n in terr or n in FORT or n in vrijhouden: continue
+            h = min(terr[c] - 3.5, heuvel(n))
+            if h > 0.5: nieuw[n] = max(nieuw.get(n, 0), h)
+    terr.update(nieuw)
+terr = {c: round(h * 2) / 2 for c, h in terr.items() if h > 0.4}
+stand = lambda q, r, z: pad_assen((q * 7 + r * 13 + round(z / 3) * 5) % 6, (q + 2 * r + round(z / 3)) % 2 == 1)
+def pad_assen(k, sp):
+    c, s_ = math.cos(math.radians(60 * k)), math.sin(math.radians(60 * k)); a = [-c, -s_, 0] if sp else [c, s_, 0]
+    return [a[0], a[1], 0, -s_, c, 0, 0, 0, 1]
+voet = lambda c: max(0.0, math.floor((terr.get(c, 0) - 1) / 3) * 3)   # de onderste laag zit minstens 1 m in de grond
+for c, b in onder.items():
+    z = voet(c)
+    while z + 2.99 < b: erbij('Rots · wand', *c, z, stand(*c, z)); z += 3
+# losse rotsblokken om het fort: trapsgewijs van het fort naar het terrein. Eerste ring één of twee lagen boven het terrein
+# (nooit hoger dan 3 m onder het fort ernaast), tweede ring hier en daar één laag: zo gaan de blokken in elkaar over.
+hsh = lambda c, k=0: ((c[0] * 73856093) ^ (c[1] * 19349663) ^ (k * 83492791)) % 1000 / 1000
+rand1 = sorted({n for c in FORT for n in buren(c) if n not in FORT and n not in vrijhouden})
+hoogte = {}
+for n in rand1:
+    h = terr.get(n, 0.0); basis = math.floor(h / 3) * 3; boven = min(onder.get(c, 0) for c in buren(n) if c in FORT)
+    lagen = 2 if hsh(n) < 0.45 else 1
+    while lagen and basis + 3 * lagen > boven - 3: lagen -= 1
+    if lagen: hoogte[n] = basis + 3 * lagen
+for n in sorted({m for c in hoogte for m in buren(c) if m not in FORT and m not in hoogte and m not in vrijhouden}):
+    buur = max(hoogte.get(c, 0) for c in buren(n)); h = terr.get(n, 0.0); basis = math.floor(h / 3) * 3
+    if hsh(n, 1) < 0.4 and basis + 3 <= buur - 3: hoogte[n] = basis + 3
+for n, top in sorted(hoogte.items()):
+    z = voet(n)
+    while z + 3 < top - 0.01: erbij('Rots · wand', *n, z, stand(*n, z)); z += 3
+    erbij('Rots · top', *n, z, stand(*n, z)); rots_rand.append(n)
+TERREIN = [[round(mid(*c)[0], 3), round(mid(*c)[1], 3), h] for c, h in sorted(terr.items())]
+print('terrein:', len(TERREIN), 'vakken, hoogste', max(h for *_, h in TERREIN), 'm; rotsrand:', len(rots_rand), 'vakken')
 
 # 2. daken
 for c, lijst in vak.items():
@@ -103,7 +147,8 @@ for p in uit:
     if p[0] == 'Vloer · kuil': p[0] = 'Dak · zeshoek met lichtkoepel'; tel['Dak · zeshoek met lichtkoepel'] = tel.get('Dak · zeshoek met lichtkoepel', 0) + 1
 # 4. de looproute afmaken: hellingen en trappen (bestaande modules) waar de route ophoudt (pad_af.py zoekt, duurt
 #    een paar minuten per stap; het resultaat staat in raatstad-berg-pad.json, opnieuw zoeken met --zoek)
-import sys, pad_af
+import sys, pad_af, looproute
+looproute.TER = dict(terr)
 PF = os.path.join(HERE, 'raatstad-berg-pad.json')
 if '--zoek' in sys.argv or not os.path.exists(PF):
     _, gedaan, nu = pad_af.verbind(uit, len(B['plaatsen']), log=lambda *a: print(*a, flush=True))
@@ -111,5 +156,5 @@ if '--zoek' in sys.argv or not os.path.exists(PF):
 pad = json.load(open(PF)); uit = pad_af.toepassen(uit, pad['gedaan'])
 print('looproute:', len(pad['gedaan']), 'aanpassingen,', round(pad['bereikbaar']), 'm² vloer bereikbaar')
 for g in pad['gedaan']: print('  ', g['wat'])
-json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
-print('bergfort:', len(B['plaatsen']), '+', len(uit) - len(B['plaatsen']), '=', len(uit), 'modules; erbij:', tel, '; begin trap', start, '; voet', len(voet), 'vakken')
+json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit, 'terrein': TERREIN}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
+print('bergfort:', len(B['plaatsen']), '+', len(uit) - len(B['plaatsen']), '=', len(uit), 'modules; erbij:', tel, '; begin trap', start, '; rotsrand', len(rots_rand), 'vakken')

@@ -30,7 +30,7 @@ class Stand:
         s.V = {}
         for i in range(s.lo[0], s.hi[0] + 1):
             for j in range(s.lo[1], s.hi[1] + 1):
-                v = L.vloer(s.vl.get((i, j), []))
+                v = L.vloer(s.vl.get((i, j), []), L.grond(i, j))
                 if v: s.V[(i, j)] = v
     def weg_en_erbij(s, weg, erbij):
         """V na het weghalen van plaatsen 'weg' en het toevoegen van (naam, matrix)-paren 'erbij' (zonder s te veranderen)"""
@@ -41,7 +41,7 @@ class Stand:
         pk |= set(extra)
         for k in pk:
             l = [t for t in s.vl.get(k, []) if t[2] not in weg] + extra.get(k, [])
-            nieuw[k] = L.vloer(l)
+            nieuw[k] = L.vloer(l, L.grond(*k))
         return nieuw
     def score(s, nieuw=None, terug=False):
         V = s.V if nieuw is None else collections.ChainMap(nieuw, s.V)

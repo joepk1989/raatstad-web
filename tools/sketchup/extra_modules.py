@@ -86,6 +86,57 @@ rij.prisma(in_hex(rect(0, 15.59, CY - 3.0, CY + 3.0)), 0.1, 0.12, KL['asfalt'])
 for y in (CY + 3.0, CY - 4.6): rij.prisma(in_hex(rect(0, 15.59, y, y + 1.6)), 0.1, 0.25, KL['stoep'])
 mods.append(rij)
 
+# ---------- rots: lagen van 3 m die naadloos op elkaar en naast elkaar aansluiten ----------
+# De randen boven en onder zijn de rechte zeshoek, de hoeken staan vast: zo past elke laag op elke andere, in elke stand
+# (zes draaiingen, gespiegeld). Alleen binnen in een zijvlak wijken de punten naar binnen af (nooit naar buiten, dus nooit
+# in het buurvak): facetten van driehoeken, in drie tinten steen.
+STEEN = ['8c857a', '7b756b', '9a9387']; GRAS = '6f9a4a'; GRAS2 = '7fa957'
+import random
+def rots_zijkanten(m, rnd):
+    hoek = [hexp(R, k) for k in range(6)]
+    T = [0, 0.22, 0.5, 0.78, 1]; Z = [0, 0.8, 1.55, 2.3, 3.0]
+    for k in range(6):
+        a, b = hoek[k], hoek[(k + 1) % 6]
+        ex, ey = b[0] - a[0], b[1] - a[1]; L = math.hypot(ex, ey); nx, ny = ey / L, -ex / L          # naar buiten
+        P = {}
+        for i, t in enumerate(T):
+            for j, z in enumerate(Z):
+                x, y = a[0] + ex * t, a[1] + ey * t
+                if 0 < i < 4 and 0 < j < 4:
+                    d = rnd.uniform(0.1, 1.3) * (0.55 if i in (1, 3) else 1); x -= nx * d; y -= ny * d; z += rnd.uniform(-0.25, 0.25)
+                P[i, j] = (x, y, z)
+        for i in range(4):
+            for j in range(4):
+                p00, p10, p11, p01 = P[i, j], P[i + 1, j], P[i + 1, j + 1], P[i, j + 1]
+                m.t(rnd.choice(STEEN), p00, p10, p11); m.t(rnd.choice(STEEN), p00, p11, p01)
+def rots_bodem(m):
+    h = [hexp(R, k) for k in range(6)]
+    for i in range(1, 5): m.t(STEEN[1], (*h[0], 0), (*h[i + 1], 0), (*h[i], 0))
+def keitje(m, rnd, cx, cy, z, r, hgt):
+    """een rotsblok: een scheve zeshoekige knobbel van driehoeken"""
+    n = 6; ring = [(cx + r * rnd.uniform(0.75, 1.0) * math.cos(math.radians(60 * i + 30)), cy + r * rnd.uniform(0.75, 1.0) * math.sin(math.radians(60 * i + 30))) for i in range(n)]
+    mid = [(cx + (x - cx) * 0.55, cy + (y - cy) * 0.55, z + hgt * rnd.uniform(0.6, 0.85)) for x, y in ring]
+    top = (cx + rnd.uniform(-0.2, 0.2) * r, cy + rnd.uniform(-0.2, 0.2) * r, z + hgt)
+    for i in range(n):
+        a, b = ring[i], ring[(i + 1) % n]; ma, mb = mid[i], mid[(i + 1) % n]
+        m.t(rnd.choice(STEEN), (*a, z - 0.2), (*b, z - 0.2), mb); m.t(rnd.choice(STEEN), (*a, z - 0.2), mb, ma)
+        m.t(rnd.choice(STEEN), ma, mb, top)
+rw = Mod('Rots · wand', 'Rots'); rnd = random.Random(7)
+rots_zijkanten(rw, rnd); rots_bodem(rw)
+h = [hexp(R, k) for k in range(6)]
+for i in range(1, 5): rw.t(STEEN[2], (*h[0], 3), (*h[i], 3), (*h[i + 1], 3))
+mods.append(rw)
+# de bovenste laag: gras met een paar rotsblokken, de rand blijft op 3 m (sluit aan op een plateau of een pad ernaast)
+rt = Mod('Rots · top', 'Rots'); rnd = random.Random(11)
+rots_zijkanten(rt, rnd); rots_bodem(rt)
+binnen = [(CX + 5.2 * math.cos(math.radians(90 + 60 * k + 30)), CY + 5.2 * math.sin(math.radians(90 + 60 * k + 30)), 3 + rnd.uniform(0.1, 0.4)) for k in range(6)]
+top = (CX, CY, 3.45)
+for k in range(6):
+    a, b = (*h[k], 3), (*h[(k + 1) % 6], 3); ba, bb = binnen[(k - 1) % 6], binnen[k]
+    rt.t(GRAS, a, b, bb); rt.t(GRAS2, a, bb, ba); rt.t(GRAS if k % 2 else GRAS2, ba, bb, top)
+for cx, cy, r, hg in [(CX + 3.2, CY + 1.6, 1.5, 1.6), (CX - 2.6, CY - 2.4, 1.1, 1.1), (CX + 0.4, CY - 4.4, 0.8, 0.7)]: keitje(rt, rnd, cx, cy, 3.25, r, hg)
+mods.append(rt)
+
 # ---------- wegschrijven ----------
 vorm = {m.naam: m.tri for m in mods}
 kaart = []

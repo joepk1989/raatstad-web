@@ -73,7 +73,14 @@
         const rec = { n: F.mods[it.mi].n, q, r, y: +(st.base + it.h + st.dh).toFixed(3) }; if (A.some((v, i) => Math.abs(v - ID[i]) > 1e-4)) rec.a = A.map(v => +v.toFixed(5)); if (Math.abs(o[0]) + Math.abs(o[1]) > 0.005) rec.o = o;
         cells.skp.push(rec); n++;
       }
-      st.batches.push(n); build(); changed(); toast(st.naam + ' neergezet' + (n > 1 ? ' (' + n + ' modules)' : ''), 1400);
+      // het terrein dat bij een fort hoort (heuvel tegen de berg): alleen ophogen, de oude hoogtes bewaren voor Backspace
+      const oud = [], nieuw = [];
+      for (const t of st.terr) {
+        const d = rot([t.d[0], t.d[1], 0, 0, 0, 0, 0, 0, 0], st.k), [q, r] = worldToCell(ax + d[0], -(ay + d[1])), h0 = gH(q, r), h = st.base + st.dh + t.h;
+        if (h > h0 + 0.01) { oud.push([q, r, h0]); nieuw.push([q, r, h]); }
+      }
+      if (nieuw.length) { terrSet(nieuw); terrFlush(); }
+      st.batches.push({ n, terr: oud }); build(); changed(); toast(st.naam + ' neergezet' + (n > 1 ? ' (' + n + ' modules)' : '') + (nieuw.length ? ', terrein opgehoogd' : ''), 1400);
     }
     function remove(cx, cy) {
       const ndc = new THREE.Vector2(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1), ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
@@ -83,13 +90,15 @@
     function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<small>klik = neerzetten (bovenop wat onder de muis staat) · R = draaien · Page Up/Down = hoger/lager · Shift+klik = weghalen · Backspace = terug · Esc = klaar</small>`; }
     function start(opt) {
       if (mode === 'walk') { document.getElementById('modeBtn').click(); }
-      st.items = []; st.k = 0; st.dh = 0;
+      st.items = []; st.terr = []; st.k = 0; st.dh = 0;
       if (opt.fort !== undefined) {
         // een heel voorbeeld: elke module met zijn plek ten opzichte van de module die het dichtst bij het midden staat
         const P = F.forten[opt.fort].p.map(p => { const mi = p[0], c = F.mods[mi].c, A = p.slice(1, 10), t = p.slice(10, 13).map(v => v / 100), cx = c[0] / 100, cy = c[1] / 100; return { mi, a: A, m: [t[0] + A[0] * cx + A[3] * cy, t[1] + A[1] * cx + A[4] * cy, t[2] + A[2] * cx + A[5] * cy] }; });
         const gx = P.reduce((s, p) => s + p.m[0], 0) / P.length, gy = P.reduce((s, p) => s + p.m[1], 0) / P.length;
         const mid = P.reduce((b, p) => Math.hypot(p.m[0] - gx, p.m[1] - gy) < Math.hypot(b.m[0] - gx, b.m[1] - gy) ? p : b, P[0]).m;
+        { const [q, r] = worldToCell(mid[0], -mid[1]), [x, y] = suMid(q, r); mid[0] = x; mid[1] = y; }   // precies op het midden van een vak (ook het terrein)
         st.items = P.map(p => ({ mi: p.mi, a: p.a, d: [p.m[0] - mid[0], p.m[1] - mid[1]], h: p.m[2] })); st.naam = F.forten[opt.fort].naam;
+        st.terr = (F.forten[opt.fort].t || []).map(([x, y, h]) => ({ d: [x - mid[0], y - mid[1]], h }));
       } else { st.items = [{ mi: idx.get(opt.naam), a: ID, d: [0, 0], h: 0 }]; st.naam = opt.naam; }
       st.on = true; buildGhost(); setHint(); hint.hidden = false;
     }
@@ -109,15 +118,18 @@
         const P = [x + o[0] - sx, y + o[1] - sy, rec.y - y0];
         p.push([mi, ...A.map(v => +v.toFixed(5)), ...[P[0] - (A[0] * cx + A[3] * cy), P[1] - (A[1] * cx + A[4] * cy), P[2] - (A[2] * cx + A[5] * cy)].map(v => Math.round(v * 100))]);
       }
+      // het terrein onder en rond het fort (tot drie vakken eromheen) gaat mee
+      const t = [], vk = new Set(L.map(r => r.q + ',' + r.r));
+      if (cells.terr) for (const k in cells.terr) { const [q, r] = k.split(',').map(Number); let dicht = false; for (const v of vk) { const [a, b] = v.split(',').map(Number); if (Math.max(Math.abs(q - a), Math.abs(r - b), Math.abs(q + r - a - b)) <= 3) { dicht = true; break; } } if (dicht && cells.terr[k] - y0 > 0.2) { const [x, y] = suMid(q, r); t.push([+(x - sx).toFixed(3), +(y - sy).toFixed(3), +(cells.terr[k] - y0).toFixed(2)]); } }
       let fi = F.forten.findIndex(f => f.naam === naam);
-      const f = { naam, p, eigen: true };
+      const f = { naam, p, t, eigen: true };
       if (fi < 0) { F.forten.push(f); fi = F.forten.length - 1; } else F.forten[fi] = f;
       try { localStorage.setItem(EIGEN, JSON.stringify(F.forten.filter(x => x.eigen))); } catch (e) { }
       return fi;
     }
     function download(fi) {
       const f = F.forten[fi], plaatsen = f.p.map(p => [F.mods[p[0]].n, [p[1], p[2], p[3], 0, p[4], p[5], p[6], 0, p[7], p[8], p[9], 0, p[10], p[11], p[12], 1]]);
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ bestand: 'webversie: ' + f.naam, plaatsen })], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ bestand: 'webversie: ' + f.naam, plaatsen, terrein: f.t || [] })], { type: 'application/json' }));
       a.download = 'raatstad-' + f.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
     function stop() { st.on = false; ghost.visible = false; hint.hidden = true; }
@@ -134,7 +146,7 @@
       if (k === 'Escape') stop();
       else if (k === 'KeyR') { st.k = (st.k + (e.shiftKey ? 5 : 1)) % 6; buildGhost(); setHint(); }
       else if (k === 'PageUp' || k === 'PageDown') { st.dh += k === 'PageUp' ? 3 : -3; buildGhost(); setHint(); }
-      else if (k === 'Backspace') { const n = st.batches.pop(); if (n && cells.skp) { cells.skp.splice(cells.skp.length - n, n); build(); changed(); toast('Teruggezet', 900); } }
+      else if (k === 'Backspace') { const b = st.batches.pop(); if (b && cells.skp) { cells.skp.splice(cells.skp.length - b.n, b.n); if (b.terr.length) { terrSet(b.terr); terrFlush(); } build(); changed(); toast('Teruggezet', 900); } }
       else used = false;
       if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);

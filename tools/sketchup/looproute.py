@@ -30,15 +30,19 @@ def bijdrage(n, m, pi, uit=None):
     return uit
 
 def raster(fn):
-    P = json.load(open(os.path.join(HERE, fn)))['plaatsen'] if isinstance(fn, str) else fn
+    global TER
+    if isinstance(fn, str):
+        J = json.load(open(os.path.join(HERE, fn))); P = J['plaatsen']
+        TER = {G.cell(x, y): h for x, y, h in J.get('terrein', [])}
+    else: P = fn
     vl = collections.defaultdict(list)
     for pi, (n, m) in enumerate(P): bijdrage(n, m, pi, vl)
     return P, vl
 
-def vloer(L):
+def vloer(L, g=0.0):
     """de vloeren op één rasterpunt, uit alle vlakken daar"""
     L = sorted(L); uit = []
-    for z, pi in [(0.0, -1)] + [(z, pi) for z, lp, pi, _ in L if lp]:   # het maaiveld (z = 0) is er overal
+    for z, pi in [(g, -1)] + [(z, pi) for z, lp, pi, _ in L if lp]:   # het maaiveld (hoogte g, het terrein van het spel) is er overal
         # het eerste vlak boven je: is dat een bovenkant, dan sta je binnen in een blok; een onderkant (plafond)
         # moet minstens 2 m hoger zijn. Vlakken die vrijwel samenvallen met de vloer tellen niet (dubbele vlakken).
         boven = [(zz, o) for zz, _, _, o in L if zz > z + 0.08]
@@ -49,13 +53,15 @@ def vloer(L):
         uit.append((z, pi))
     return uit
 
+TER = {}   # terrein van het spel: vak -> hoogte (uit de JSON, 'terrein')
+def grond(i, j): return TER.get(G.cell(i * S, j * S), 0.0) if TER else 0.0
 def vloeren(P, vl, rand=6):
     """per rasterpunt de vloeren waar je kunt staan: z, en het nummer van de module"""
     ks = np.array(list(vl.keys())); i0, j0 = ks.min(0) - int(rand / S); i1, j1 = ks.max(0) + int(rand / S)
     V = {}
     for i in range(i0, i1 + 1):
         for j in range(j0, j1 + 1):
-            uit = vloer(vl.get((i, j), []))
+            uit = vloer(vl.get((i, j), []), grond(i, j))
             if uit: V[(i, j)] = uit
     return V
 
