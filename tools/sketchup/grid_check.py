@@ -57,6 +57,7 @@ def check(fn):
         for b in range(a + 1, len(info)):
             A, B = info[a], info[b]
             if min(A['z1'], B['z1']) - max(A['z0'], B['z0']) < 0.2: continue
+            if A['n'].startswith('Rots') and B['n'].startswith('Rots'): continue   # rots in rots: de schuine voet mag in de buurrots steken
             if math.hypot(A['q'] - B['q'], A['r'] - B['r']) > 2.5: continue
             o = len(vlak(A) & vlak(B)) * S * S
             if o > 12: paren.append((round(o, 1), A['n'], (A['q'], A['r'], round(A['z0'], 1)), B['n'], (B['q'], B['r'], round(B['z0'], 1))))   # minder is alleen de gedeelde rand van twee buurvakken

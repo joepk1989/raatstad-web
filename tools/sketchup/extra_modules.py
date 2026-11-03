@@ -128,6 +128,45 @@ rots_zijkanten(rw, rnd); rots_bodem(rw)
 h = [hexp(R, k) for k in range(6)]
 for i in range(1, 5): rw.t(STEEN[2], (*h[0], 3), (*h[i], 3), (*h[i + 1], 3))
 mods.append(rw)
+# schuine rotswand: een laag van 3 m waarvan drie aaneengesloten zijden (zijde 0, 1 en 2: de buitenkant) naar onderen
+# naar buiten lopen, helling 65°: per laag 1,4 m. Laag n staat bovenaan n × 1,4 m en onderaan (n + 1) × 1,4 m buiten het
+# vak; de andere drie zijden blijven recht (de kant van het fort). Gestapeld van n = 0 (bovenaan, precies het vak) naar
+# beneden, allemaal in dezelfde stand, sluiten de randen precies op elkaar aan.
+LOOP = 3 / math.tan(math.radians(65)); BUITEN = (0, 1, 2)
+def rand_veelhoek(e):
+    """de zeshoek van het vak met zijde k e[k] meter naar buiten geschoven (snijpunten van de verschoven zijden)"""
+    lijnen = []
+    for k in range(6):
+        a, b = hexp(R, k), hexp(R, k + 1); ex, ey = b[0] - a[0], b[1] - a[1]; L = math.hypot(ex, ey); nx, ny = ey / L, -ex / L
+        lijnen.append(((a[0] + nx * e[k], a[1] + ny * e[k]), (ex / L, ey / L)))
+    pts = []
+    for k in range(6):                                       # hoekpunt k+1 = snijpunt van zijde k en zijde k+1
+        (p1, d1), (p2, d2) = lijnen[k], lijnen[(k + 1) % 6]
+        den = d1[0] * d2[1] - d1[1] * d2[0]; t = ((p2[0] - p1[0]) * d2[1] - (p2[1] - p1[1]) * d2[0]) / den
+        pts.append((p1[0] + d1[0] * t, p1[1] + d1[1] * t))
+    return [pts[-1]] + pts[:-1]                              # zo dat punt k het begin van zijde k is
+def schuin(n):
+    m = Mod(f'Rots · schuin {n + 1}', 'Rots'); rnd = random.Random(100 + n)
+    eb = [(n + 1) * LOOP if k in BUITEN else 0 for k in range(6)]; et = [n * LOOP if k in BUITEN else 0 for k in range(6)]
+    Pb, Pt = rand_veelhoek(eb), rand_veelhoek(et)
+    T = [i / 6 for i in range(7)]
+    for k in range(6):
+        P = {}; ruw = k in BUITEN
+        for j, z in enumerate([0, 1.0, 2.0, 3.0]):
+            f = z / 3; a = [Pb[k][c] + (Pt[k][c] - Pb[k][c]) * f for c in (0, 1)]; b = [Pb[(k + 1) % 6][c] + (Pt[(k + 1) % 6][c] - Pb[(k + 1) % 6][c]) * f for c in (0, 1)]
+            ex, ey = b[0] - a[0], b[1] - a[1]; L = math.hypot(ex, ey); nx, ny = ey / L, -ex / L
+            for i, t in enumerate(T):
+                x, y, zz = a[0] + ex * t, a[1] + ey * t, z
+                if ruw and 0 < i < 6 and 0 < j < 3: d = rnd.uniform(0.0, 0.35); x -= nx * d; y -= ny * d; zz += rnd.uniform(-0.2, 0.2)
+                P[i, j] = (x, y, zz)
+        tint = [rnd.choice(STEEN) for _ in range(6)]
+        for i in range(6):
+            for j in range(3):
+                p00, p10, p11, p01 = P[i, j], P[i + 1, j], P[i + 1, j + 1], P[i, j + 1]
+                m.t(tint[i], p00, p10, p11); m.t(tint[i], p00, p11, p01)
+    for i in range(1, 5): m.t(STEEN[1], (*Pb[0], 0), (*Pb[i + 1], 0), (*Pb[i], 0)); m.t(STEEN[2], (*Pt[0], 3), (*Pt[i], 3), (*Pt[i + 1], 3))
+    return m
+for n in range(6): mods.append(schuin(n))
 # de bovenste laag: gras met een paar rotsblokken, de rand blijft op 3 m (sluit aan op een plateau of een pad ernaast)
 rt = Mod('Rots · top', 'Rots'); rnd = random.Random(11)
 rots_zijkanten(rt, rnd); rots_bodem(rt)
