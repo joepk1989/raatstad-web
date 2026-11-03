@@ -5,14 +5,21 @@
   const kiesHL = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#f2b233', transparent: true, opacity: 0.95, depthTest: false }));
   kiesHL.renderOrder = 7; kiesHL.frustumCulled = false; kiesHL.visible = false; kiesHL.userData.noOcc = true; scene.add(kiesHL);
   const kiesMod = I => modules.find(m => m.id === I.mid) || null;
+  // een SketchUp-module (bergfort e.d., 15j3) telt als die dichterbij is dan wat de gewone keuze raakt
+  function kiesSkp(cx, cy, res) {
+    const h = skpBouw.raak(cx, cy); if (!h) return null;
+    if (res && res.point && camera.position.distanceTo(res.point) < h.d - 0.05) return null;
+    return { kind: 'skp', i: h.i };
+  }
   function kiesTarget(res) {
     if (!res) return null;
     if (res.inst && cells.inst && cells.inst.includes(res.inst)) return { kind: 'mod', I: res.inst };
     if (res.erase && !res.inst) { const st = stackOf(res.erase[0], res.erase[1]); if (st.length) return { kind: 'blok', q: res.erase[0], r: res.erase[1] }; }
     return null;
   }
-  const kiesKey = T => !T ? '' : T.kind === 'mod' ? 'm' + cells.inst.indexOf(T.I) + ':' + T.I.rot + ':' + !!T.I.mir + ':' + T.I.mid : 'b' + T.q + ',' + T.r + ':' + stackOf(T.q, T.r).length;
+  const kiesKey = T => !T ? '' : T.kind === 'skp' ? 's' + T.i + ':' + JSON.stringify(cells.skp[T.i] || {}) : T.kind === 'mod' ? 'm' + cells.inst.indexOf(T.I) + ':' + T.I.rot + ':' + !!T.I.mir + ':' + T.I.mid : 'b' + T.q + ',' + T.r + ':' + stackOf(T.q, T.r).length;
   function kiesPrisms(T) {   // per vak: [q, r, onder, boven]
+    if (T.kind === 'skp') { const rec = cells.skp[T.i]; return rec ? [[rec.q, rec.r, rec.y + 0.05, (skpBouw.top(T.i) ?? rec.y + 3) + 0.05]] : []; }
     if (T.kind === 'mod') {
       const I = T.I, M = modMeta(I.m), area = I.m.v === 2 ? mv2Area(I) : Number.isInteger(I.q) && Number.isInteger(I.r) ? instArea(I) : [];
       const base = (Number.isInteger(I.q) && Number.isInteger(I.r) ? gH(I.q, I.r) : 0) + (I.lv || 0) * MV2.LV_H, top = base + Math.max(1, M.fl) * MV2.LV_H + (M.top === 'kap' ? 2.5 : 0.3);
@@ -33,7 +40,7 @@
     }
     kiesHL.geometry.dispose(); kiesHL.geometry = new THREE.BufferGeometry(); kiesHL.geometry.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); kiesHL.visible = P.length > 0;
   }
-  const kiesName = T => T.kind === 'mod' ? (T.I.m.name || 'Module') : ((TY(stackOf(T.q, T.r).slice(-1)[0]) || {}).name || 'Blok');
+  const kiesName = T => T.kind === 'skp' ? ((cells.skp[T.i] || {}).n || 'Module') : T.kind === 'mod' ? (T.I.m.name || 'Module') : ((TY(stackOf(T.q, T.r).slice(-1)[0]) || {}).name || 'Blok');
   function kiesTipAt(T, cx, cy) {
     if (!KIES.tip) { KIES.tip = document.createElement('div'); KIES.tip.className = 'kies-tip'; KIES.tip.setAttribute('aria-hidden', 'true'); document.body.appendChild(KIES.tip); }
     if (!T || KIES.menu) { KIES.tip.hidden = true; return; }
@@ -44,11 +51,11 @@
   // hover (vanuit updateGhost)
   function kiesHover(cx, cy) {
     if (KIES.menu) { kiesShow(KIES.T); if (KIES.tip) KIES.tip.hidden = true; return; }
-    const T = kiesTarget(pick(cx, cy, true)); kiesShow(T); kiesTipAt(T, cx, cy);
+    const res = pick(cx, cy, true), T = kiesSkp(cx, cy, res) || kiesTarget(res); kiesShow(T); kiesTipAt(T, cx, cy);
   }
   // klik (vanuit handleTap)
   function kiesTap(cx, cy) {
-    const T = kiesTarget(pick(cx, cy, true));
+    const res = pick(cx, cy, true), T = kiesSkp(cx, cy, res) || kiesTarget(res);
     if (!T) { kiesClose(); kiesShow(null); toast('Wijs een module of blok aan', 1200); return; }
     kiesOpen(T, cx, cy);
   }
@@ -83,7 +90,11 @@
     const btn = (a, label, title, wide, danger) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.a = a; b.title = title || label; if (wide) b.classList.add('wide'); if (danger) b.classList.add('danger'); b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (KIES_ICON[a] || '') + '</svg>'; const s = document.createElement('span'); s.textContent = label; b.appendChild(s); grid.appendChild(b); return b; };
     const render = () => {
       grid.innerHTML = ''; const T2 = KIES.T; ttl.textContent = kiesName(T2);
-      if (T2.kind === 'mod') {
+      if (T2.kind === 'skp') {
+        const rec = cells.skp[T2.i]; sub.textContent = 'SketchUp-module · op ' + String(+rec.y.toFixed(1)).replace('.', ',') + ' m';
+        btn('l', 'Draai links', 'Een zesde slag linksom (60°)'); btn('r', 'Draai rechts', 'Een zesde slag rechtsom (60°)');
+        btn('p', 'Meer hiervan', 'Deze module (met deze draaiing) in je hand nemen om er meer van te bouwen'); btn('x', 'Weghalen', 'Deze module weghalen', false, true);
+      } else if (T2.kind === 'mod') {
         const I = T2.I, M = modMeta(I.m), mod = kiesMod(I), v2 = I.m.v === 2, n = mod ? instOf(mod).length : 1;
         sub.textContent = [I.lv ? 'laag ' + I.lv : 'op de grond', M.fl ? M.fl + (M.fl === 1 ? ' laag' : ' lagen') : null, M.k ? '7 vakken' : null, ((I.rot || 0) % 6) * 60 + '°', I.mir ? 'gespiegeld' : null].filter(Boolean).join(' · ');
         if (v2) { btn('l', 'Draai links', 'Een zesde slag linksom (60°)'); btn('r', 'Draai rechts', 'Een zesde slag rechtsom (60°)'); btn('m', I.mir ? 'Niet spiegelen' : 'Spiegelen', 'In spiegelbeeld'); }
@@ -100,6 +111,13 @@
     };
     grid.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a, T2 = KIES.T;
+      if (T2.kind === 'skp') {
+        const rec = cells.skp[T2.i]; if (!rec) { kiesClose(); kiesShow(null); return; }
+        if (a === 'l' || a === 'r') { skpBouw.draai(T2.i, a === 'l' ? 1 : 5); toast('Gedraaid', 700); }
+        else if (a === 'p') { kiesClose(); kiesShow(null); skpBouw.start({ naam: rec.n, a: rec.a }); return; }
+        else if (a === 'x') { skpBouw.weg(T2.i); kiesClose(); kiesShow(null); toast('"' + rec.n + '" weggehaald', 1200); return; }
+        render(); kiesShow(KIES.T); return;
+      }
       if (T2.kind === 'mod') {
         const I = T2.I, mod = kiesMod(I);
         if (a === 'l' || a === 'r') { const J = kiesReplace(I, { rot: ((I.rot || 0) + (a === 'l' ? 1 : 5)) % 6 }); if (J !== I) { T2.I = J; toast('Gedraaid', 700); } }

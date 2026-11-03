@@ -360,11 +360,18 @@
     return { place: cell, erase: [q, r], point: h.point };
   }
   // Rechtermuisknop: haalt de bovenste laag weg, welk blok er ook gekozen is
+  // een SketchUp-module (bergfort e.d., 15j3) weghalen als die vóór wat de gewone keuze raakt ligt
+  function skpWegAt(cx, cy, res) {
+    const h = skpBouw.raak(cx, cy); if (!h) return false;
+    if (res && res.point && camera.position.distanceTo(res.point) < h.d - 0.05) return false;
+    const n = (cells.skp[h.i] || {}).n; skpBouw.weg(h.i); toast('"' + n + '" weggehaald', 1000); return true;
+  }
   function eraseAt(cx, cy) {
     if (flyCam.on) return;   // cameramodus: niets bouwen of slopen
     if (vecChain.on) { vecChainEnd(); return; }   // rechts klikken stopt de weg-klikmodus
     if (spoor.chain.on) { spoor.end(); updateGhost(cx, cy); return; }
     const res = pick(cx, cy, true);   // ook met een ander gereedschap in de hand moet een module te raken zijn
+    if (skpWegAt(cx, cy, res)) { updateGhost(cx, cy); return; }
     if (res && eraseModuleAt(res)) { updateGhost(cx, cy); return; }
     if (res && eraseEdgeAt(res)) { updateGhost(cx, cy); return; }
     if (res && (erasePathAt(res) || eraseTriAt(res))) { updateGhost(cx, cy); return; }
@@ -387,7 +394,7 @@
       toast('Tik nog eens op dit vak om te plaatsen · Draai om te draaien', 2600);
       return;
     }
-    if (tool === 'gum') { if (!eraseEdgeAt(res) && !erasePathAt(res) && !eraseTriAt(res) && !spoor.eraseAt(res.point) && res.erase) removeTop(res.erase[0], res.erase[1]); }
+    if (tool === 'gum') { if (skpWegAt(cx, cy, res)) return; if (!eraseEdgeAt(res) && !erasePathAt(res) && !eraseTriAt(res) && !spoor.eraseAt(res.point) && res.erase) removeTop(res.erase[0], res.erase[1]); }
     else place(res.place[0], res.place[1]);
     updateGhost(cx, cy);
   }

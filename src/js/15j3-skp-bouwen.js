@@ -114,7 +114,7 @@
         { const [q, r] = worldToCell(mid[0], -mid[1]), [x, y] = suMid(q, r); mid[0] = x; mid[1] = y; }   // precies op het midden van een vak (ook het terrein)
         st.items = P.map(p => ({ mi: p.mi, a: p.a, d: [p.m[0] - mid[0], p.m[1] - mid[1]], h: p.m[2] })); st.naam = F.forten[opt.fort].naam;
         st.terr = (F.forten[opt.fort].t || []).map(([x, y, h]) => ({ d: [x - mid[0], y - mid[1]], h }));
-      } else { st.items = [{ mi: idx.get(opt.naam), a: ID, d: [0, 0], h: 0 }]; st.naam = opt.naam; }
+      } else { st.items = [{ mi: idx.get(opt.naam), a: opt.a || ID, d: [0, 0], h: 0 }]; st.naam = opt.naam; }
       st.on = true; buildGhost(); setHint(); hint.hidden = false;
     }
     // ---------- de SketchUp-modules in de stad bewaren als fort (eigen versie van het bergfort) ----------
@@ -165,6 +165,19 @@
       else used = false;
       if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
-    return { build, start, stop, alsFort, download, get on() { return st.on; }, get aantal() { return ((cells && cells.skp) || []).length; } };
+    // ---------- aanwijzen (gereedschap Aanwijzen, 15g): een module van een fort in de stad draaien, weghalen of meer van bouwen ----------
+    function raak(cx, cy) {
+      const v = new THREE.Vector2(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1), rc = new THREE.Raycaster(); rc.setFromCamera(v, camera);
+      const h = rc.intersectObjects(group.children)[0]; if (!h) return null; const i = recVan(h); return i < 0 ? null : { i, d: h.distance };
+    }
+    function draai(i, k) {
+      const rec = cells.skp[i]; if (!rec) return;
+      const A = rot(rec.a || ID, k); if (A.some((v, j) => Math.abs(v - ID[j]) > 1e-4)) rec.a = A.map(v => +v.toFixed(5)); else delete rec.a;
+      if (rec.o) { const o = rot([rec.o[0], rec.o[1], 0, 0, 0, 0, 0, 0, 0], k); rec.o = [+o[0].toFixed(3), +o[1].toFixed(3)]; }
+      build(); changed();
+    }
+    function weg(i) { if (!cells.skp[i]) return; cells.skp.splice(i, 1); build(); changed(); }
+    const top = i => tops[i];
+    return { build, start, stop, alsFort, download, raak, draai, weg, top, get on() { return st.on; }, get aantal() { return ((cells && cells.skp) || []).length; } };
   })();
   window.__skpBouw = skpBouw;   // voor de visuele tests
