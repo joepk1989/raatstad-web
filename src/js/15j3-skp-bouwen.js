@@ -51,7 +51,7 @@
     const st = { on: false, items: [], k: 0, dh: 0, naam: '', cell: null, base: 0, down: null, batches: [] };
     const ghost = new THREE.Group(); ghost.visible = false; scene.add(ghost);
     const hint = document.createElement('div'); hint.className = 'skp-hint'; hint.hidden = true; document.body.appendChild(hint);
-    const css = document.createElement('style'); css.textContent = '.skp-hint{position:fixed;left:50%;bottom:calc(var(--base,0px) + 96px);transform:translateX(-50%);z-index:40;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 14px;color:var(--ink);font:600 13px var(--font-ui);box-shadow:0 4px 18px rgba(0,0,0,.35);text-align:center;max-width:92vw}.skp-hint b{color:var(--signal)}.skp-hint small{display:block;color:var(--ink-dim);font-weight:600;margin-top:2px}'; document.head.appendChild(css);
+    const css = document.createElement('style'); css.textContent = '.skp-hint{position:fixed;left:50%;top:112px;transform:translateX(-50%);z-index:60;background:#141a21;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px 16px;color:#f2f4f1;font:600 15px/1.35 var(--font-ui,system-ui,sans-serif);box-shadow:0 6px 24px rgba(0,0,0,.45);text-align:center;max-width:min(760px,calc(100vw - 32px))}.skp-hint b{color:#ffb547}.skp-hint .k{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;margin-top:6px;font-weight:500;font-size:13px;color:#d4dbd6}.skp-hint kbd{display:inline-block;min-width:18px;padding:1px 6px;margin-right:4px;border-radius:5px;background:#2b343e;border:1px solid rgba(255,255,255,.22);color:#fff;font:700 12px/1.4 var(--font-ui,system-ui,sans-serif)}@media (max-width:760px){.skp-hint{top:auto;bottom:calc(var(--base,0px) + 150px)}}'; document.head.appendChild(css);
     function buildGhost() {
       while (ghost.children.length) ghost.remove(ghost.children[0]);
       for (const it of st.items) { const A = rot(it.a, st.k), d = rot([it.d[0], it.d[1], 0, 0, 0, 0, 0, 0, 0], st.k); const me = new THREE.Mesh(worldGeo(it.mi), ghostMat); me.matrixAutoUpdate = false; matrix(it.mi, A, [d[0], d[1], it.h + st.dh], me.matrix); me.matrixWorldNeedsUpdate = true; ghost.add(me); }
@@ -102,7 +102,7 @@
       const hit = ray.intersectObjects(group.children)[0]; if (!hit) return toast('Hier staat geen SketchUp-module', 1200);
       const i = recVan(hit); if (i < 0) return; const n = cells.skp[i].n; cells.skp.splice(i, 1); build(); changed(); toast(n + ' weggehaald', 1200);
     }
-    function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<small>klik = neerzetten (bovenop wat onder de muis staat) · R = draaien · Page Up/Down = hoger/lager · Shift+klik = weghalen · Backspace = terug · Esc = klaar</small>`; }
+    function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<div class="k"><span><kbd>klik</kbd>neerzetten (bovenop wat onder de muis staat)</span><span><kbd>R</kbd>draaien</span><span><kbd>Page Up/Down</kbd>hoger/lager</span><span><kbd>Shift</kbd>+klik weghalen</span><span><kbd>Backspace</kbd>terug</span><span><kbd>Esc</kbd>klaar</span></div>`; }
     function start(opt) {
       if (mode === 'walk') { document.getElementById('modeBtn').click(); }
       st.items = []; st.terr = []; st.k = 0; st.dh = 0;
