@@ -102,7 +102,7 @@ cent = np.mean([mid(*c) for c in FORT], 0); voor = np.mean([mid(*c) for c in PAR
 vrijhouden = set(PARK) | set(RIJ) | set(OPRIT) | {n for c in PARK + RIJ + OPRIT + [start] for n in buren(c) if n not in FORT or n in OPRIT}
 def heuvel(c):
     d = np.array(mid(*c)) - cent; l = np.linalg.norm(d)
-    achter = 0.0 if l < 1e-6 else float(-(d @ voor) / l)
+    achter = 0.0 if l < 1e-6 else float((d @ voor) / l)   # de heuvel ligt aan de kant van de oprit, de klif aan de andere kant
     return min(28.0, 9.0 + HOGER) * min(1.0, max(0.0, (achter + 0.45) / 0.9))
 terr = {c: min(heuvel(c), laag[c]) for c in FORT if c not in vrijhouden}
 for ring in range(3):                                       # drie ringen eromheen, telkens 3,5 m lager
@@ -143,16 +143,16 @@ for c, b in onder.items():
         zz = z + 3 * i; k = lagen - 1 - i                        # k = 0: de bovenste laag (precies het vak)
         if rk is not None: erbij(f'Rots · schuin {min(k, 9) + 1}', *c, zz, pad_assen(rk, False)); schuin_tel += 1
         else: erbij('Rots · wand', *c, zz, stand(*c, zz))
-# rotsrand om het fort: de wand gaat steil vanaf de rand van het fort naar beneden (de rots onder het fort zelf); alleen
-# aan de voet hier en daar een los rotsblok van één laag (soms twee) boven het terrein, als puin onder de klif.
+# losse rotsen bij het plateau: hier en daar naast de rand van het fort een rotspilaar die tot 3 m (soms 6 m) onder de
+# rand reikt, met gras en rotsblokken erop; daaronder loopt de schuine rotswand gewoon door.
 hsh = lambda c, k=0: ((c[0] * 73856093) ^ (c[1] * 19349663) ^ (k * 83492791)) % 1000 / 1000
 rand1 = sorted({n for c in FORT for n in buren(c) if n not in FORT and n not in vrijhouden})
 hoogte = {}
 for n in rand1:
     if hsh(n) > 0.45: continue
     h = terr.get(n, 0.0); basis = math.floor(h / 3) * 3; boven = min(onder.get(c, 0) for c in buren(n) if c in FORT)
-    top = basis + (6 if hsh(n, 2) < 0.25 else 3)
-    if top <= boven - 6: hoogte[n] = top
+    top = boven - (6 if hsh(n, 2) < 0.3 else 3)
+    if top >= basis + 3: hoogte[n] = top
 for n, top in sorted(hoogte.items()):
     z = voet(n)
     while z + 3 < top - 0.01: erbij('Rots · wand', *n, z, stand(*n, z)); z += 3
