@@ -28,7 +28,7 @@
     const wellI = F >= 3 ? (o.wellAt ?? cells.reduce((bi, C, i) => (C.c[0] > cells[bi].c[0] ? i : bi), 0))   /* de unit tegenover de trap in de hal */ : -1;
     // vrije stukken in de pui (4 ribben per zijde): niet waar een trap begint of uitkomt
     const segMid = (C, s, i) => { const a0 = (30 + 60 * s) * Math.PI / 180, a1 = (90 + 60 * s) * Math.PI / 180, p0 = [C.c[0] + 9 * Math.cos(a0), C.c[1] + 9 * Math.sin(a0)], p1 = [C.c[0] + 9 * Math.cos(a1), C.c[1] + 9 * Math.sin(a1)], f = (i + 0.5) / 4; return [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f]; };
-    const local = (S, x, z) => { const D = MV2.DIR6[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l; return [(x - a[0]) * ux + (z - a[1]) * uz, (x - a[0]) * -uz + (z - a[1]) * ux - (S.off || 0)]; };
+    const local = (S, x, z) => { const D = MV2.DIR12[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l; return [(x - a[0]) * ux + (z - a[1]) * uz, (x - a[0]) * -uz + (z - a[1]) * ux - (S.off || 0)]; };
     const blocked = (li, x, z) => { if (F >= 2) { const [al, lat] = local(SA, x, z), len = SA.n * ts; if (Math.abs(lat) < SA.w / 2 + 0.7) { if (li === 0 && al > -0.5 && al < len + 0.4) return true; if (li === 1 && al > 0.3 * len - 0.4 && al < len + 0.4) return true; } } return false; };
     const openFront = (li, C, st, want, pref) => { const free = [0, 1, 2, 3].filter(i => !blocked(li, ...segMid(C, st, i))); let pick = pref.filter(i => free.includes(i)); if (pick.length < want) pick = [...pick, ...[3, 0, 2, 1].filter(i => free.includes(i) && !pick.includes(i))].slice(0, want); return pick.map(i => ['open', i]); };
     // hal: begane grond vol, daarboven per laag een galerij (band van 1,95 m) met balustrade
@@ -247,7 +247,7 @@
     m.lv.forEach((L, li) => { const S = [...(L.s || []).map(s => [s, 0]), ...((m.lv[li - 1] || {}).s || []).map(s => [s, 1])]; if (!S.length || !L.o.length) return;
       L.o = L.o.filter(o => !S.some(([St, up]) => { if (St.k === 'hexramp' || St.k === 'trib') return false; const a = mv2P(St.a[0], St.a[1], ts);
         if (St.k === 'spiral') return Math.hypot(o.x - a[0], o.z - a[1]) < 3.1;
-        const D = MV2.DIR6[St.d] || MV2.DIR6[0], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl, len = (St.n || 1) * ts, w = St.w || 1.2, off = St.off || 0;
+        const D = MV2.DIR12[St.d] || MV2.DIR6[0], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl, len = (St.n || 1) * ts, w = St.w || 1.2, off = St.off || 0;
         const cx = o.x - a[0], cz = o.z - a[1], al = cx * ux + cz * uz, lat = cx * -uz + cz * ux - off, wide = St.k === 'u' ? (St.side || 1) * w : 0, lo = Math.min(0, wide) - w / 2 - 0.9, hi = Math.max(0, wide) + w / 2 + 0.9;
         return lat > lo && lat < hi && (up ? al > 0.2 * len && al < len + 2.2 : al > -2.0 && al < len + 0.5); })); });
   }

@@ -53,12 +53,12 @@
       // gat in de vloer van verdieping li boven een trap (zodat je er niet met je hoofd tegenaan loopt)
       hole(li, S) {
         if (S.k === 'spiral') {   // wenteltrap: de vloer erboven weg, behalve het stuk waar je op de verdieping uitstapt
-          const L = lv(li), D = MV2.DIR6[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz, dx), sd = S.side || 1;
+          const L = lv(li), D = MV2.DIR12[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz, dx), sd = S.side || 1;
           for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), cx = (v[0][0] + v[1][0] + v[2][0]) / 3 - a[0], cz = (v[0][1] + v[1][1] + v[2][1]) / 3 - a[1];
             if (Math.hypot(cx, cz) > 2.15) continue; const ph = ((sd * (Math.atan2(cz, cx) - a0)) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2); if (ph > Math.PI * 5 / 3) continue; delete L.f[id]; }   // het driehoekje boven de laatste treden blijft; mv2Build knipt het op de uitstaptree af
           return B;
         }
-        const L = lv(li), D = MV2.DIR6[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = S.n * ts, hw = (S.w || 1.2) / 2 + 0.3;
+        const L = lv(li), D = MV2.DIR12[S.d], a = mv2P(S.a[0], S.a[1], ts), dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = S.n * ts, hw = (S.w || 1.2) / 2 + 0.3;
         const off = S.off || 0, inside = (x, z, alMax) => { const cx = x - a[0], cz = z - a[1], al = cx * ux + cz * uz, lat = cx * nx + cz * nz - off; return al > 0.3 * len && al < alMax && Math.abs(lat) < hw; };
         for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); if (v.some(p => inside(p[0], p[1], len - 0.3)) || inside((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3, len + 0.2)) delete L.f[id]; }
         return B;

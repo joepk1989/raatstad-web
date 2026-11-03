@@ -553,6 +553,7 @@
       previewActive = false;
       if (!res.erase) { ghost.visible = false; ghostEdges.visible = false; return; }
       const [q, r] = res.erase; const st = stackOf(q, r); const t = st[st.length - 1];
+      if (!t) { ghost.visible = false; ghostEdges.visible = false; return; }   // hier ligt geen blok (bijv. een module op het terrein)
       const { x, z } = cellToWorld(q, r);
       ghost.geometry = geoFor(t); ghost.material = ghostBad;
       ghost.position.set(x, colTopW(q, r) - TY(t).h - 0.02, z); ghost.scale.setScalar(1.05);

@@ -64,7 +64,8 @@
     const i = cells.inst.indexOf(I); if (i < 0 || !I.m || I.m.v !== 2) return I;
     const mod = kiesMod(I), rot = upd.rot ?? I.rot, mir = upd.mir ?? !!I.mir;
     cells.inst.splice(i, 1); removeInst(I); modTopRefresh();
-    const { n } = placeCore(mod || I.m, rot, I.q, I.r, I.lv || 0);
+    // bergfort-onderdelen (08o2) delen soms een vak (halve stukken naast elkaar): die draaien op hun plek zonder de vak-controle
+    const { n } = String(I.mid || '').startsWith('bergfort:') ? { n: 1 } : placeCore(mod || I.m, rot, I.q, I.r, I.lv || 0);
     if (!n) { cells.inst.splice(i, 0, I); modTopRefresh(); return I; }
     const m = mod ? instData(mod, mir) : (upd.mir !== undefined ? mv2Mirror(I.m) : I.m);
     const J = Object.assign({}, I, { m, rot }); if (mir) J.mir = true; else delete J.mir;

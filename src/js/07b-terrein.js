@@ -8,7 +8,7 @@
   //     evenwijdig aan de weg loopt, recht en vloeiend, los van het raster.
   // Het landschap is in stukken van 32 × 32 m opgedeeld; een bewerking tekent alleen de stukken opnieuw die het raakt.
   // Detail (instelling): roosterafstand 1 m (hoog), 2 m (normaal) of 4 m met platte vlakken (low poly, snelst)
-  const TERR_TOP = 30, TSZ = 32, TSIG = 3, TPLAT = 3, TREACH = 2 * INNER + 9;
+  const TERR_TOP = 45, TSZ = 32, TSIG = 3, TPLAT = 3, TREACH = 2 * INNER + 9;
   const TQ = { hoog: { st: 1, flat: false }, normaal: { st: 2, flat: false }, laag: { st: 4, flat: true } };   // laag: driehoeken van het raster (zie lpMesh)
   let TST = 2, TBL = 4, TN = TSZ / 2 + 3, TK1 = [], terrQ = 'normaal';
   function terrSetup(q) {

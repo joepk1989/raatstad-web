@@ -61,7 +61,7 @@
           } }
         for (const S of L.s || []) {
           if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz; const lo = tf(c[0] - ex * (INNER - 1.2), c[1] - ez * (INNER - 1.2)), hi = tf(c[0] + ex * (INNER - 1.2), c[1] + ez * (INNER - 1.2)); stairs.push({ lo, hi, q: S.q || 0, r: S.r || 0, ramp: true, side: ((S.side || 0) + (I.rot || 0)) % 6 }); continue; }   // zijde in de wereld: plus de draaiing
-          const D = MV2.DIR6[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 1.2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
+          const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 1.2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
           const at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];
           if (S.k === 'spiral') {   // wenteltrap: instappen bij de eerste tree (fase 15°), een rondje over de treden (straal 1,15 m), uitstappen bij de laatste (345°)
             const a0 = Math.atan2(uz, ux), sd = S.side || 1, pt = (deg, r) => [a[0] + Math.cos(a0 + sd * deg * Math.PI / 180) * r, a[1] + Math.sin(a0 + sd * deg * Math.PI / 180) * r];

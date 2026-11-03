@@ -138,7 +138,7 @@
       return S; };
     const newSpiral = D => ({ a: D.a, d: D.d, n: 1, w: 1.5, k: 'spiral', side: E.wsd || 1 });
     function stairGeom(S) {
-      const D = MV2.DIR6[S.d] || MV2.DIR6[0], a = P(S.a[0], S.a[1]), t = ts(), dx = D[0] * t * SQ3 / 2, dz = D[0] * t / 2 + D[1] * t, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = (S.n || 1) * t, w = S.w || 1.2;
+      const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = P(S.a[0], S.a[1]), t = ts(), dx = D[0] * t * SQ3 / 2, dz = D[0] * t / 2 + D[1] * t, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = (S.n || 1) * t, w = S.w || 1.2;
       const off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
@@ -365,7 +365,7 @@
       for (const [i, j, t, m] of c.f) { const V = triVertsIdx(i, j, t).map(rotI).map(([a, b]) => P(a, b)), cx = (V[0][0] + V[1][0] + V[2][0]) / 3, cz = (V[0][1] + V[1][1] + V[2][1]) / 3; out.f.push([...triAt(cx, cz), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(rotI([i, j]), rotI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) { const [x, z] = rotW(o.x, o.z); out.o.push(Object.assign({}, o, { x: Math.round(x * 1000) / 1000, z: Math.round(z * 1000) / 1000, rot: ((o.rot || 0) + ang) % (Math.PI * 2) })); }
-      for (const St of c.s) { if (St.k === 'hexramp') { stay.s.push(St); continue; } out.s.push(Object.assign({}, St, { a: rotI(St.a), d: ((St.d || 0) + k) % 6 })); }
+      for (const St of c.s) { if (St.k === 'hexramp') { stay.s.push(St); continue; } out.s.push(Object.assign({}, St, { a: rotI(St.a), d: (St.d || 0) < 6 ? ((St.d || 0) + k) % 6 : 6 + (St.d - 6 + k) % 6 })); }
       for (const R0 of c.r) { if (!pc) { stay.r.push(R0); continue; } let a = R0[0] - pc[0], b = R0[1] - pc[1]; for (let n = 0; n < k; n++) [a, b] = [-b, a + b]; const g = /^gable(\d)$/.exec(R0[2] || ''); out.r.push([a + pc[0], b + pc[1], g ? 'gable' + ((+g[1] + k) % 3) : R0[2]]); }
       void n0; return { out, stay };
     }

@@ -16,6 +16,7 @@
     // muurrichtingen: 0–2 langs de ribben van het raster, 3–5 haaks daarop (0°, 60°, 120°; √3 × zo lang), zodat je
     // muren onder 90° op elkaar kunt laten aansluiten
     DIRW: [[1, 0], [0, 1], [-1, 1], [2, -1], [1, 1], [-1, 2]],
+    // trappen en hellingen: d 0–5 langs de ribben (30°, 90°, …), d 6–11 haaks op de zijden van het vak (0°, 60°, …)
     DIR12: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1], [2, -1], [1, 1], [-1, 2], [-2, 1], [-1, -1], [1, -2]],
     DIR6: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
     floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
@@ -128,7 +129,7 @@
   // Geeft per driehoek null (blijft) of { keep: [nx, nz, c] | null }: alleen het deel waar x·nx + z·nz >= c blijft, zodat de vloer
   // precies tot de bovenste tree (of tot de schuine rand van het bordes) doorloopt in plaats van een kier te laten.
   function mv2StairHole(S, ts) {
-    const D = MV2.DIR6[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
+    const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
     const loc = (x, z) => { const cx = x - a[0], cz = z - a[1]; return [cx * ux + cz * uz, cx * nx + cz * nz - off]; };
     const cen = v => loc((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3);
     const keepAl = (al0, sign) => [ux * sign, uz * sign, sign * (a[0] * ux + a[1] * uz + al0)];   // houd al >= al0 (sign 1) of al <= al0 (sign −1)
@@ -348,7 +349,7 @@
       }
       // --- trappen en hellingen ---
       for (const S of far ? [] : L.s || []) {
-        const D = MV2.DIR6[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2;
+        const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2;
         const dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux;
         const rise = S.h || LH, off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];   // off: zijwaarts verschoven (trap in een galerijband)
         // bordes boven: het deel van de weggehaalde vloerdriehoeken voorbij de bovenste tree, op vloerhoogte, in het materiaal van de trap
@@ -864,7 +865,7 @@
       const w = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; if (d === 3) { const [a, b] = mp(i, j); w[a + ',' + b + ',3'] = L.w[id]; } else { const [a, b] = mp(i + D[0], j + D[1]); w[a + ',' + b + ',' + WMAP[d]] = L.w[id]; } } L.w = w;
       for (const S of L.s) {
         if (S.k === 'hexramp') { const q = S.q || 0, r = S.r || 0; S.q = q + r; S.r = -r; S.side = (6 - (S.side || 0)) % 6; continue; }
-        S.a = mp(S.a[0], S.a[1]); S.d = D6[S.d || 0]; if (S.off) S.off = -S.off; if (S.k === 'spiral' || S.k === 'u') S.side = -(S.side || 1); else if (S.side) S.side = -S.side;   // zonder side is het 1: ook dan keert de draairichting om
+        S.a = mp(S.a[0], S.a[1]); S.d = (S.d || 0) < 6 ? D6[S.d || 0] : 6 + (12 - S.d) % 6;   // 6–11: haaks op de zijden (0°, 60°, …) if (S.off) S.off = -S.off; if (S.k === 'spiral' || S.k === 'u') S.side = -(S.side || 1); else if (S.side) S.side = -S.side;   // zonder side is het 1: ook dan keert de draairichting om
       }
       const r = {}; for (const id in L.r) { const [q, rr] = id.split(',').map(Number), g = /^gable(\d)$/.exec(L.r[id] || ''); r[(q + rr) + ',' + (-rr)] = g ? 'gable' + [2, 1, 0][+g[1] % 3] : L.r[id]; } L.r = r;   // zadeldak: de nok spiegelt mee
       for (const o of L.o) { o.z = -o.z; o.rot = -(o.rot || 0); }
