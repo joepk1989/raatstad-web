@@ -110,19 +110,16 @@ voet = lambda c: max(0.0, math.floor((terr.get(c, 0) - 1) / 3) * 3)   # de onder
 for c, b in onder.items():
     z = voet(c)
     while z + 2.99 < b: erbij('Rots · wand', *c, z, stand(*c, z)); z += 3
-# losse rotsblokken om het fort: trapsgewijs van het fort naar het terrein. Eerste ring één of twee lagen boven het terrein
-# (nooit hoger dan 3 m onder het fort ernaast), tweede ring hier en daar één laag: zo gaan de blokken in elkaar over.
+# rotsrand om het fort: de wand gaat steil vanaf de rand van het fort naar beneden (de rots onder het fort zelf); alleen
+# aan de voet hier en daar een los rotsblok van één laag (soms twee) boven het terrein, als puin onder de klif.
 hsh = lambda c, k=0: ((c[0] * 73856093) ^ (c[1] * 19349663) ^ (k * 83492791)) % 1000 / 1000
 rand1 = sorted({n for c in FORT for n in buren(c) if n not in FORT and n not in vrijhouden})
 hoogte = {}
 for n in rand1:
+    if hsh(n) > 0.45: continue
     h = terr.get(n, 0.0); basis = math.floor(h / 3) * 3; boven = min(onder.get(c, 0) for c in buren(n) if c in FORT)
-    lagen = 2 if hsh(n) < 0.45 else 1
-    while lagen and basis + 3 * lagen > boven - 3: lagen -= 1
-    if lagen: hoogte[n] = basis + 3 * lagen
-for n in sorted({m for c in hoogte for m in buren(c) if m not in FORT and m not in hoogte and m not in vrijhouden}):
-    buur = max(hoogte.get(c, 0) for c in buren(n)); h = terr.get(n, 0.0); basis = math.floor(h / 3) * 3
-    if hsh(n, 1) < 0.4 and basis + 3 <= buur - 3: hoogte[n] = basis + 3
+    top = basis + (6 if hsh(n, 2) < 0.25 else 3)
+    if top <= boven - 6: hoogte[n] = top
 for n, top in sorted(hoogte.items()):
     z = voet(n)
     while z + 3 < top - 0.01: erbij('Rots · wand', *n, z, stand(*n, z)); z += 3

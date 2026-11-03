@@ -52,7 +52,7 @@
       }
       // het terrein dat bij het fort hoort: per vak een zeshoekige zuil tot de terreinhoogte (in het spel is het een glad landschap)
       if (fort.t && fort.t.length) {
-        const tg = new THREE.CylinderGeometry(R, R, 1, 6, 1); tg.translate(0, 0.5, 0);
+        const tg = new THREE.CylinderGeometry(9, 9, 1, 6, 1);   // 9 m = R van het raster (R is hier de kijker) tg.translate(0, 0.5, 0);
         const tm = new THREE.MeshLambertMaterial({ color: 0x7aa553 });
         for (const [x, y, h] of fort.t) { const me = new THREE.Mesh(tg, tm); me.scale.y = h; me.position.set(x, 0, -y); scene.add(me); box.expandByPoint(me.position); }
       }
