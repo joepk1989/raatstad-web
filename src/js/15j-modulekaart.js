@@ -166,6 +166,14 @@
         const fi = +st.page.slice(4), tel = fortKijker.telling(fi), tot = tel.reduce((a, b) => a + b[1], 0);
         side.innerHTML = `<h3>${fortKijker.forten[fi]}</h3><div class="sub">${tot} modules, ${tel.length} soorten · opgebouwd uit de modules van de kaart</div><button class="btn mk-zet" type="button" data-zet>In de stad zetten</button><h4>Gebruikte modules</h4><div data-l></div><p class="mk-leeg" style="margin-top:12px">Klik een module in de lijst of in het fort: alle plekken waar hij staat lichten op.</p>`;
         side.querySelector('[data-zet]').onclick = () => { toggle(false); skpBouw.start({ fort: fi }); };
+        // aanvullen in de stad en terugzetten als fort: "Bewaar de stad als fort" neemt alle SketchUp-modules in de stad over
+        const eig = SKP_FORTEN.forten[fi].eigen, naamEigen = eig ? fortKijker.forten[fi] : fortKijker.forten[fi] + ' (eigen)';
+        side.querySelector('[data-zet]').insertAdjacentHTML('afterend', `<button class="btn mk-zet" type="button" data-bewaar title="Alle SketchUp-modules die nu in de stad staan, worden het fort ${naamEigen}">Bewaar de stad als ${naamEigen}</button>` + (eig ? '<button class="btn mk-zet" type="button" data-down title="Een JSON-bestand om aan Claude te geven: daarmee rekent hij de looproute opnieuw uit">Download voor Claude</button>' : ''));
+        side.querySelector('[data-bewaar]').onclick = () => {
+          if (!skpBouw.aantal) return toast('Er staan nog geen SketchUp-modules in de stad: zet eerst het fort neer en vul het aan', 2600);
+          const nf = skpBouw.alsFort(naamEigen); fortKijker.close(); st.page = 'fort' + nf; st.sel = null; render(); toast(naamEigen + ' bewaard (' + skpBouw.aantal + ' modules)', 1800);
+        };
+        if (eig) side.querySelector('[data-down]').onclick = () => skpBouw.download(fi);
         const l = side.querySelector('[data-l]');
         for (const [n, c] of tel) { const b = document.createElement('button'); b.type = 'button'; b.className = 'mk-mod'; b.setAttribute('aria-pressed', st.sel === n); b.innerHTML = '<span></span><small>' + c + '×</small>'; b.firstChild.textContent = n; b.onclick = () => { st.sel = st.sel === n ? null : n; fortKijker.kijker.highlight(st.sel); renderSide(); }; l.appendChild(b); }
         return;

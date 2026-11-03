@@ -75,6 +75,6 @@
     }
     function close() { if (!R) return; R.ro.disconnect(); R.mats.forEach(m => m.dispose()); R.renderer.dispose(); R.cv.remove(); R = null; }
     const telling = fi => { const c = new Map(); for (const p of F.forten[fi].p) { const n = F.mods[p[0]].n; c.set(n, (c.get(n) || 0) + 1); } return [...c].sort((a, b) => b[1] - a[1]); };
-    return { open, close, telling, vorm, forten: F.forten.map(f => f.naam), get kijker() { return R; } };
+    return { open, close, telling, vorm, get forten() { return F.forten.map(f => f.naam); }, get kijker() { return R; } };
   })();
   window.__fortKijker = fortKijker;   // voor de visuele tests

@@ -41,10 +41,26 @@
       while (ghost.children.length) ghost.remove(ghost.children[0]);
       for (const it of st.items) { const A = rot(it.a, st.k), d = rot([it.d[0], it.d[1], 0, 0, 0, 0, 0, 0, 0], st.k); const me = new THREE.Mesh(worldGeo(it.mi), ghostMat); me.matrixAutoUpdate = false; matrix(it.mi, A, [d[0], d[1], it.h + st.dh], me.matrix); me.matrixWorldNeedsUpdate = true; ghost.add(me); }
     }
+    // de bovenkant van de SketchUp-modules in een vak (0 als er niets staat)
+    function stapelTop(q, r) {
+      let top = -Infinity; const b = new THREE.Box3();
+      for (const me of group.children) { const rec = cells.skp[me.userData.skp]; if (rec && rec.q === q && rec.r === r) top = Math.max(top, b.setFromObject(me).max.y); }
+      return top;
+    }
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
     function moveGhost(cx, cy) {
+      // eerst de SketchUp-modules zelf: een bovenkant onder de muis = daarop bouwen, een zijkant = bovenop die stapel
+      ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+      const hm = ray.intersectObjects(group.children)[0];
+      if (hm) {
+        const [q, r] = worldToCell(hm.point.x, hm.point.z), w = cellToWorld(q, r), n = hm.face ? hm.face.normal.clone().transformDirection(hm.object.matrixWorld) : null;
+        const op = n && Math.abs(n.y) > 0.7 ? hm.point.y : stapelTop(q, r);
+        st.cell = [q, r]; st.base = Math.max(terrainHeightAt(w.x, w.z), Math.round((isFinite(op) ? op : hm.point.y) / 1.5) * 1.5);
+        ghost.position.set(w.x, st.base, w.z); ghost.visible = true; setHint(); return;
+      }
       const h = pick(cx, cy); if (!h || !h.point) { ghost.visible = false; st.cell = null; return; }
       const [q, r] = worldToCell(h.point.x, h.point.z), w = cellToWorld(q, r);
-      st.cell = [q, r]; st.base = terrainHeightAt(w.x, w.z);
+      st.cell = [q, r]; st.base = Math.max(terrainHeightAt(w.x, w.z), stapelTop(q, r)); setHint();
       ghost.position.set(w.x, st.base, w.z); ghost.visible = true;
     }
     function place() {
@@ -64,7 +80,7 @@
       const hit = ray.intersectObjects(group.children)[0]; if (!hit) return toast('Hier staat geen SketchUp-module', 1200);
       const i = hit.object.userData.skp, n = cells.skp[i].n; cells.skp.splice(i, 1); build(); changed(); toast(n + ' weggehaald', 1200);
     }
-    function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.dh ? ' · ' + (st.dh > 0 ? '+' : '') + st.dh + ' m' : ''}<small>klik = neerzetten · R = draaien · Page Up/Down = hoger/lager · Shift+klik = weghalen · Backspace = terug · Esc = klaar</small>`; }
+    function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<small>klik = neerzetten (bovenop wat onder de muis staat) · R = draaien · Page Up/Down = hoger/lager · Shift+klik = weghalen · Backspace = terug · Esc = klaar</small>`; }
     function start(opt) {
       if (mode === 'walk') { document.getElementById('modeBtn').click(); }
       st.items = []; st.k = 0; st.dh = 0;
@@ -76,6 +92,33 @@
         st.items = P.map(p => ({ mi: p.mi, a: p.a, d: [p.m[0] - mid[0], p.m[1] - mid[1]], h: p.m[2] })); st.naam = F.forten[opt.fort].naam;
       } else { st.items = [{ mi: idx.get(opt.naam), a: ID, d: [0, 0], h: 0 }]; st.naam = opt.naam; }
       st.on = true; buildGhost(); setHint(); hint.hidden = false;
+    }
+    // ---------- de SketchUp-modules in de stad bewaren als fort (eigen versie van het bergfort) ----------
+    // Een eigen fort staat in localStorage (raat-eigen-forten) en verschijnt als pagina in de Modulekaart. Download geeft
+    // hetzelfde als JSON voor de gereedschappen in tools/sketchup (looproute.py, pad_af.py): { plaatsen: [[naam, matrix]] }.
+    const EIGEN = 'raat-eigen-forten';
+    const eigen = (() => { try { return JSON.parse(localStorage.getItem(EIGEN) || '[]'); } catch (e) { return []; } })();
+    for (const f of eigen) F.forten.push(f);
+    function alsFort(naam) {
+      const L = (cells && cells.skp) || []; if (!L.length) return null;
+      const y0 = Math.min(...L.map(r => r.y)), mq = Math.round(L.reduce((a, r) => a + r.q, 0) / L.length), mr = Math.round(L.reduce((a, r) => a + r.r, 0) / L.length);
+      const [sx, sy] = suMid(mq, mr), p = [];
+      for (const rec of L) {
+        const mi = idx.get(rec.n); if (mi === undefined) continue;
+        const A = rec.a || ID, c = F.mods[mi].c, cx = c[0] / 100, cy = c[1] / 100, [x, y] = suMid(rec.q, rec.r), o = rec.o || [0, 0];
+        const P = [x + o[0] - sx, y + o[1] - sy, rec.y - y0];
+        p.push([mi, ...A.map(v => +v.toFixed(5)), ...[P[0] - (A[0] * cx + A[3] * cy), P[1] - (A[1] * cx + A[4] * cy), P[2] - (A[2] * cx + A[5] * cy)].map(v => Math.round(v * 100))]);
+      }
+      let fi = F.forten.findIndex(f => f.naam === naam);
+      const f = { naam, p, eigen: true };
+      if (fi < 0) { F.forten.push(f); fi = F.forten.length - 1; } else F.forten[fi] = f;
+      try { localStorage.setItem(EIGEN, JSON.stringify(F.forten.filter(x => x.eigen))); } catch (e) { }
+      return fi;
+    }
+    function download(fi) {
+      const f = F.forten[fi], plaatsen = f.p.map(p => [F.mods[p[0]].n, [p[1], p[2], p[3], 0, p[4], p[5], p[6], 0, p[7], p[8], p[9], 0, p[10], p[11], p[12], 1]]);
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ bestand: 'webversie: ' + f.naam, plaatsen })], { type: 'application/json' }));
+      a.download = 'raatstad-' + f.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
     function stop() { st.on = false; ghost.visible = false; hint.hidden = true; }
     window.addEventListener('pointermove', e => { if (st.on && e.target === canvas) moveGhost(e.clientX, e.clientY); });
@@ -95,5 +138,6 @@
       else used = false;
       if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
-    return { build, start, stop, get on() { return st.on; } };
+    return { build, start, stop, alsFort, download, get on() { return st.on; }, get aantal() { return ((cells && cells.skp) || []).length; } };
   })();
+  window.__skpBouw = skpBouw;   // voor de visuele tests

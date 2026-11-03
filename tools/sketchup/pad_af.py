@@ -152,3 +152,12 @@ def toepassen(P, gedaan):
         for pi in g['weg']: P[pi] = None
         P.extend([list(e) for e in g['erbij']])
     return [p for p in P if p is not None]
+
+if __name__ == '__main__':
+    # een eigen fort uit de webversie (Modulekaart, "Download voor Claude"): looproute afmaken en wegschrijven als <naam>-af.json
+    import sys, json, os
+    fn = sys.argv[1]; P = json.load(open(fn))['plaatsen']
+    P2, gedaan, nu = verbind(P, len(P), log=lambda *a: print(*a, flush=True))
+    uit = os.path.splitext(fn)[0] + '-af.json'
+    json.dump({'bestand': fn + ' (looproute afgemaakt)', 'plaatsen': P2, 'gedaan': [g['wat'] for g in gedaan]}, open(uit, 'w'), ensure_ascii=False)
+    print('geschreven:', uit, '·', len(gedaan), 'aanpassingen'); [print('  ', g['wat']) for g in gedaan]
