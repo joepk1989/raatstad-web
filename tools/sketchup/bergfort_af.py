@@ -4,7 +4,7 @@
   2. daken:   Joeps Dak · zeshoek met lichtkoepel op de torentjes (in plaats van de kuil) en op de pilaren, Dak · halve zeshoek plat op de twee hallen
   3. aan de voet, bij het begin van de wenteltrap: een parkeerplaats (Parkeren · twaalf plekken ×3) met een rijbaan ernaartoe
 Vakken in assen van het spel (q, r); SketchUp-assen: x = x, y = -z van het spel."""
-import json, math, os
+import json, math, os, collections
 HERE = os.path.dirname(os.path.abspath(__file__))
 B = json.load(open(os.path.join(HERE, 'raatstad-berg.json')))
 V = json.load(open(os.path.join(HERE, 'raatstad-vorm.json'))); V.update(json.load(open(os.path.join(HERE, 'raatstad-extra.json')))['vorm'])
@@ -65,7 +65,10 @@ for n, m in P0:
     vak.setdefault(best, []).append((z0, n, A, m)); onder[best] = min(onder.get(best, 99), z0)
 for cc, l in dekt.items(): onder[cc] = min(onder.get(cc, 99), min(z for z, _ in l))
 tel = {}
-def erbij(*a): p = plaats(*a); uit.append(p); tel[p[0]] = tel.get(p[0], 0) + 1
+rots_lagen = []   # (vak, hoogte, plaatsing) van elke rotslaag, om verborgen lagen weg te laten
+def erbij(*a):
+    p = plaats(*a); uit.append(p); tel[p[0]] = tel.get(p[0], 0) + 1
+    if p[0].startswith('Rots'): rots_lagen.append(((a[1], a[2]), float(a[3]), p))
 def erop(naam, m, z):
     """een dak met precies dezelfde assen en plek als de module eronder, alleen hoger"""
     mm = list(m); mm[14] = round(z * 100); uit.append([naam, mm]); tel[naam] = tel.get(naam, 0) + 1
@@ -157,6 +160,20 @@ for n, top in sorted(hoogte.items()):
     z = voet(n)
     while z + 3 < top - 0.01: erbij('Rots · wand', *n, z, stand(*n, z)); z += 3
     erbij('Rots · top', *n, z, stand(*n, z)); rots_rand.append(n)
+# verborgen rotslagen weglaten: een laag Rots · wand die niet de bovenste van zijn kolom is en aan alle zes kanten rots
+# (of terrein) naast zich heeft op dezelfde hoogte, zie je nooit. Ook lagen die helemaal in het eigen terrein zitten.
+op = collections.defaultdict(set)
+for c, z, p in rots_lagen: op[c].add(round(z))
+weg = set()
+for c, z, p in rots_lagen:
+    zi = round(z); boven_rots = zi + 3 in op[c]
+    if z + 3 <= terr.get(c, 0) - 2.5: weg.add(id(p)); continue   # marge: het terrein in het spel is glad en zakt bij een rand wat in
+    if p[0] != 'Rots · wand' or not boven_rots: continue
+    if all(zi in op[n] or terr.get(n, 0) >= z + 5 for n in buren(c)): weg.add(id(p))
+voor_weg = len(uit); uit[:] = [p for p in uit if id(p) not in weg]
+for c, z, p in rots_lagen:
+    if id(p) in weg: tel[p[0]] -= 1
+print('verborgen rotslagen weggelaten:', voor_weg - len(uit))
 TERREIN = [[round(mid(*c)[0], 3), round(mid(*c)[1], 3), h] for c, h in sorted(terr.items())]
 print('terrein:', len(TERREIN), 'vakken, hoogste', max(h for *_, h in TERREIN), 'm; rotsrand:', len(rots_rand), 'vakken')
 

@@ -2,6 +2,18 @@
   // Leest SKP_FORTEN (08n). Elke plek in het fort is een Mesh die de vorm van zijn module deelt. Twee kleurstanden:
   // gewoon (de kleuren uit SketchUp; kleurloos = wit) en lopen (pad, gras, fiets, niet te belopen; zelfde regels als
   // de Modulekaart: steiler dan 31° is niet te belopen). Een module kiezen licht al zijn plekken op.
+  // Gespiegelde exemplaren (negatieve determinant) in een InstancedMesh: three keert de voorkant per object om, niet per
+  // exemplaar. Daarom krijgen ze een eigen kopie van de vorm met omgekeerde draairichting van elke driehoek.
+  const skpGespiegeld = new WeakMap();
+  function skpSpiegelVorm(g) {
+    let s = skpGespiegeld.get(g); if (s) return s;
+    s = g.clone();
+    for (const k of Object.keys(s.attributes)) {
+      const a = s.attributes[k], n = a.itemSize, v = a.array;
+      for (let i = 0; i < a.count; i += 3) for (let j = 0; j < n; j++) { const t = v[(i + 1) * n + j]; v[(i + 1) * n + j] = v[(i + 2) * n + j]; v[(i + 2) * n + j] = t; }
+    }
+    skpGespiegeld.set(g, s); return s;
+  }
   const fortKijker = (() => {
     const F = SKP_FORTEN;
     const KL = { pad: [0.184, 0.702, 0.769], gras: [0.561, 0.812, 0.447], fiets: [0.851, 0.341, 0.247], niet: [0.29, 0.30, 0.33] };
@@ -40,14 +52,21 @@
       const per = new Map(); fort.p.forEach(p => { if (!per.has(p[0])) per.set(p[0], []); per.get(p[0]).push(p); });
       const meshes = [], box = new THREE.Box3(), M = new THREE.Matrix4();
       for (const [mi, ps] of per) {
-        ps.forEach((p, i) => {
+        // per module en laag (materiaal) één InstancedMesh met alle exemplaren: één tekenopdracht in plaats van één per blok
+        const perLaag = new Map();
+        ps.forEach(p => {
           // SketchUp-matrix (kolommen: as-x, as-y, as-z, verplaatsing) omgezet naar three-assen
           const a = p.slice(1, 4), b = p.slice(4, 7), c = p.slice(7, 10), t = p.slice(10, 13).map(v => v / 100);
           const S = (v) => [v[0], v[2], -v[1]];   // vector van SketchUp naar three
           const X = S(a), Y = S(c), Z = S(b).map(v => -v);   // three-x = su-x, three-y = su-z, three-z = -su-y
-          M.set(X[0], Y[0], Z[0], t[0], X[1], Y[1], Z[1], t[2], X[2], Y[2], Z[2], -t[1], 0, 0, 0, 1);
-          const me = new THREE.Mesh(vorm(mi).g, matOf(mi, Math.round(t[2] / 3))); me.userData.mi = mi; me.matrixAutoUpdate = false; me.matrix.copy(M); me.matrixWorldNeedsUpdate = true; scene.add(me); meshes.push(me);
+          const m4 = new THREE.Matrix4().set(X[0], Y[0], Z[0], t[0], X[1], Y[1], Z[1], t[2], X[2], Y[2], Z[2], -t[1], 0, 0, 0, 1);
+          const lv = Math.round(t[2] / 3) + (m4.determinant() < 0 ? ':s' : ''); if (!perLaag.has(lv)) perLaag.set(lv, []); perLaag.get(lv).push(m4);
         });
+        for (const [lv, L] of perLaag) {
+          const sp = String(lv).endsWith(':s'), im = new THREE.InstancedMesh(sp ? skpSpiegelVorm(vorm(mi).g) : vorm(mi).g, matOf(mi, parseInt(lv)), L.length); L.forEach((m, k) => im.setMatrixAt(k, m));
+          im.instanceMatrix.needsUpdate = true; im.frustumCulled = false;   // deze three-versie rekent geen bol om alle exemplaren
+          im.userData.mi = mi; scene.add(im); meshes.push(im);
+        }
         ps.forEach(p => box.expandByPoint(new THREE.Vector3(p[10] / 100, p[12] / 100, -p[11] / 100)));
       }
       // het terrein dat bij het fort hoort: per vak een zeshoekige zuil tot de terreinhoogte (in het spel is het een glad landschap)

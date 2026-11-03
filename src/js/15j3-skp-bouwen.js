@@ -21,16 +21,31 @@
       return out.set(X[0], Y[0], Z[0], t[0], X[1], Y[1], Z[1], t[2], X[2], Y[2], Z[2], -t[1], 0, 0, 0, 1);
     }
     const suMid = (q, r) => { const w = cellToWorld(q, r); return [w.x, -w.z]; };
+    // Alle exemplaren van dezelfde module samen in één InstancedMesh: één tekenopdracht per soort in plaats van per blok
+    // (een bergfort heeft honderden rotslagen maar maar een paar soorten). userData.recs: exemplaar → plek in cells.skp.
+    // tops[i]: de bovenkant van exemplaar i (voor bovenop bouwen), uit de omhullende doos van de vorm.
+    let tops = [];
+    const bbox = [], bbOf = mi => bbox[mi] || (bbox[mi] = (worldGeo(mi).computeBoundingBox(), worldGeo(mi).boundingBox.clone()));
     function build() {
-      while (group.children.length) group.remove(group.children[0]);
-      const L = (cells && cells.skp) || [], M = new THREE.Matrix4();
+      while (group.children.length) { const c = group.children[0]; group.remove(c); if (c.isInstancedMesh) c.dispose(); }
+      const L = (cells && cells.skp) || [], per = new Map(); tops = [];
+      const M = new THREE.Matrix4(), B = new THREE.Box3();
       L.forEach((rec, i) => {
         const mi = idx.get(rec.n); if (mi === undefined) return;
-        const [x, y] = suMid(rec.q, rec.r), o = rec.o || [0, 0];
-        const me = new THREE.Mesh(worldGeo(mi), mat); me.matrixAutoUpdate = false; matrix(mi, rec.a || ID, [x + o[0], y + o[1], rec.y], me.matrix); me.matrixWorldNeedsUpdate = true;
-        me.castShadow = true; me.receiveShadow = true; me.userData.skp = i; group.add(me);
+        const k = mi + (rec.a && matrix(mi, rec.a, [0, 0, 0], M).determinant() < 0 ? ':s' : '');   // gespiegeld apart (zie skpSpiegelVorm)
+        if (!per.has(k)) per.set(k, []); per.get(k).push(i);
       });
+      for (const [k, lijst] of per) {
+        const mi = parseInt(k), im = new THREE.InstancedMesh(String(k).endsWith(':s') ? skpSpiegelVorm(worldGeo(mi)) : worldGeo(mi), mat, lijst.length);
+        lijst.forEach((i, k) => {
+          const rec = L[i], [x, y] = suMid(rec.q, rec.r), o = rec.o || [0, 0];
+          matrix(mi, rec.a || ID, [x + o[0], y + o[1], rec.y], M); im.setMatrixAt(k, M); tops[i] = B.copy(bbOf(mi)).applyMatrix4(M).max.y;
+        });
+        im.instanceMatrix.needsUpdate = true; im.frustumCulled = false;   // deze three-versie rekent geen bol om alle exemplaren
+          im.castShadow = true; im.receiveShadow = true; im.userData.recs = lijst; group.add(im);
+      }
     }
+    const recVan = hit => hit.object.userData.recs ? hit.object.userData.recs[hit.instanceId] : -1;
     // ---------- neerzetten ----------
     const rot = (A, k) => { const c = Math.cos(k * Math.PI / 3), s = Math.sin(k * Math.PI / 3), o = A.slice(); for (const j of [0, 3, 6]) { o[j] = c * A[j] - s * A[j + 1]; o[j + 1] = s * A[j] + c * A[j + 1]; } return o; };
     const st = { on: false, items: [], k: 0, dh: 0, naam: '', cell: null, base: 0, down: null, batches: [] };
@@ -43,8 +58,8 @@
     }
     // de bovenkant van de SketchUp-modules in een vak (0 als er niets staat)
     function stapelTop(q, r) {
-      let top = -Infinity; const b = new THREE.Box3();
-      for (const me of group.children) { const rec = cells.skp[me.userData.skp]; if (rec && rec.q === q && rec.r === r) top = Math.max(top, b.setFromObject(me).max.y); }
+      let top = -Infinity;
+      ((cells && cells.skp) || []).forEach((rec, i) => { if (rec.q === q && rec.r === r && tops[i] !== undefined) top = Math.max(top, tops[i]); });
       return top;
     }
     const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
@@ -53,7 +68,7 @@
       ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
       const hm = ray.intersectObjects(group.children)[0];
       if (hm) {
-        const [q, r] = worldToCell(hm.point.x, hm.point.z), w = cellToWorld(q, r), n = hm.face ? hm.face.normal.clone().transformDirection(hm.object.matrixWorld) : null;
+        const [q, r] = worldToCell(hm.point.x, hm.point.z), w = cellToWorld(q, r), n = hm.face ? (() => { const M = new THREE.Matrix4(); hm.object.getMatrixAt(hm.instanceId, M); return hm.face.normal.clone().transformDirection(M.premultiply(hm.object.matrixWorld)); })() : null;
         const op = n && Math.abs(n.y) > 0.7 ? hm.point.y : stapelTop(q, r);
         st.cell = [q, r]; st.base = Math.max(terrainHeightAt(w.x, w.z), Math.round((isFinite(op) ? op : hm.point.y) / 1.5) * 1.5);
         ghost.position.set(w.x, st.base, w.z); ghost.visible = true; setHint(); return;
@@ -85,7 +100,7 @@
     function remove(cx, cy) {
       const ndc = new THREE.Vector2(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1), ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
       const hit = ray.intersectObjects(group.children)[0]; if (!hit) return toast('Hier staat geen SketchUp-module', 1200);
-      const i = hit.object.userData.skp, n = cells.skp[i].n; cells.skp.splice(i, 1); build(); changed(); toast(n + ' weggehaald', 1200);
+      const i = recVan(hit); if (i < 0) return; const n = cells.skp[i].n; cells.skp.splice(i, 1); build(); changed(); toast(n + ' weggehaald', 1200);
     }
     function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<small>klik = neerzetten (bovenop wat onder de muis staat) · R = draaien · Page Up/Down = hoger/lager · Shift+klik = weghalen · Backspace = terug · Esc = klaar</small>`; }
     function start(opt) {
