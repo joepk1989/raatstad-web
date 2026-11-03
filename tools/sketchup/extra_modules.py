@@ -166,7 +166,7 @@ def schuin(n):
                 m.t(tint[i], p00, p10, p11); m.t(tint[i], p00, p11, p01)
     for i in range(1, 5): m.t(STEEN[1], (*Pb[0], 0), (*Pb[i + 1], 0), (*Pb[i], 0)); m.t(STEEN[2], (*Pt[0], 3), (*Pt[i], 3), (*Pt[i + 1], 3))
     return m
-for n in range(6): mods.append(schuin(n))
+for n in range(10): mods.append(schuin(n))
 # de bovenste laag: gras met een paar rotsblokken, de rand blijft op 3 m (sluit aan op een plateau of een pad ernaast)
 rt = Mod('Rots · top', 'Rots'); rnd = random.Random(11)
 rots_zijkanten(rt, rnd); rots_bodem(rt)

@@ -145,12 +145,12 @@ def verbind(P, n_orig, log=print, max_stappen=12):
         st.toepassen(set(best[1]), best[2], best[4]); nu, gez = st.score(terug=True); gedaan.append({'wat': best[3], 'weg': list(best[1]), 'erbij': best[2]})
     return [p for p in st.P if p is not None], gedaan, nu
 
-def toepassen(P, gedaan):
+def toepassen(P, gedaan, dz=0.0):
     """dezelfde veranderingen opnieuw toepassen (uit raatstad-berg-pad.json), zonder te zoeken"""
     P = [list(p) for p in P]
     for g in gedaan:
         for pi in g['weg']: P[pi] = None
-        P.extend([list(e) for e in g['erbij']])
+        for n, m in g['erbij']: m = list(m); m[14] = round(m[14] + dz * 100); P.append([n, m])   # dz: het fort staat hoger dan toen er gezocht werd
     return [p for p in P if p is not None]
 
 if __name__ == '__main__':

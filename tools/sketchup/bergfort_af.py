@@ -34,6 +34,9 @@ rest = [((x - v0[0]) - mid(*cell(x - v0[0], y - v0[1]))[0], (y - v0[1]) - mid(*c
 dx = v0[0] + sum(r[0] for r in rest) / len(rest); dy = v0[1] + sum(r[1] for r in rest) / len(rest)
 assert max(math.hypot(r[0] - (dx - v0[0]), r[1] - (dy - v0[1])) for r in rest) < 0.05, 'de plateaus van het fort liggen niet op één raster'
 for n, m in P0: m[12] = round(m[12] - dx * 100); m[13] = round(m[13] - dy * 100)
+# het fort staat HOGER m hoger op de berg; vanaf de parkeerplaats beneden loopt een rechte helling omhoog naar de wenteltrap
+HOGER = 15.0
+for n, m in P0: m[14] = round(m[14] + HOGER * 100)
 uit = [list(p) for p in P0]
 # welk vak hoort bij een module: het vak waar het grootste deel van zijn grondvlak in ligt (dus ook halve en kleine stukken)
 import grid_check as G
@@ -69,11 +72,19 @@ def erop(naam, m, z):
 
 rots_rand = []
 # 3. parkeerplaats aan de voet, bij het begin van de wenteltrap (het vak met de helling op hoogte 0)
-start = min((c for c in vak if any(n.startswith('Pad · bocht met helling') and abs(z) < 0.01 for z, n, *_ in vak[c])), default=(-4, -2))
-rij = start[1] - 1
-PARK = [(start[0] - 2, rij), (start[0] - 1, rij), (start[0], rij)]
-RIJ = [(start[0] - 3, rij), (start[0] - 4, rij)]
+start = min((c for c in vak if any(n.startswith('Pad · bocht met helling') and abs(z - HOGER) < 0.01 for z, n, *_ in vak[c])), default=(-4, -2))
+# de oprit: vanaf het begin van de wenteltrap recht naar buiten (richting de oude parkeerplaats, r - 1), per vak een
+# Pad · helling tussen twee wanden die 3 m daalt, elk op een rotskolom; daarachter de parkeerplaats op de grond
 vrij = lambda c: c not in vak and c not in dekt
+OPRIT = [(start[0], start[1] - i) for i in range(1, int(HOGER / 3) + 1)]
+for i, c in enumerate(OPRIT):
+    hoger = OPRIT[i - 1] if i else start; (x0, y0), (x1, y1) = mid(*c), mid(*hoger)
+    k = round(math.degrees(math.atan2(y1 - y0, x1 - x0)) / 60) % 6     # de helling stijgt naar zijde 0 (+x): draaien naar het hogere vak
+    c_, s_ = math.cos(math.radians(60 * k)), math.sin(math.radians(60 * k))
+    assert vrij(c), c; erbij('Pad · helling tussen twee wanden', *c, HOGER - 3 * (i + 1), [c_, s_, 0, -s_, c_, 0, 0, 0, 1])
+voet_oprit = (start[0], start[1] - len(OPRIT) - 1)
+PARK = [voet_oprit, (voet_oprit[0] - 1, voet_oprit[1]), (voet_oprit[0] + 1, voet_oprit[1])]
+RIJ = [(voet_oprit[0] - 2, voet_oprit[1]), (voet_oprit[0] - 3, voet_oprit[1])]
 for c in PARK: assert vrij(c), c; erbij('Parkeren · twaalf plekken', *c, 0)
 for c in RIJ: assert vrij(c), c; erbij('Parkeren · rijbaan met stoep', *c, 0)
 
@@ -84,14 +95,15 @@ for c in RIJ: assert vrij(c), c; erbij('Parkeren · rijbaan met stoep', *c, 0)
 #    gespiegeld), zodat de wand niet herhaalt.
 import numpy as np
 buren = lambda c: [(c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1), (c[0] + 1, c[1] - 1), (c[0] - 1, c[1] + 1)]
-FORT = set(vak) | set(dekt)
+FORT = set(vak) | set(dekt) | set(OPRIT)
+for i, c in enumerate(OPRIT): onder[c] = HOGER - 3 * (i + 1)
 laag = {c: min([z for z, n, *_ in vak.get(c, []) if not n.startswith('Toren')] + [z for z, n in dekt.get(c, []) if not n.startswith('Toren')] + [99]) for c in FORT}
 cent = np.mean([mid(*c) for c in FORT], 0); voor = np.mean([mid(*c) for c in PARK], 0) - cent; voor /= np.linalg.norm(voor)
-vrijhouden = set(PARK) | set(RIJ) | {n for c in PARK + RIJ + [start] for n in buren(c)}
+vrijhouden = set(PARK) | set(RIJ) | set(OPRIT) | {n for c in PARK + RIJ + OPRIT + [start] for n in buren(c) if n not in FORT or n in OPRIT}
 def heuvel(c):
     d = np.array(mid(*c)) - cent; l = np.linalg.norm(d)
     achter = 0.0 if l < 1e-6 else float(-(d @ voor) / l)
-    return 9.0 * min(1.0, max(0.0, (achter + 0.45) / 0.9))
+    return min(28.0, 9.0 + HOGER) * min(1.0, max(0.0, (achter + 0.45) / 0.9))
 terr = {c: min(heuvel(c), laag[c]) for c in FORT if c not in vrijhouden}
 for ring in range(3):                                       # drie ringen eromheen, telkens 3,5 m lager
     nieuw = {}
@@ -112,13 +124,13 @@ voet = lambda c: max(0.0, math.floor((terr.get(c, 0) - 1) / 3) * 3)   # de onder
 def schuin_stand(c, b):
     """de draaiing (0 … 5) waarbij de drie schuine zijden van Rots · schuin naar buiten wijzen (naar vakken buiten het fort),
     zonder over een pad, plein, gebouw of toren ernaast te vallen; None = recht laten"""
-    if c in PARK or c in RIJ: return None
+    if c in PARK or c in RIJ or c in OPRIT: return None
     beste = None
     for rk in range(6):
         score = 0
         for j in (0, 1, 2):
             a = math.radians(120 + 60 * (j + rk)); x, y = mid(*c); n = cell(x + 15.588 * math.cos(a), y + 15.588 * math.sin(a))
-            if n in PARK or n in RIJ: score = -99; break
+            if n in PARK or n in RIJ or n in OPRIT: score = -99; break
             mods_n = [(zz, nn) for zz, nn, *_ in vak.get(n, [])] + list(dekt.get(n, []))
             if any(zz < b - 0.01 and zz + (12 if nn.startswith('Toren') else 3) > voet(c) + 0.01 and not nn.startswith('Rots') for zz, nn in mods_n): score = -99; break
             score += 0 if n in FORT else (2 if j == 1 else 1)
@@ -129,7 +141,7 @@ for c, b in onder.items():
     z = voet(c); lagen = int(round((b - z) / 3)); rk = schuin_stand(c, b)
     for i in range(lagen):
         zz = z + 3 * i; k = lagen - 1 - i                        # k = 0: de bovenste laag (precies het vak)
-        if rk is not None: erbij(f'Rots · schuin {min(k, 5) + 1}', *c, zz, pad_assen(rk, False)); schuin_tel += 1
+        if rk is not None: erbij(f'Rots · schuin {min(k, 9) + 1}', *c, zz, pad_assen(rk, False)); schuin_tel += 1
         else: erbij('Rots · wand', *c, zz, stand(*c, zz))
 # rotsrand om het fort: de wand gaat steil vanaf de rand van het fort naar beneden (de rots onder het fort zelf); alleen
 # aan de voet hier en daar een los rotsblok van één laag (soms twee) boven het terrein, als puin onder de klif.
@@ -170,8 +182,8 @@ looproute.TER = dict(terr)
 PF = os.path.join(HERE, 'raatstad-berg-pad.json')
 if '--zoek' in sys.argv or not os.path.exists(PF):
     _, gedaan, nu = pad_af.verbind(uit, len(B['plaatsen']), log=lambda *a: print(*a, flush=True))
-    json.dump({'gedaan': gedaan, 'bereikbaar': nu}, open(PF, 'w'), ensure_ascii=False, indent=0)
-pad = json.load(open(PF)); uit = pad_af.toepassen(uit, pad['gedaan'])
+    json.dump({'gedaan': gedaan, 'bereikbaar': nu, 'hoger': HOGER}, open(PF, 'w'), ensure_ascii=False, indent=0)
+pad = json.load(open(PF)); uit = pad_af.toepassen(uit, pad['gedaan'], dz=HOGER - pad.get('hoger', 0))   # gezocht met het fort op een andere hoogte: verschuiven
 print('looproute:', len(pad['gedaan']), 'aanpassingen,', round(pad['bereikbaar']), 'm² vloer bereikbaar')
 for g in pad['gedaan']: print('  ', g['wat'])
 json.dump({'bestand': B['bestand'] + ' (afgemaakt)', 'plaatsen': uit, 'terrein': TERREIN}, open(os.path.join(HERE, 'raatstad-berg-af.json'), 'w'), ensure_ascii=False)
