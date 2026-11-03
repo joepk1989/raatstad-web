@@ -93,22 +93,24 @@ mods.append(rij)
 STEEN = ['8c857a', '7b756b', '9a9387']; GRAS = '6f9a4a'; GRAS2 = '7fa957'
 import random
 def rots_zijkanten(m, rnd):
+    """zijwanden die bijna loodrecht staan: verticale ribben (per kolom een vaste diepte, hooguit 30 cm naar binnen, en
+    een tint per kolom), zodat gestapelde lagen één steile wand vormen zonder horizontale banden"""
     hoek = [hexp(R, k) for k in range(6)]
-    T = [0, 0.22, 0.5, 0.78, 1]; Z = [0, 0.8, 1.55, 2.3, 3.0]
+    T = [i / 6 for i in range(7)]; Z = [0, 1.0, 2.0, 3.0]
     for k in range(6):
         a, b = hoek[k], hoek[(k + 1) % 6]
         ex, ey = b[0] - a[0], b[1] - a[1]; L = math.hypot(ex, ey); nx, ny = ey / L, -ex / L          # naar buiten
+        diep = [0] + [rnd.uniform(0.05, 0.3) for _ in range(5)] + [0]; tint = [rnd.choice(STEEN) for _ in range(6)]
         P = {}
         for i, t in enumerate(T):
             for j, z in enumerate(Z):
                 x, y = a[0] + ex * t, a[1] + ey * t
-                if 0 < i < 4 and 0 < j < 4:
-                    d = rnd.uniform(0.1, 1.3) * (0.55 if i in (1, 3) else 1); x -= nx * d; y -= ny * d; z += rnd.uniform(-0.25, 0.25)
+                if 0 < i < 6 and 0 < j < 3: d = diep[i] + rnd.uniform(0, 0.08); x -= nx * d; y -= ny * d
                 P[i, j] = (x, y, z)
-        for i in range(4):
-            for j in range(4):
+        for i in range(6):
+            for j in range(3):
                 p00, p10, p11, p01 = P[i, j], P[i + 1, j], P[i + 1, j + 1], P[i, j + 1]
-                m.t(rnd.choice(STEEN), p00, p10, p11); m.t(rnd.choice(STEEN), p00, p11, p01)
+                m.t(tint[i], p00, p10, p11); m.t(tint[i], p00, p11, p01)
 def rots_bodem(m):
     h = [hexp(R, k) for k in range(6)]
     for i in range(1, 5): m.t(STEEN[1], (*h[0], 0), (*h[i + 1], 0), (*h[i], 0))
