@@ -19,8 +19,8 @@
     // trappen en hellingen: d 0–5 langs de ribben (30°, 90°, …), d 6–11 haaks op de zijden van het vak (0°, 60°, …)
     DIR12: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1], [2, -1], [1, 1], [-1, 2], [-2, 1], [-1, -1], [1, -2]],
     DIR6: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
-    floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', hexbeton: 'Beton zeshoek\u00ADtegels', hexgroot: 'Grote beton\u00ADzeshoeken', hexdonker: 'Antraciet zeshoeken', hexsteen: 'Natuur\u00ADsteen zeshoeken', hexraat: 'Raat\u00ADpatroon', hexgras: 'Gras\u00ADtegels zeshoek', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
-    walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', hedge: 'Haag', fence: 'Hek' },
+    floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', hexbeton: 'Beton zeshoek\u00ADtegels', hexgroot: 'Grote beton\u00ADzeshoeken', hexdonker: 'Antraciet zeshoeken', hexsteen: 'Natuur\u00ADsteen zeshoeken', hexraat: 'Raat\u00ADpatroon', hexgras: 'Gras\u00ADtegels zeshoek', hexkei: 'Oude keien', pannen: 'Terracotta pannen', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
+    walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', breuksteen: 'Breuksteen', oker: 'Oker stucwerk', hedge: 'Haag', fence: 'Hek' },
     openings: { '': 'Dicht', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open' },
     objects: { tree: 'Boom', bush: 'Struik', bench: 'Bankje', lamp: 'Lantaarn', pillar: 'Zuil', table: 'Tafel', planter: 'Plantenbak', fountain: 'Fontein', bin: 'Prullenbak', bike: 'Fietsenrek', shelf: 'Winkelstelling', counter: 'Toonbank', sign: 'Lichtreclame',
       bed: 'Bed', sofa: 'Bank (binnen)', desk: 'Bureau', kitchen: 'Keukenblok', screen: 'Filmdoek', car: 'Auto', pump: 'Tankpomp', charger: 'Laadpaal', solar: 'Zonnepanelen', turbine: 'Windmolen', chimney: 'Schoorsteen', container: 'Container', goal: 'Doel', grave: 'Grafsteen', boat: 'Boot', shelter: 'Abri', slide: 'Glijbaan', swing: 'Schommel', sheep: 'Schaap' },
@@ -68,6 +68,20 @@
     const mk = (tex, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ map: tex, roughness: 0.85 }, o)); m.userData.mUV = true; return m; };
     const brick = (bc, mc, bw, bh, jw, wm, hm, vary) => mvTex(wm, hm, (g, w, h, p) => { g.fillStyle = mc; g.fillRect(0, 0, w, h); const rows = Math.round(hm / bh), cols = Math.round(wm / bw);
       for (let r = 0; r < rows; r++) for (let c = -1; c <= cols; c++) { const x = (c + (r % 2) * 0.5) * bw * p, y = r * bh * p, k = hash01(r, c); g.fillStyle = bc; g.fillRect(x + jw * p / 2, y + jw * p / 2, bw * p - jw * p, bh * p - jw * p); g.fillStyle = `rgba(${k > 0.5 ? '255,255,255' : '0,0,0'},${(Math.abs(k - 0.5) * vary).toFixed(3)})`; g.fillRect(x + jw * p / 2, y + jw * p / 2, bw * p - jw * p, bh * p - jw * p); } });
+    const breuk = (s, C, RR, mortel = '#cdc3ae') => mvTex(C * SQ3 * s, RR * 1.5 * s, (g, w, h) => {
+      const ux = w / (C * SQ3 * s), uy = h / (RR * 1.5 * s), J = 0.32 * s;
+      // hoekpunt k (0..5) van tegel (c, r) is gedeeld met de buren: verschuif per hoekpunt, sleutel = afgeronde positie in het blok
+      const vtx = (x, z) => { const kx = Math.round(((x / (C * SQ3 * s)) % 1 + 1) % 1 * C * 4) % (C * 4), kz = Math.round(((z / (RR * 1.5 * s)) % 1 + 1) % 1 * RR * 4) % (RR * 4); return [x + (hash01(kx, kz + 31) - 0.5) * J, z + (hash01(kx + 57, kz) - 0.5) * J]; };
+      g.fillStyle = mortel; g.fillRect(0, 0, w, h);
+      for (let r = -1; r <= RR; r++) for (let c = -1; c <= C; c++) {
+        const cx = (c + ((r & 1) ? 0.5 : 0)) * SQ3 * s, cz = r * 1.5 * s, cm = ((c % C) + C) % C, rm = ((r % RR) + RR) % RR, k = hash01(cm + 3, rm + 11);
+        const pts = []; for (let n = 0; n < 6; n++) { const a = (90 + 60 * n) * Math.PI / 180, [x, z] = vtx(cx + Math.cos(a) * s, cz + Math.sin(a) * s); pts.push([cx + (x - cx) * 0.9, cz + (z - cz) * 0.9]); }
+        const tint = k < 0.45 ? `hsl(${30 + hash01(cm, rm) * 12}, ${10 + hash01(cm + 1, rm) * 12}%, ${50 + hash01(cm + 2, rm) * 16}%)` : k < 0.8 ? `hsl(${34 + hash01(cm, rm + 1) * 8}, ${18 + hash01(cm, rm + 2) * 14}%, ${58 + hash01(cm + 3, rm) * 14}%)` : `hsl(${22 + hash01(cm, rm + 3) * 10}, ${14 + hash01(cm, rm + 4) * 10}%, ${40 + hash01(cm + 4, rm) * 12}%)`;
+        g.beginPath(); pts.forEach(([x, z], n) => n ? g.lineTo(x * ux, z * uy) : g.moveTo(x * ux, z * uy)); g.closePath(); g.fillStyle = tint; g.fill();
+        g.strokeStyle = 'rgba(40,30,20,0.28)'; g.lineWidth = Math.max(1, s * ux * 0.06); g.stroke();
+        g.save(); g.clip(); for (let i = 0; i < 26; i++) { const x = (cx + (hash01(i, cm * 7 + rm) - 0.5) * s * 1.6) * ux, z = (cz + (hash01(i + 9, cm + rm * 5) - 0.5) * s * 1.6) * uy; g.fillStyle = hash01(i, 3) > 0.5 ? 'rgba(255,250,235,0.10)' : 'rgba(40,30,20,0.10)'; g.fillRect(x, z, 1 + hash01(i, 4) * 3, 1 + hash01(i, 5) * 3); } g.restore();
+      }
+    });
     const wl = {
       brick: mk(brick('#8f4a37', '#9e968a', 0.21, 0.0625, 0.01, 2.1, 0.625, 0.35)),
       darkbrick: mk(brick('#3a3734', '#8e8a83', 0.49, 0.05, 0.008, 1.96, 0.5, 0.25)),
@@ -76,6 +90,11 @@
       panel: mk(mvTex(3.6, 3, (g, w, h, p) => { for (let i = 0; i < 3; i++) { const k = hash01(i, 7); g.fillStyle = `hsl(210, 6%, ${30 + k * 6}%)`; g.fillRect(i * 1.2 * p, 0, 1.2 * p, h); } g.fillStyle = '#1d2023'; for (let i = 0; i <= 3; i++) g.fillRect(i * 1.2 * p - 2, 0, 4, h); g.fillRect(0, 0, w, 3); g.fillRect(0, h - 3, w, 3); }, 64), { roughness: 0.55, metalness: 0.15 }),
       slats: mk(mvTex(0.9, 3, (g, w, h, p) => { g.fillStyle = '#2a1f17'; g.fillRect(0, 0, w, h); for (let i = 0; i < 10; i++) { const k = hash01(i, 9); g.fillStyle = `hsl(${26 + k * 6}, ${42 + k * 10}%, ${40 + k * 10}%)`; g.fillRect(i * 0.09 * p, 0, 0.07 * p, h); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(i * 0.09 * p, 0, 0.015 * p, h); } }, 100), { roughness: 0.8 }),
       corten: mk(mvTex(2, 3, (g, w, h, p) => { const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#8d4b2b'); grd.addColorStop(1, '#a35a32'); g.fillStyle = grd; g.fillRect(0, 0, w, h); for (let i = 0; i < 2600; i++) { const k = hash01(i, 11); g.fillStyle = k > 0.5 ? 'rgba(190,110,60,0.25)' : 'rgba(60,25,10,0.25)'; g.fillRect(hash01(i, 12) * w, hash01(i, 13) * h, 1 + k * 3, 1 + k * 2); } g.fillStyle = 'rgba(40,18,8,0.6)'; for (let y = 0; y < 3; y++) g.fillRect(0, y * p - 1, w, 2); }, 64), { roughness: 0.9, metalness: 0.2 }),
+      // Italiaanse breuksteen: onregelmatige veelhoekige stenen (een zeshoekraster met verschoven hoekpunten, zodat de
+      // stenen in elkaar passen en de textuur naadloos herhaalt), warme grijs-, bruin- en okertinten in lichte kalkspecie
+      breuksteen: mk(breuk(0.3, 6, 8), { roughness: 0.97 }),
+      // oker stucwerk zoals in een Italiaans bergdorp: warm geel met vlekken en een iets donkerder onderkant
+      oker: mk(mvTex(2, 3, (g, w, h) => { noise(g, w, h, '#d99a3a', 0.07, 2200); for (let i = 0; i < 40; i++) { const x = hash01(i, 21) * w, y = hash01(i, 22) * h, r = (0.1 + hash01(i, 23) * 0.35) * w; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, `rgba(${hash01(i, 24) > 0.5 ? '255,214,140' : '150,92,30'},0.18)`); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); } }), { roughness: 0.96 }),
       curtain: mk(mvTex(1.5, 3, (g, w, h, p) => { const grd = g.createLinearGradient(0, 0, w * 0.4, h); grd.addColorStop(0, '#9fbfd3'); grd.addColorStop(0.55, '#5f7f97'); grd.addColorStop(1, '#3d5468'); g.fillStyle = grd; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.moveTo(0.1 * w, h); g.lineTo(0.55 * w, 0); g.lineTo(0.7 * w, 0); g.lineTo(0.25 * w, h); g.fill(); g.fillStyle = '#2b3a46'; g.fillRect(0, h - 0.9 * p, w, 0.9 * p); g.fillStyle = '#cfd4d7'; g.fillRect(0, 0, 4, h); g.fillRect(w - 4, 0, 4, h); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 0.9 * p - 2, w, 4); }, 64), { roughness: 0.15, metalness: 0.35 }),
     };
     // zeshoekige tegels (punt in de lengte van het raster, net als de vakken): naad in de kleur van de voeg, elke tegel
@@ -97,6 +116,11 @@
       hexgras: mk(hexTegels(0.5625, 4, 4, '#6f9a4a', 0.04, (c, r) => tint(45, 3, 66, hash01(c + 5, r + 5), 6), (g, x, z, rad, c, r) => {
         g.beginPath(); for (let k = 0; k < 6; k++) { const a = (90 + 60 * k) * Math.PI / 180; g.lineTo(x + Math.cos(a) * rad * 0.55, z + Math.sin(a) * rad * 0.55); } g.closePath();
         g.fillStyle = hash01(c + 7, r + 1) > 0.5 ? '#6b9846' : '#7aa653'; g.fill(); }), { roughness: 0.95 }),
+      // oude keien: kleine, verweerde zeshoekige stenen in donkere, wat groene voeg (Italiaans steegje)
+      hexkei: mk(hexTegels(0.28125, 6, 6, '#4e4c3f', 0.03, (c, r) => `hsl(${28 + hash01(c + 6, r) * 18}, ${8 + hash01(c, r + 6) * 10}%, ${(44 + (hash01(c + 3, r + 8) - 0.5) * 22).toFixed(1)}%)`), { roughness: 0.97 }),
+      // terracotta dakpannen (plat dak of dakterras in een bergdorp): rijen ronde pannen
+      pannen: mk(mvTex(1.2, 1.2, (g, w, h, p) => { g.fillStyle = '#7a3b22'; g.fillRect(0, 0, w, h); const bw = 0.2 * p, bh = 0.3 * p;
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) { const x = c * bw, y = r * bh, k = hash01(c + 13, r); const grd = g.createLinearGradient(x, 0, x + bw, 0); grd.addColorStop(0, `hsl(16, 50%, ${30 + k * 8}%)`); grd.addColorStop(0.5, `hsl(${18 + k * 6}, 55%, ${46 + k * 10}%)`); grd.addColorStop(1, `hsl(16, 50%, ${30 + k * 8}%)`); g.fillStyle = grd; g.fillRect(x + 1, y + 1, bw - 2, bh - 2); g.fillStyle = 'rgba(40,15,5,0.35)'; g.fillRect(x, y + bh - 3, bw, 3); } }, 96, true), { roughness: 0.8 }),
       polished: mk(mvTex(2, 2, (g, w, h) => { noise(g, w, h, '#c9c8c3', 0.07, 2200); }, 96, true), { roughness: 0.35 }),
       stonetile: mk(mvTex(1.2, 1.2, (g, w, h, p) => { g.fillStyle = '#9c968a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const k = hash01(i + 3, j + 5); g.fillStyle = `hsl(40, ${12 + k * 6}%, ${74 + k * 8}%)`; g.fillRect(i * 0.6 * p + 1, j * 0.6 * p + 1, 0.6 * p - 2, 0.6 * p - 2); } }, 96, true), { roughness: 0.6 }),
       parquet: mk(mvTex(1.2, 1.2, (g, w, h, p) => { g.fillStyle = '#6e4a2c'; g.fillRect(0, 0, w, h); const pl = 0.48 * p, pw = 0.08 * p;
@@ -790,11 +814,13 @@
   // zodat een ingestort gebouw zijn hek kwijtraakt (het doet dan als losse stukken mee met instorten) en het terugkomt bij herbouwen.
   let railData = new Map(), railHidden = new Set();
   const railParts = I => (railData.get(I) || { parts: [] }).parts;
+  let muurMat_ = null; const muurMat = () => muurMat_ || (muurMat_ = Object.assign(mv2Mats().wl.breuksteen.clone(), { side: THREE.DoubleSide }));   // lage muurtjes langs de rand
   function railsMesh() {
     for (const c of railGroup.children) c.geometry.dispose(); railGroup.clear();
     // per stuk stad (6 × 6 vakken, als de bundels): ver weg gaan ze uit (batchLod, net als kozijnen); geen schaduw (dunne latjes)
-    const by = new Map(); for (const [I, R0] of railData) { if (railHidden.has(I)) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6); let L = by.get(k); if (!L) by.set(k, L = []); L.push(...R0.parts); }
-    for (const [k, list] of by) { if (!list.length) continue; const mesh = new THREE.Mesh(mergeGeos(list), mv2Mats().metal), [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.castShadow = false; mesh.userData.lod = 'frame'; mesh.userData.lodC = [c.x, c.z]; railGroup.add(mesh); }
+    // een module met rand 'muurtje' (bergfort) krijgt geen hek maar een lage, licht schuine muur van breuksteen (met schaduw)
+    const by = new Map(); for (const [I, R0] of railData) { if (railHidden.has(I)) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6) + (R0.muur ? ',m' : ''); let L = by.get(k); if (!L) by.set(k, L = []); L.push(...R0.parts); }
+    for (const [k, list] of by) { if (!list.length) continue; const muur = k.endsWith(',m'), mesh = new THREE.Mesh(mergeGeos(list), muur ? muurMat() : mv2Mats().metal), [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.castShadow = muur; mesh.receiveShadow = muur; mesh.userData.lod = muur ? null : 'frame'; mesh.userData.lodC = [c.x, c.z]; railGroup.add(mesh); }
     try { batchLod(); } catch (e) { }
   }
   function railsHide(I, hide) {
@@ -827,7 +853,7 @@
     for (const E of edges.values()) {
       if (E.n !== 1 || E.y < 0.5) continue;
       if (roofMap_ && roofMap_.size && E.y > 1) { const mx0 = (E.A[0] + E.B[0]) / 2, mz0 = (E.A[1] + E.B[1]) / 2, rt = roadTop(mx0 - (mx0 - E.c[0]) * 0.15, mz0 - (mz0 - E.c[1]) * 0.15, E.y); if (rt !== null && Math.abs(rt - E.y) < 1) continue; }   // wegdek of dakweg: geen hek waar de weg op of af gaat
-      let R0 = byI.get(E.I); if (!R0) byI.set(E.I, R0 = { geos: [], cols: [], parts: [] }); geos = R0.geos;
+      let R0 = byI.get(E.I); if (!R0) byI.set(E.I, R0 = { geos: [], cols: [], parts: [], muur: E.I.m.rand === 'muurtje' }); geos = R0.geos;
       const mx = (E.A[0] + E.B[0]) / 2, mz = (E.A[1] + E.B[1]) / 2, ex = E.B[0] - E.A[0], ez = E.B[1] - E.A[1], l = Math.hypot(ex, ez) || 1;
       let nx = -ez / l, nz = ex / l; if ((mx - E.c[0]) * nx + (mz - E.c[1]) * nz < 0) { nx = -nx; nz = -nz; }   // naar buiten
       if (wallOn(mx, mz, E.y)) continue;
@@ -844,6 +870,16 @@
         if (open[i]) { i++; continue; }
         let j = i; while (j < NS && !open[j]) j++; const g0 = geos.length;
         const f0 = i / NS, f1 = j / NS, A = [E.A[0] + ex * f0 - nx * 0.04, E.A[1] + ez * f0 - nz * 0.04], B = [E.A[0] + ex * f1 - nx * 0.04, E.A[1] + ez * f1 - nz * 0.04];
+        if (R0.muur) {   // lage muur, licht schuin: buitenkant op de rand en 8 cm naar binnen hellend, bovenkant iets naar buiten aflopend
+          const Ab = [E.A[0] + ex * f0, E.A[1] + ez * f0], Bb = [E.A[0] + ex * f1, E.A[1] + ez * f1], o = (P, d) => [P[0] - nx * d, P[1] - nz * d];
+          const sec = [[0, 0], [0.08, 0.86], [0.36, 0.92], [0.42, 0]];   // (naar binnen, hoogte): buiten onder, buiten boven, binnen boven, binnen onder
+          const pos = [], uv = [], L = Math.hypot(Bb[0] - Ab[0], Bb[1] - Ab[1]), q = (P, i) => { const p2 = o(P, sec[i][0]); return [p2[0], y0 - 0.02 + sec[i][1], p2[1]]; };
+          for (let n = 0; n < 4; n++) { const m2 = (n + 1) % 4; if (n === 3) continue; const a = q(Ab, n), b = q(Bb, n), c = q(Bb, m2), d = q(Ab, m2); pos.push(...a, ...c, ...b, ...a, ...d, ...c); const h0 = sec[n][1], h1 = sec[m2][1]; uv.push(0, h0, L, h1, L, h0, 0, h0, 0, h1, L, h1); }
+          for (const [P, sg] of [[Ab, 1], [Bb, -1]]) { const a = q(P, 0), b = q(P, 1), c = q(P, 2), d = q(P, 3); if (sg > 0) pos.push(...a, ...b, ...c, ...a, ...c, ...d); else pos.push(...a, ...c, ...b, ...a, ...d, ...c); for (let i = 0; i < 6; i++) uv.push(0, 0); }
+          const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); geos.push(g);
+          const w = { ax: A[0] - nx * 0.17, az: A[1] - nz * 0.17, bx: B[0] - nx * 0.17, bz: B[1] - nz * 0.17, y0, y1: y0 + 0.9, half: 0.2 }; col.walls.push(w); R0.cols.push([col, w]);
+          R0.parts.push(mergeGeos(geos.slice(g0))); i = j; continue;
+        }
         bar(A, B, y0 + 0.98, y0 + 1.05, 0.05); bar(A, B, y0 + 0.45, y0 + 0.49, 0.03);
         for (const P of [A, B]) { const pk = Math.round(P[0] * 10) + ',' + Math.round(P[1] * 10) + ',' + Math.round(y0 * 10); if (posts.has(pk)) continue; posts.add(pk); const g = new THREE.BoxGeometry(0.05, 1.05, 0.05); g.translate(P[0], y0 + 0.525, P[1]); geos.push(g); }
         { const w = { ax: A[0], az: A[1], bx: B[0], bz: B[1], y0, y1: y0 + 1.05, half: 0.06 }; col.walls.push(w); R0.cols.push([col, w]); }

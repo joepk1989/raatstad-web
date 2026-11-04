@@ -38,10 +38,10 @@ TRIS = [(i, j, t) for i in range(-12, 13) for j in range(-24, 25) for t in (0, 1
         if in_hex(*np.mean(tri_verts(i, j, t), 0))]
 CENT = np.array([np.mean(tri_verts(i, j, t), 0) for i, j, t in TRIS])           # (x, z) per driehoek
 
-KLEUR_VLOER = {'43484e': 'asphalt', '7ab256': 'grass', '6f9a4a': 'grass', '7fa957': 'grass', 'c9c3b6': 'tile', 'ece9e2': 'roof', '5d6268': 'roof', '8a8f94': 'roof', '468cbe': 'water'}
+KLEUR_VLOER = {'43484e': 'asphalt', '7ab256': 'grass', '6f9a4a': 'grass', '7fa957': 'grass', 'c9c3b6': 'tile', 'ece9e2': 'pannen', '5d6268': 'pannen', '8a8f94': 'pannen', '468cbe': 'water'}
 def vloer_mat(kl, naam=''):
-    """de vloer: uit de kleur in SketchUp; het witte concept wordt betonnen zeshoektegels (pleinen: het raatpatroon)"""
-    return KLEUR_VLOER.get((kl or '').lower(), 'hexraat' if naam.startswith('Plein') else 'hexbeton')
+    """de vloer (Italiaans bergdorp): uit de kleur in SketchUp; het witte concept wordt oude keien, pleinen natuursteen zeshoeken"""
+    return KLEUR_VLOER.get((kl or '').lower(), 'hexsteen' if naam.startswith('Plein') else 'hexkei')
 
 V = json.load(open(os.path.join(HERE, 'raatstad-vorm.json'))); V.update(json.load(open(os.path.join(HERE, 'raatstad-extra.json')))['vorm'])
 
@@ -176,8 +176,8 @@ def omzetten(naam, M, sp):
         zl, hoog = zuilen(hoog); _, laag = zuilen(laag)
         for c in zl: lv[Lv]['o'].append({'t': 'pillar', 'x': round(float(c[0]), 3), 'z': round(float(c[1]), 3), 'rot': 0})
         for key, a, b in RIBBEN:
-            if raakt(hoog, a, b): lv[Lv]['w'][key] = {'m': 'stone', 'o': ''}
-            elif raakt(laag, a, b): lv[Lv]['w'][key] = {'m': 'fence', 'o': ''}
+            if raakt(hoog, a, b): lv[Lv]['w'][key] = {'m': 'oker' if naam.startswith(('Gebouw', 'Deel')) else 'breuksteen', 'o': ''}
+            # lage muurtjes worden niet omgezet: langs elke rand waar je kunt vallen zet het spel zelf een lage, schuine muur (rand: muurtje)
     # 3. hellingen: schuine beloopbare vlakken per verdieping → één rechte helling van het lage naar het hoge eind
     schuin = [(t, n) for t, n, l in zip(T, N_, L) if n[2] > 0 and 0.05 < math.hypot(n[0], n[1]) / n[2] <= 0.6]
     per = collections.defaultdict(list)
@@ -203,7 +203,7 @@ def omzetten(naam, M, sp):
         f = {}
         for key3, (cx, cz) in zip(TRIS, CENT):
             if any(pth.contains_point((cx, cz)) and n[2] > 0 for pth, t, n, k in paths):
-                f['%d,%d,%d' % key3] = 'glass' if ('koepel' in naam and in_hex(cx, cz, 2.3)) else 'roof'
+                f['%d,%d,%d' % key3] = 'glass' if ('koepel' in naam and in_hex(cx, cz, 2.3)) else 'pannen'
         lv = [{'f': f, 'w': {}, 's': [], 'r': {}, 'o': []}]
     while len(lv) > 1 and not any(lv[-1][k] for k in ('f', 'w', 's', 'r', 'o')): lv.pop()
     return lv
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     def module(sleutel, naam, M, sp):
         if sleutel in idx: return idx[sleutel]
         lvs = omzetten(naam, M, sp)
-        mods.append({'v': 2, 'name': sleutel, 'cat': SOORT(naam), 'k': 0, 'n': N, 'lv': lvs, 'edges': [], 'cells': [], 'tris': [], 'paths': [], 'bron': 'bergfort'})
+        mods.append({'v': 2, 'rand': 'muurtje', 'tegel': 1, 'name': sleutel, 'cat': SOORT(naam), 'k': 0, 'n': N, 'lv': lvs, 'edges': [], 'cells': [], 'tris': [], 'paths': [], 'bron': 'bergfort'})
         idx[sleutel] = len(mods) - 1; return idx[sleutel]
     for naam, m in PL:
         if naam.startswith('Rots'): continue

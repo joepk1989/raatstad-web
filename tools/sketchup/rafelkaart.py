@@ -10,7 +10,7 @@ R, SQ3, N = 9.0, math.sqrt(3), 8; TS = R / N
 P = lambda i, j: (i * TS * SQ3 / 2, i * TS / 2 + j * TS)
 def tv(i, j, t): return [P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)] if t else [P(i, j), P(i + 1, j), P(i, j + 1)]
 DIRW = [(1, 0), (0, 1), (-1, 1), (2, -1), (1, 1), (-1, 2)]
-KL = {'hexbeton': '#b6b4ae', 'hexraat': '#a9a69e', 'grass': '#7ab256', 'asphalt': '#4a4f55', 'tile': '#d6d2c6', 'roof': '#8a8f94', 'glass': '#9fd0e6', 'water': '#468cbe'}
+KL = {'hexbeton': '#b6b4ae', 'hexraat': '#a9a69e', 'hexkei': '#7d7262', 'hexsteen': '#c8b89c', 'pannen': '#a5502e', 'grass': '#7ab256', 'asphalt': '#4a4f55', 'tile': '#d6d2c6', 'roof': '#8a8f94', 'glass': '#9fd0e6', 'water': '#468cbe'}
 from shapely.geometry import Polygon as SPoly
 from shapely.ops import unary_union
 def knip(v, k):
