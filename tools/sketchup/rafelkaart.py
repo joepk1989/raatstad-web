@@ -58,11 +58,16 @@ for ax, i in zip(axs.flat, kies):
             ax.plot([a0[0], b0[0]], [a0[1], b0[1]], color='#8b4513' if w['m'] != 'fence' else '#2266cc', lw=1.8)
         for o in L['o']: ax.plot(o['x'], o['z'], 'ks', ms=5)
         for s in L['s']:
+            if s['k'] == 'plaat':   # vrije helling, bordes of zuil: de vlakken zelf, kleur naar hoogte
+                for pl in s['p']:
+                    h = sum(p[2] for p in pl) / len(pl); ax.add_patch(Polygon([p[:2] for p in pl], fc=plt.cm.YlOrBr(0.25 + 0.2 * h), ec='#a0522d', lw=0.6, alpha=0.95))
+                    ax.text(sum(p[0] for p in pl) / len(pl), sum(p[1] for p in pl) / len(pl), f'{h:.1f}', fontsize=6, ha='center', va='center')
+                continue
             a0 = P(*s['a']); D = [(1,0),(0,1),(-1,1),(-1,0),(0,-1),(1,-1),(2,-1),(1,1),(-1,2),(-2,1),(-1,-1),(1,-2)][s['d']]; dv = P(*D); ln = math.hypot(*dv)
             ax.annotate('', xy=(a0[0] + dv[0] / ln * s['n'] * TS, a0[1] + dv[1] / ln * s['n'] * TS), xytext=a0, arrowprops=dict(arrowstyle='->', color='#d62', lw=2.5))
     (sc, e) = rafel(m)
     ax.set_title(f"{m['name']}\nrafel {sc:.1f} · {e} losse stukjes · {len(m['lv'])} lagen", fontsize=8.5)
     ax.set_xlim(-10.5, 10.5); ax.set_ylim(10.5, -10.5); ax.set_aspect('equal'); ax.axis('off')
 for ax in list(axs.flat)[len(kies):]: ax.axis('off')
-fig.suptitle('Bergfort-onderdelen in de Raatmaker, van boven (bruin = muur, blauw = hek, oranje pijl = helling, ■ = zuil)', fontsize=11)
+fig.suptitle('Bergfort-onderdelen in de Raatmaker, van boven (bruin = muur, blauw = hek, oranje vlak = helling, bordes of zuil met hoogte in m)', fontsize=11)
 fig.tight_layout(); fig.savefig('test/visueel/uit/bergfort-raatmaker-rafelig.png')

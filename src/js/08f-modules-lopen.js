@@ -60,6 +60,10 @@
             else if (ORAD[t]) { const r = ORAD[t] + 0.25; add(O0.x - r, O0.z, O0.x + r, O0.z); add(O0.x, O0.z - r, O0.x, O0.z + r); }
           } }
         for (const S of L.s || []) {
+          if (S.k === 'plaat' && S.muur) continue;
+          if (S.k === 'plaat') { const G0 = mv2Plaat(S); if (G0.hi[2] - G0.lo[2] < MV2.LV_H - 0.4) continue;   // vrije helling (bergfort): via de middens van de stukken, van laag naar hoog
+            const via = G0.polys.map(P => { const n = P.pl.length; return [P.pl.reduce((s2, p) => s2 + p[0], 0) / n, P.pl.reduce((s2, p) => s2 + p[1], 0) / n, P.pl.reduce((s2, p) => s2 + p[2], 0) / n]; }).sort((x, y) => x[2] - y[2]).map(p => tf(p[0], p[1]));
+            const [lq, lr] = mv2CellOf(G0.lo[0], G0.lo[1]), [hq, hr] = mv2CellOf(G0.hi[0], G0.hi[1]); stairs.push({ lo: tf(G0.lo[0], G0.lo[1]), hi: tf(G0.hi[0], G0.hi[1]), lq, lr, hq, hr, via }); continue; }
           if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz; const lo = tf(c[0] - ex * (INNER - 1.2), c[1] - ez * (INNER - 1.2)), hi = tf(c[0] + ex * (INNER - 1.2), c[1] + ez * (INNER - 1.2)); stairs.push({ lo, hi, q: S.q || 0, r: S.r || 0, ramp: true, side: ((S.side || 0) + (I.rot || 0)) % 6 }); continue; }   // zijde in de wereld: plus de draaiing
           const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 1.2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
           const at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];

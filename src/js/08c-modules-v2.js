@@ -178,11 +178,31 @@
   // Trapgat: welke vloerdriehoeken (op de verdieping boven trap S) weg moeten, en welk stuk ervan blijft liggen.
   // Geeft per driehoek null (blijft) of { keep: [nx, nz, c] | null }: alleen het deel waar x·nx + z·nz >= c blijft, zodat de vloer
   // precies tot de bovenste tree (of tot de schuine rand van het bordes) doorloopt in plaats van een kier te laten.
+  // vrije helling of bordes (k 'plaat', uit SketchUp): S.p = [[[x, z, y], …], …] vlakke veelhoeken in module-meters, y boven de
+  // vloer van de verdieping. Een bocht met helling is zo twee hellingen met een bordes ertussen, precies zoals getekend.
+  function mv2Plaat(S) {
+    const polys = (S.p || []).map(pl => {
+      let nx = 0, ny = 0, nz = 0; for (let i = 0; i < pl.length; i++) { const A = pl[i], B = pl[(i + 1) % pl.length]; nx += (A[2] - B[2]) * (A[1] + B[1]); ny += (A[1] - B[1]) * (A[0] + B[0]); nz += (A[0] - B[0]) * (A[2] + B[2]); }   // Newell, assen (x, y, z) = (x, hoogte, z)
+      const p0 = pl[0], yAt = (x, z) => Math.abs(ny) < 1e-9 ? p0[2] : p0[2] - (nx * (x - p0[0]) + nz * (z - p0[1])) / ny;
+      const inside = (x, z) => { let c = false; for (let i = 0, j = pl.length - 1; i < pl.length; j = i++) { const a = pl[i], b = pl[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+      return { pl, yAt, inside };
+    });
+    const at = (x, z) => { let best = null; for (const P of polys) if (P.inside(x, z)) { const y = P.yAt(x, z); if (!best || y > best.y) best = { P, y }; } return best; };
+    // in- en uitstap: het midden van de laagste en de hoogste rand, 0,6 m naar buiten
+    const all = polys.flatMap(P => P.pl), cx = all.reduce((s, p) => s + p[0], 0) / (all.length || 1), cz = all.reduce((s, p) => s + p[1], 0) / (all.length || 1);
+    let lo = null, hi = null;
+    for (const P of polys) for (let i = 0; i < P.pl.length; i++) { const A = P.pl[i], B = P.pl[(i + 1) % P.pl.length], y = (A[2] + B[2]) / 2, l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (l < 0.8 || Math.abs(A[2] - B[2]) > 0.1) continue;
+      const m = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, y]; if (!lo || y < lo[2]) lo = m; if (!hi || y > hi[2]) hi = m; }
+    const out = (m, d) => { if (!m) return [cx, cz, 0]; let ex = m[0] - cx, ez = m[1] - cz; const l = Math.hypot(ex, ez) || 1; return [m[0] + ex / l * d, m[1] + ez / l * d, m[2]]; };
+    return { polys, at, lo: out(lo, 0.6), hi: out(hi, 0.6), c: [cx, cz] };
+  }
   function mv2StairHole(S, ts) {
     const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
     const loc = (x, z) => { const cx = x - a[0], cz = z - a[1]; return [cx * ux + cz * uz, cx * nx + cz * nz - off]; };
     const cen = v => loc((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3);
     const keepAl = (al0, sign) => [ux * sign, uz * sign, sign * (a[0] * ux + a[1] * uz + al0)];   // houd al >= al0 (sign 1) of al <= al0 (sign −1)
+    if (S.k === 'plaat' && S.muur) return () => null;
+    if (S.k === 'plaat') { const G0 = mv2Plaat(S); return v => { const h = G0.at((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3); return h && MV2.LV_H - h.y < 2.0 ? { keep: null } : null; }; }   // gat waar je je hoofd zou stoten
     if (S.k === 'spiral') {
       const dx0 = D[0] * ts * SQ3 / 2, dz0 = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz0, dx0), sd = S.side || 1;
       return v => { const cx = (v[0][0] + v[1][0] + v[2][0]) / 3 - a[0], cz = (v[0][1] + v[1][1] + v[2][1]) / 3 - a[1]; if (Math.hypot(cx, cz) > 2.15) return null; const ph = ((sd * (Math.atan2(cz, cx) - a0)) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
@@ -421,6 +441,25 @@
             let ar = 0; for (let k = 1; k + 1 < pl.length; k++) ar += Math.abs((pl[k][0] - pl[0][0]) * (pl[k + 1][1] - pl[0][1]) - (pl[k + 1][0] - pl[0][0]) * (pl[k][1] - pl[0][1])) / 2; if (ar < 0.02) continue;
             slabPoly(mat, pl, yt - MV2.FLOOR_T, yt + 0.02); for (let k = 1; k + 1 < pl.length; k++) pushWalk(pl[0], pl[k], pl[k + 1], yt + 0.02, yt + 0.02, yt + 0.02); } };
         const landing = (al, y) => { pushWalk(at(al, -w / 2), at(al + 1, w / 2), at(al, w / 2), y, y, y); pushWalk(at(al, -w / 2), at(al + 1, -w / 2), at(al + 1, w / 2), y, y, y); };   // onzichtbare overloop van 1 m: geen gat naar de vloer
+        if (S.k === 'plaat' && S.muur) {   // vrije wand (uit SketchUp): een stuk muur precies waar hij getekend is, niet op een ribbe
+          const pl = S.p[0], A = [pl[0][0], pl[0][1]], B = [pl[1][0], pl[1][1]], yb = y0 + pl[0][2], yt = y0 + pl[2][2];
+          wallBox(Mt.wl[S.m] || Mt.wl.brick, A, B, yb, yt, S.w || 0.3); addWall(A, B, yb, yt, (S.w || 0.3) / 2); continue;
+        }
+        if (S.k === 'plaat') {   // vrije helling/bordes: bovenvlak precies zoals getekend, zijkanten dicht tot de vloer, beloopbaar
+          const G0 = mv2Plaat(S), mat = Mt.fl[S.m || 'hexkei'] || Mt.rampTop, top = [], side = [], uvT = [];
+          for (const P of G0.polys) { const W = P.pl.map(p => [...tfp(p), y0 + p[2] + 0.02]), n = W.length;
+            // bovenvlak als waaier (de veelhoeken zijn bol), met de normaal omhoog
+            for (let i = 1; i + 1 < n; i++) { let A = W[0], B = W[i], C = W[i + 1]; const ny = (B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]); if (ny < 0) [B, C] = [C, B];
+              for (const V of [A, B, C]) { top.push(V[0], V[2], V[1]); uvT.push(V[0] / 2, V[1] / 2); }
+              pushWalk(P.pl[0], P.pl[i], P.pl[i + 1], y0 + P.pl[0][2] + 0.02, y0 + P.pl[i][2] + 0.02, y0 + P.pl[i + 1][2] + 0.02); }
+            for (let i = 0; i < n; i++) { const A = W[i], B = W[(i + 1) % n]; if (A[2] - y0 < 0.06 && B[2] - y0 < 0.06) continue;
+              side.push(A[0], y0, A[1], B[0], y0, B[1], B[0], B[2], B[1], A[0], y0, A[1], B[0], B[2], B[1], A[0], A[2], A[1]);
+              side.push(A[0], y0, A[1], B[0], B[2], B[1], B[0], y0, B[1], A[0], y0, A[1], A[0], A[2], A[1], B[0], B[2], B[1]); } }
+          const mk = (pos, uv, M2) => { if (!pos.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv || new Array(pos.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); put(M2, g); };
+          const uvS = []; for (let i = 0; i < side.length; i += 3) uvS.push((side[i] + side[i + 2]) * 0.7071, side[i + 1]);   // zijkant: textuur in meters
+          mk(top, uvT, mat); mk(side, uvS, Mt.wl.breuksteen || Mt.step);
+          continue;
+        }
         if (S.k === 'spiral') {   // zeshoekige wenteltrap: 12 trapezium-treden om een zeshoekige kern, één omwenteling per verdieping
           const sd = S.side || 1, a0 = Math.atan2(uz, ux), NS = 12, Ap = 1.9, Ac = 0.32, hs = rise / NS, th = k => a0 + sd * k * Math.PI / 6, TH = 0.26;
           const rad = (t, Aa) => { let d = (((t - a0 - Math.PI / 6) % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3); if (d > Math.PI / 6) d -= Math.PI / 3; return Aa / Math.cos(d); };   // zeshoek: Aa is de apothema; hoekpunten op de rasterlijnen (a0 + 60°·n), zijmiddens daartussen, net als de zes driehoeken om het rasterpunt
@@ -862,7 +901,7 @@
       // wel een hek langs de rest van het gat.
       const NS = Math.max(2, Math.ceil(l / 0.4)), open0 = [];
       for (let i = 0; i < NS; i++) { const f = (i + 0.5) / NS, px = E.A[0] + ex * f + nx * 0.35, pz = E.A[1] + ez * f + nz * 0.35;
-        open0.push(floorAt(px, pz, E.y + 0.3) >= E.y - 0.35 || floorAt(px, pz, E.y - 0.9) >= E.y - 1.4); }   // ook een trap die hier net onder de rand omhoogkomt: daar loop je zo de vloer op
+        open0.push(floorAt(px, pz, E.y + 0.3) >= E.y - 0.35 || floorAt(px, pz, E.y - 0.9) >= E.y - (R0.muur ? 0.6 : 1.4)); }   // met muurtjes (bergdorp): alleen open waar je echt gewoon doorloopt   // ook een trap die hier net onder de rand omhoogkomt: daar loop je zo de vloer op
       const open = open0.map((o, i) => o || open0[i - 1] || open0[i + 1]);   // een stukje speling naast de doorgang, zodat je er niet langs schuurt
       if (open.every(o => o)) continue;   // overal loop je gewoon door
       const y0 = E.y, [q, r] = worldToCell(mx, mz), ck = q + ',' + r; let col = railCols.get(ck); if (!col) railCols.set(ck, col = { surfaces: [], walls: [] });
@@ -942,6 +981,7 @@
       const w = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; if (d === 3) { const [a, b] = mp(i, j); w[a + ',' + b + ',3'] = L.w[id]; } else { const [a, b] = mp(i + D[0], j + D[1]); w[a + ',' + b + ',' + WMAP[d]] = L.w[id]; } } L.w = w;
       for (const S of L.s) {
         if (S.k === 'hexramp') { const q = S.q || 0, r = S.r || 0; S.q = q + r; S.r = -r; S.side = (6 - (S.side || 0)) % 6; continue; }
+        if (S.k === 'plaat') { S.p = S.p.map(pl => pl.map(p => [p[0], -p[1], p[2]])); S.a = mp(S.a[0], S.a[1]); continue; }
         S.a = mp(S.a[0], S.a[1]); S.d = (S.d || 0) < 6 ? D6[S.d || 0] : 6 + (12 - S.d) % 6;   /* 6–11: haaks op de zijden (0°, 60°, …) */ if (S.off) S.off = -S.off; if (S.k === 'spiral' || S.k === 'u') S.side = -(S.side || 1); else if (S.side) S.side = -S.side;   // zonder side is het 1: ook dan keert de draairichting om
       }
       const r = {}; for (const id in L.r) { const [q, rr] = id.split(',').map(Number), g = /^gable(\d)$/.exec(L.r[id] || ''); r[(q + rr) + ',' + (-rr)] = g ? 'gable' + [2, 1, 0][+g[1] % 3] : L.r[id]; } L.r = r;   // zadeldak: de nok spiegelt mee

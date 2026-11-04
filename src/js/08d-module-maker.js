@@ -140,6 +140,11 @@
     function stairGeom(S) {
       const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = P(S.a[0], S.a[1]), t = ts(), dx = D[0] * t * SQ3 / 2, dz = D[0] * t / 2 + D[1] * t, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = (S.n || 1) * t, w = S.w || 1.2;
       const off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];
+      if (S.k === 'plaat') { const G0 = mv2Plaat(S), pts = G0.polys.flatMap(Q => Q.pl.map(p => [p[0], p[1]])).sort((p, q) => p[0] - q[0] || p[1] - q[1]), cr = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]), lw = [], up = [];
+        for (const p of pts) { while (lw.length > 1 && cr(lw[lw.length - 2], lw[lw.length - 1], p) <= 0) lw.pop(); lw.push(p); }
+        for (const p of pts.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+        const lo = [G0.lo[0], G0.lo[1]], hi = [G0.hi[0], G0.hi[1]], ex = hi[0] - lo[0], ez = hi[1] - lo[1], el = Math.hypot(ex, ez) || 1;
+        return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly: [...lw.slice(0, -1), ...up.slice(0, -1)], plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
       if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2, cut = 2 * w / SQ3; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)] }; }   // twee steken + schuin bordes
@@ -314,7 +319,7 @@
     function eraseTarget(x, z, firstOnly) {
       const L = lvl(); const oi = objectAt(x, z, 0.8); if (oi >= 0) return { kind: 'voorwerp', oi };
       const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45); if (w) return { kind: 'muur', id: w.id };
-      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' ? 'helling' : 'trap', si };
+      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
       const [q, r] = cellAt(x, z); if (L.r[q + ',' + r] && !firstOnly) return { kind: 'dak', rk: q + ',' + r, q, r };
       const tris = brushTris(x, z).filter(okTri).filter(id => L.f[id.join(',')]); if (tris.length) return { kind: 'vloer', tris };
       return null;
@@ -353,7 +358,7 @@
     function clipShift(c, di, dj) {
       const cs = cellStep(di, dj), off = P(di, dj), off0 = P(0, 0), ox = off[0] - off0[0], oz = off[1] - off0[1], stay = { f: [], w: [], s: [], o: [], r: [] };
       const out = { f: c.f.map(([i, j, t, m]) => [i + di, j + dj, t, m]), w: c.w.map(([i, j, d, W2]) => [i + di, j + dj, d, W2]), o: c.o.map(o => Object.assign({}, o, { x: Math.round((o.x + ox) * 1000) / 1000, z: Math.round((o.z + oz) * 1000) / 1000 })), s: [], r: [] };
-      for (const St of c.s) { if (St.k === 'hexramp') { if (cs) out.s.push(Object.assign({}, St, { q: (St.q || 0) + cs[0], r: (St.r || 0) + cs[1] })); else stay.s.push(St); } else out.s.push(Object.assign({}, St, { a: [St.a[0] + di, St.a[1] + dj] })); }
+      for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: [St.a[0] + di, St.a[1] + dj], p: St.p.map(pl => pl.map(p => [p[0] + ox, p[1] + oz, p[2]])) })); continue; } if (St.k === 'hexramp') { if (cs) out.s.push(Object.assign({}, St, { q: (St.q || 0) + cs[0], r: (St.r || 0) + cs[1] })); else stay.s.push(St); } else out.s.push(Object.assign({}, St, { a: [St.a[0] + di, St.a[1] + dj] })); }
       for (const R0 of c.r) { if (cs) out.r.push([R0[0] + cs[0], R0[1] + cs[1], R0[2]]); else stay.r.push(R0); }
       return { out, stay };
     }
@@ -365,7 +370,7 @@
       for (const [i, j, t, m] of c.f) { const V = triVertsIdx(i, j, t).map(rotI).map(([a, b]) => P(a, b)), cx = (V[0][0] + V[1][0] + V[2][0]) / 3, cz = (V[0][1] + V[1][1] + V[2][1]) / 3; out.f.push([...triAt(cx, cz), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(rotI([i, j]), rotI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) { const [x, z] = rotW(o.x, o.z); out.o.push(Object.assign({}, o, { x: Math.round(x * 1000) / 1000, z: Math.round(z * 1000) / 1000, rot: ((o.rot || 0) + ang) % (Math.PI * 2) })); }
-      for (const St of c.s) { if (St.k === 'hexramp') { stay.s.push(St); continue; } out.s.push(Object.assign({}, St, { a: rotI(St.a), d: (St.d || 0) < 6 ? ((St.d || 0) + k) % 6 : 6 + (St.d - 6 + k) % 6 })); }
+      for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: rotI(St.a), p: St.p.map(pl => pl.map(p => { const [x, z] = rotW(p[0], p[1]); return [Math.round(x * 1000) / 1000, Math.round(z * 1000) / 1000, p[2]]; })) })); continue; } if (St.k === 'hexramp') { stay.s.push(St); continue; } out.s.push(Object.assign({}, St, { a: rotI(St.a), d: (St.d || 0) < 6 ? ((St.d || 0) + k) % 6 : 6 + (St.d - 6 + k) % 6 })); }
       for (const R0 of c.r) { if (!pc) { stay.r.push(R0); continue; } let a = R0[0] - pc[0], b = R0[1] - pc[1]; for (let n = 0; n < k; n++) [a, b] = [-b, a + b]; const g = /^gable(\d)$/.exec(R0[2] || ''); out.r.push([a + pc[0], b + pc[1], g ? 'gable' + ((+g[1] + k) % 3) : R0[2]]); }
       void n0; return { out, stay };
     }
@@ -377,7 +382,7 @@
       for (const [i, j, t, m] of c.f) { const V = triVertsIdx(i, j, t).map(mI).map(([a, b]) => P(a, b)); out.f.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(mI([i, j]), mI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) out.o.push(Object.assign({}, o, { z: Math.round((2 * pw[1] - o.z) * 1000) / 1000, rot: -(o.rot || 0) }));
-      for (const St of c.s) { if (St.k === 'hexramp') { stay.s.push(St); continue; } const S2 = Object.assign({}, St, { a: mI(St.a), d: D6[St.d || 0] }); if (S2.off) S2.off = -S2.off; if (S2.k === 'spiral' || S2.k === 'u') S2.side = -(S2.side || 1); else if (S2.side) S2.side = -S2.side; out.s.push(S2); }
+      for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: mI(St.a), p: St.p.map(pl => pl.map(p => [p[0], Math.round((2 * pw[1] - p[1]) * 1000) / 1000, p[2]])) })); continue; } if (St.k === 'hexramp') { stay.s.push(St); continue; } const S2 = Object.assign({}, St, { a: mI(St.a), d: D6[St.d || 0] }); if (S2.off) S2.off = -S2.off; if (S2.k === 'spiral' || S2.k === 'u') S2.side = -(S2.side || 1); else if (S2.side) S2.side = -S2.side; out.s.push(S2); }
       for (const R0 of c.r) { if (!pc) { stay.r.push(R0); continue; } const dq = R0[0] - pc[0], dr = R0[1] - pc[1], g = /^gable(\d)$/.exec(R0[2] || ''); out.r.push([dq + dr + pc[0], -dr + pc[1], g ? 'gable' + [2, 1, 0][+g[1] % 3] : R0[2]]); }
       if (axis !== 'x') return { out, stay };
       const r2 = clipRot(out, 3, pv); return { out: r2.out, stay: clipJoin(stay, r2.stay) };
@@ -460,6 +465,7 @@
       for (let li = 0; li < m.lv.length; li++) for (const St of m.lv[li].s) {
         if (St.k === 'hexramp') continue; const g = stairGeom(St); let lo, hi;
         if (St.k === 'spiral') { const a0 = Math.atan2(g.uz, g.ux), sd = St.side || 1, pt = (deg, r) => [g.a[0] + Math.cos(a0 + sd * deg * D2) * r, g.a[1] + Math.sin(a0 + sd * deg * D2) * r]; lo = pt(10, 1.7); hi = pt(350, 1.7); }
+        else if (St.k === 'plaat') { if (St.muur || g.plaat.hi[2] - g.plaat.lo[2] < MV2.LV_H - 0.4) continue; lo = g.plaat.lo; hi = g.plaat.hi; }
         else if (St.k === 'u') { lo = g.at(-0.6, 0); hi = g.at(-0.6, (St.side || 1) * g.w); }
         else { lo = g.at(-0.6, 0); hi = g.at(g.len + 0.6, 0); }
         let A = node(li, lo[0], lo[1]); const B = li + 1 < m.lv.length ? node(li + 1, hi[0], hi[1]) : null;
@@ -670,7 +676,7 @@
       const stairDraw = (S, ghost) => {
         const g = stairGeom(S), pts = g.poly.map(p => toS(p[0], p[1]));
         ctx.beginPath(); pts.forEach((p, n) => n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
-        ctx.fillStyle = ghost ? 'rgba(242,178,51,0.25)' : (S.k === 'ramp' || S.k === 'hexramp' ? 'rgba(170,140,100,0.55)' : 'rgba(190,180,165,0.6)'); ctx.fill(); ctx.strokeStyle = ghost ? '#f2b233' : '#e9ecdf'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = ghost ? 'rgba(242,178,51,0.25)' : (S.k === 'ramp' || S.k === 'hexramp' || S.k === 'plaat' ? 'rgba(170,140,100,0.55)' : 'rgba(190,180,165,0.6)'); ctx.fill(); ctx.strokeStyle = ghost ? '#f2b233' : '#e9ecdf'; ctx.lineWidth = 1.2; ctx.stroke();
         if (S.k === 'spiral') {
           const c = g.a, a0 = Math.atan2(g.uz, g.ux), sd = g.sd; ctx.strokeStyle = ghost ? '#f2b233' : 'rgba(40,40,30,0.45)'; ctx.lineWidth = 1; ctx.beginPath();
           for (let k2 = 0; k2 <= 12; k2++) { const an = a0 + sd * k2 * Math.PI / 6, p0 = toS(c[0] + Math.cos(an) * 0.37, c[1] + Math.sin(an) * 0.37), p1 = toS(c[0] + Math.cos(an) * 1.9, c[1] + Math.sin(an) * 1.9); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
@@ -684,7 +690,7 @@
           ctx.strokeStyle = '#f2b233'; ctx.lineWidth = 2; ctx.beginPath(); const p0 = toS(...g.at(g.len * 0.1, 0)), p1 = toS(...g.at(g.len + g.w / 2, 0)), p2 = toS(...g.at(g.len + g.w / 2, g.sd * g.w)), p3 = toS(...g.at(g.len * 0.1, g.sd * g.w)); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.lineTo(p3[0], p3[1]); ctx.stroke(); return;
         }
         if (S.k === 'hexramp') { ctx.strokeStyle = 'rgba(40,40,30,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); for (let n = 1; n < 7; n++) { const a = toS(...g.at(n * g.len / 7, -4.5)), b = toS(...g.at(n * g.len / 7, 4.5)); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.stroke(); }
-        if (S.k !== 'ramp' && S.k !== 'hexramp') { const N = Math.max(2, Math.round(g.len / 0.28)); ctx.beginPath(); for (let n = 1; n < N; n++) { const a = toS(...g.at(n * g.len / N, -g.w / 2)), b = toS(...g.at(n * g.len / N, g.w / 2)); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.strokeStyle = 'rgba(40,40,30,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+        if (S.k !== 'ramp' && S.k !== 'hexramp' && S.k !== 'plaat') { const N = Math.max(2, Math.round(g.len / 0.28)); ctx.beginPath(); for (let n = 1; n < N; n++) { const a = toS(...g.at(n * g.len / N, -g.w / 2)), b = toS(...g.at(n * g.len / N, g.w / 2)); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.strokeStyle = 'rgba(40,40,30,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
         const a0 = toS(...g.at(g.len * 0.15, 0)), a1 = toS(...g.at(g.len * 0.9, 0)); ctx.strokeStyle = '#f2b233'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a0[0], a0[1]); ctx.lineTo(a1[0], a1[1]); ctx.stroke();
         const ang = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]); ctx.beginPath(); ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a1[0] - 8 * Math.cos(ang - 0.5), a1[1] - 8 * Math.sin(ang - 0.5)); ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a1[0] - 8 * Math.cos(ang + 0.5), a1[1] - 8 * Math.sin(ang + 0.5)); ctx.stroke();
       };
