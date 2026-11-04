@@ -84,7 +84,7 @@
     return parts.filter(pp => pp.length > 1 && plen(pp) > 0.5);
   }
   const vmat = (color, n) => std({ color, polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n, side: THREE.DoubleSide });
-  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: vmat('#c3beb1', 1), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: vmat('#9b5a45', 3) };
+  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: vmat('#9b5a45', 3) };
   let pathGroup = null;
   // Welke vakken beslaat een getekende weg? Een vak hoort erbij als zijn midden dicht genoeg bij de lijn ligt
   // (breedte van de weg plus een half vak). Die vakken krijgen een zandkleurige vloer en zijn niet meer bebouwbaar.
@@ -688,6 +688,7 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(L.pos, 3));
     const nn = new Float32Array(L.pos.length); for (let i = 1; i < nn.length; i += 3) nn[i] = 1;
     g.setAttribute('normal', new THREE.BufferAttribute(nn, 3)); g.setIndex(L.idx);
+    if (mat.userData && mat.userData.uvMeter) { const uv = new Float32Array(L.pos.length / 3 * 2); for (let i = 0, j = 0; i < L.pos.length; i += 3, j += 2) { uv[j] = L.pos[i]; uv[j + 1] = L.pos[i + 2]; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }   // tegels: uv = wereld in meters
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.userData.own = true; return m;
   }
   // Terrein veranderd onder of naast een weg: de weg (hoogteprofiel) opnieuw opbouwen

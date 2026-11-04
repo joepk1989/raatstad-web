@@ -80,15 +80,7 @@
     };
     // zeshoekige tegels (punt in de lengte van het raster, net als de vakken): naad in de kleur van de voeg, elke tegel
     // een tikje anders; een blok van C × RR tegels herhaalt, zodat de textuur naadloos doorloopt. kleur(c, r): tint per tegel
-    const hexTegels = (s, C, RR, voeg, voegB, kleur, extra) => mvTex(C * SQ3 * s, RR * 1.5 * s, (g, w, h) => {
-      const ux = w / (C * SQ3 * s), uy = h / (RR * 1.5 * s);
-      g.fillStyle = voeg; g.fillRect(0, 0, w, h);
-      for (let r = -1; r <= RR; r++) for (let c = -1; c <= C; c++) {
-        const cx = (c + ((r & 1) ? 0.5 : 0)) * SQ3 * s, cz = r * 1.5 * s, cm = ((c % C) + C) % C, rm = ((r % RR) + RR) % RR, rad = s - voegB / SQ3;
-        g.beginPath(); for (let k = 0; k < 6; k++) { const a = (90 + 60 * k) * Math.PI / 180; g.lineTo((cx + Math.cos(a) * rad) * ux, (cz + Math.sin(a) * rad) * uy); } g.closePath();
-        g.fillStyle = kleur(cm, rm); g.fill(); if (extra) extra(g, cx * ux, cz * uy, rad * ux, cm, rm);
-      }
-    }, 96, true);
+    const hexTegels = (s, C, RR, voeg, voegB, kleur, extra) => { const t = hexTegelTex(s, C, RR, voeg, voegB, kleur, extra); t.repeat.multiplyScalar(2); return t; };   // vloer-uv loopt in stappen van 2 m (zie triGeo)
     const tint = (h, s2, l, k, d) => `hsl(${h}, ${s2}%, ${(l + (k - 0.5) * d).toFixed(1)}%)`;
     const fl = {
       // betonnen zeshoektegels (≈ 1 m breed): grijs, voeg 8 mm
@@ -113,6 +105,14 @@
           g.restore(); } }, 96, true), { roughness: 0.55 }),
     };
     return { wl, fl };
+  }
+  // Zeshoektegels in bestaande modules: natuursteen tegels worden natuursteen zeshoeken, klinkers op pleinen het
+  // raatpatroon. Een module die al is omgezet (tegel: 1) blijft zoals hij is, ook als je daarna weer iets anders kiest.
+  function mv2Zeshoek(m) {
+    if (!m || m.v !== 2 || m.tegel) return m;
+    const plein = /Plein|Terras|Markt/.test(m.name || '') || m.cat === 'Pleinen';
+    for (const L of m.lv || []) for (const k in L.f || {}) { const v = L.f[k]; if (v === 'stonetile') L.f[k] = 'hexsteen'; else if (v === 'paver' && plein) L.f[k] = 'hexraat'; }
+    m.tegel = 1; return m;
   }
   // Materialen (gedeeld met de stad)
   let MV2M = null;

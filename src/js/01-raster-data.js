@@ -198,6 +198,7 @@
       if (Array.isArray(obj.__p)) m.paths = obj.__p.filter(p => p && ['weg', 'brd', 'laan', 'pad', 'snel', 'klink', 'fiets', 'rot'].includes(p.t) && Array.isArray(p.p) && p.p.length > (p.t === 'rot' ? 0 : 1) && p.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])));
       if (Array.isArray(obj.__r)) m.rails = obj.__r.filter(r => r && Array.isArray(r.p) && r.p.length > 1 && r.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1]))).map(r => ({ p: r.p.map(a => [+a[0], +a[1]]) }));
       if (Array.isArray(obj.__i)) m.inst = obj.__i.filter(x => x && x.m && Array.isArray(x.m.edges) && isFinite(x.q) && isFinite(x.r) && isFinite(x.rot));
+      if (m.inst) for (const I of m.inst) mv2Zeshoek(I.m);   // zeshoektegels in modules die al in de stad stonden (08c)
       if (obj.__g && typeof obj.__g === 'object') { m.terr = {}; for (const k in obj.__g) { const v = +obj.__g[k]; if (/^-?\d+,-?\d+$/.test(k) && isFinite(v) && v > 0) m.terr[k] = Math.min(TERR_TOP, v); } }
       if (obj.__s && typeof obj.__s === 'object') { m.sec = {}; for (const k in obj.__s) { const v = +obj.__s[k]; if (/^-?\d+,-?\d+$/.test(k) && v >= 1 && v < 63) m.sec[k] = v | 0; } }
       if (Array.isArray(obj.__k)) m.skp = obj.__k.filter(x => x && typeof x.n === 'string' && isFinite(x.q) && isFinite(x.r) && isFinite(x.y) && (!x.a || (Array.isArray(x.a) && x.a.length === 9 && x.a.every(isFinite))));   // SketchUp-modules (15j3)

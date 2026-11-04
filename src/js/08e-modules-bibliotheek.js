@@ -105,7 +105,7 @@
       libOldDetails(b); pruneNearStairs(b);   // inrichting en bijzonderheden (08d9), niets bij de trappen
       const m = b.m, T = m.lv[m.lv.length - 1];
       if (m.lv.length > 1 && !Object.keys(T.w).length && !T.s.length && T.o.every(o => o.t === 'solar') && Object.values(T.f).every(v => v === 'concrete')) for (const k in T.f) T.f[k] = 'roof';   // met zonnepanelen blijft het een dak
-      const d = b.done(); d.was = d.name; d.name = (LIB_NAMES[d.name] || d.name) + modSuffix(modMeta(d)); d.cat = CAT_FIX[catBase(d.name)] || d.cat; out.push(d);
+      const d = mv2Zeshoek(b.done()); d.was = d.name; d.name = (LIB_NAMES[d.name] || d.name) + modSuffix(modMeta(d)); d.cat = CAT_FIX[catBase(d.name)] || d.cat; out.push(d);
     };
     const sideTo = (cx, cz) => (Math.round(Math.atan2(-cz, -cx) / (Math.PI / 3)) + 5 + 12) % 6;   // zijde van een vak die naar het midden kijkt
     const WIN = { brick: 2, plaster: 2, stone: 2, wood: 2, concrete: 4, glass: 0 };
@@ -325,6 +325,8 @@
   try {
     if (!localStorage.getItem('raatstad-lib3')) { libInstall(!!localStorage.getItem('raatstad-lib2')); localStorage.setItem('raatstad-lib2', '1'); localStorage.setItem('raatstad-lib3', '1'); libRefreshed = true; }
   } catch (e) { /* geen opslag */ }
+  // Eenmalig: zeshoektegels in de modules die al in de lijst staan (en de exemplaren in de stad gaan mee bij het laden)
+  try { if (!localStorage.getItem('raatstad-hex1')) { modules.forEach(mv2Zeshoek); saveMods(); localStorage.setItem('raatstad-hex1', '1'); } } catch (e) { /* geen opslag */ }
   // Eenmalig: de standaardmodules krijgen hun nieuwe, logische naam (eigen aanpassingen blijven); Trappen heet nu Verbindingen
   try {
     if (!localStorage.getItem('raatstad-names1')) {
