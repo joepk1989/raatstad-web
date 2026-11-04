@@ -11,37 +11,34 @@ P = lambda i, j: (i * TS * SQ3 / 2, i * TS / 2 + j * TS)
 def tv(i, j, t): return [P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)] if t else [P(i, j), P(i + 1, j), P(i, j + 1)]
 DIRW = [(1, 0), (0, 1), (-1, 1), (2, -1), (1, 1), (-1, 2)]
 KL = {'hexbeton': '#b6b4ae', 'hexraat': '#a9a69e', 'grass': '#7ab256', 'asphalt': '#4a4f55', 'tile': '#d6d2c6', 'roof': '#8a8f94', 'glass': '#9fd0e6', 'water': '#468cbe'}
+from shapely.geometry import Polygon as SPoly
+from shapely.ops import unary_union
+def knip(v, k):
+    """driehoek v afknippen op de knip k (fk): het deel waar x·nx + z·nz >= c"""
+    pl = list(v)
+    for nx, nz, c in (k if isinstance(k[0], list) else [k]):
+        out = []
+        for a, b in zip(pl, pl[1:] + pl[:1]):
+            fa, fb = a[0] * nx + a[1] * nz - c, b[0] * nx + b[1] * nz - c
+            if fa >= 0: out.append(a)
+            if (fa >= 0) != (fb >= 0): t_ = fa / (fa - fb); out.append((a[0] + (b[0] - a[0]) * t_, a[1] + (b[1] - a[1]) * t_))
+        pl = out
+        if len(pl) < 3: return []
+    return pl
+def stukken(L):
+    for k, mat in L['f'].items():
+        i, j, t = map(int, k.split(',')); v = tv(i, j, t)
+        if 'fk' in L and k in L['fk']: v = knip(v, L['fk'][k])
+        if len(v) >= 3: yield v, mat
 def rafel(m):
-    """hoe rafelig: per verdieping de rand van de vloer (randen van driehoeken die maar aan één vloer-driehoek grenzen) t.o.v. de wortel van de oppervlakte; plus losse eilandjes"""
+    """hoe rafelig: per verdieping de omtrek van de vloer t.o.v. een zeshoek met dezelfde oppervlakte, en losse stukjes"""
     score, eil = 0, 0
     for L in m['lv']:
-        F = set(tuple(map(int, k.split(','))) for k in L['f'])
-        if not F: continue
-        rand = collections.Counter()
-        for (i, j, t) in F:
-            v = [tuple(round(c, 3) for c in p) for p in tv(i, j, t)]
-            for a, b in ((v[0], v[1]), (v[1], v[2]), (v[2], v[0])): rand[tuple(sorted((a, b)))] += 1
-        r = sum(1 for k, n in rand.items() if n == 1) * TS
-        area = len(F) * (TS * TS * SQ3 / 4)
-        score += r / math.sqrt(area) / 3.54 - 1          # 3,54 ≈ omtrek/√oppervlakte van een zeshoek
-        # eilandjes: groepen driehoeken die niet aan elkaar zitten
-        nb = collections.defaultdict(set)
-        for k, n in rand.items(): pass
-        ed = collections.defaultdict(list)
-        for f in F:
-            v = [tuple(round(c, 3) for c in p) for p in tv(*f)]
-            for a, b in ((v[0], v[1]), (v[1], v[2]), (v[2], v[0])): ed[tuple(sorted((a, b)))].append(f)
-        for fs in ed.values():
-            if len(fs) == 2: nb[fs[0]].add(fs[1]); nb[fs[1]].add(fs[0])
-        gez = set(); g = 0
-        for f in F:
-            if f in gez: continue
-            g += 1; st = [f]; gez.add(f)
-            while st:
-                x = st.pop()
-                for y in nb[x]:
-                    if y not in gez: gez.add(y); st.append(y)
-        eil += g - 1
+        P_ = [SPoly(v).buffer(0.002) for v, _ in stukken(L)]
+        if not P_: continue
+        U = unary_union(P_).buffer(-0.002)
+        score += U.length / math.sqrt(U.area) / 3.72 - 1        # 3,72 ≈ omtrek/√oppervlakte van een zeshoek
+        eil += len(getattr(U, 'geoms', [U])) - 1
     return score, eil
 lijst = sorted(((rafel(m), i) for i, m in enumerate(J['mods'])), key=lambda x: -(x[0][0] + x[0][1] * 0.5))
 for (sc, e), i in lijst: print(f"{sc:5.2f} eil {e:2d}  {J['mods'][i]['name']}")
@@ -55,8 +52,7 @@ for ax, i in zip(axs.flat, kies):
     ax.add_patch(Polygon(hexp, fill=False, ec='#999', lw=0.8, ls='--'))
     for Lv, L in enumerate(m['lv']):
         a = 0.35 + 0.65 * (Lv + 1) / len(m['lv'])
-        for k, mat in L['f'].items():
-            i_, j_, t_ = map(int, k.split(',')); ax.add_patch(Polygon(tv(i_, j_, t_), fc=KL.get(mat, '#ccc'), ec='none', alpha=a))
+        for v, mat in stukken(L): ax.add_patch(Polygon(v, fc=KL.get(mat, '#ccc'), ec='none', alpha=a))
         for k, w in L['w'].items():
             i_, j_, d = map(int, k.split(',')); a0, b0 = P(i_, j_), P(i_ + DIRW[d][0], j_ + DIRW[d][1])
             ax.plot([a0[0], b0[0]], [a0[1], b0[1]], color='#8b4513' if w['m'] != 'fence' else '#2266cc', lw=1.8)

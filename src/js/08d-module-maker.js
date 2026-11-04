@@ -265,7 +265,7 @@
     // ---------- bewerkingen ----------
     function paintFloor(x, z, erase) {
       const L = lvl(), list = brushTris(x, z).filter(okTri); let n = 0;
-      for (const id of list) { const k = id.join(','); if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } }
+      for (const id of list) { const k = id.join(','); if (L.fk && L.fk[k]) { delete L.fk[k]; n++; } if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } }   // een afgeknipte driehoek (fk) wordt weer heel
       return n;
     }
     // vullen: driehoeken bereikbaar vanaf (x, z) zonder een muur te kruisen
@@ -275,7 +275,7 @@
       const seen = new Set([start.join(',')]), queue = [start]; let n = 0;
       while (queue.length) {
         const id = queue.pop(), k = id.join(',');
-        if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; }
+        if (L.fk && L.fk[k]) { delete L.fk[k]; n++; } if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; }
         for (const [wk, nb] of triEdges(id)) { const nk = nb.join(','); if (seen.has(nk) || L.w[wk] || !okTri(nb)) continue; seen.add(nk); queue.push(nb); if (seen.size > 20000) return n; }
       }
       return n;
@@ -339,7 +339,7 @@
       return { f: [...S.f].filter(id => L.f[id]).map(id => [...id.split(',').map(Number), L.f[id]]), w: [...S.w].filter(id => L.w[id]).map(id => [...id.split(',').map(Number), JSON.parse(JSON.stringify(L.w[id]))]),
         s: [...S.s].filter(i => L.s[i]).map(i => JSON.parse(JSON.stringify(L.s[i]))), o: [...S.o].filter(i => L.o[i]).map(i => Object.assign({}, L.o[i])), r: [...S.r].filter(k => L.r[k]).map(k => [...k.split(',').map(Number), L.r[k]]) };
     }
-    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) delete L.f[id]; for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
+    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) { delete L.f[id]; if (L.fk) delete L.fk[id]; } for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
     function clipInsert(c, li = E.lv) {
       while (E.m.lv.length <= li) E.m.lv.push(mv2Level()); const L = E.m.lv[li], S = selEmpty(li);
       for (const [i, j, t, mat] of c.f) { const id = i + ',' + j + ',' + t; if (!okTri([i, j, t])) continue; L.f[id] = mat; S.f.add(id); }

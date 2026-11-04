@@ -16,7 +16,8 @@ from matplotlib.path import Path
 HERE = os.path.dirname(os.path.abspath(__file__))
 import grid_check as G
 
-R, SQ3, N = 9.0, math.sqrt(3), 8
+R, SQ3, N = 9.0, math.sqrt(3), int(os.environ.get('RASTER_N', 8))
+SNAP = float(os.environ.get('SNAP', 0.3))   # m: hoekpunten binnen deze afstand van een rasterpunt worden erop gezet (lijnen snappen), zodat muur en vloerrand samenvallen
 TS = R / N
 LH = 3.0
 CX, CY = 7.79, 9.0
@@ -50,6 +51,11 @@ def driehoeken(naam, M):
     for kl, v in V[naam].items():
         T = np.array(v, float).reshape(-1, 3, 3) / 100
         T = T @ M[:3, :3].T + M[:3, 3]
+        if SNAP > 0:   # hoekpunten die dicht bij een punt van het fijne raster liggen, daarheen trekken (lijnen snappen)
+            x, z = T[:, :, 0], -T[:, :, 1]
+            fi = x / (TS * SQ3 / 2); fj = z / TS - fi / 2; ri, rj = np.round(fi), np.round(fj)
+            sx = ri * TS * SQ3 / 2; sz = ri * TS / 2 + rj * TS; d = np.hypot(sx - x, sz - z)
+            T[:, :, 0] = np.where(d < SNAP, sx, x); T[:, :, 1] = np.where(d < SNAP, -sz, T[:, :, 1])
         for t in T: out.append((t, kl))
     return out
 
@@ -66,14 +72,14 @@ def omzetten(naam, M, sp):
     # 1. per driehoek van het raster: welke vlakken liggen erboven/eronder (alleen niet-verticale vlakken)
     nv = np.abs(N_[:, 2]) > 0.05 * L
     paths = [(Path([XZ(p) for p in t[:, :2]]), t, n, k) for t, n, k, ok in zip(T, N_, K, nv) if ok]
-    for ti, (key3, (cx, cz)) in enumerate(zip(TRIS, CENT)):
+    def vloer_in(cx, cz):
+        """de vloeren in punt (cx, cz): {verdieping: kleur}"""
         hits = []
         for pth, t, n, k in paths:
             if not pth.contains_point((cx, cz)): continue
-            # hoogte van het vlak in dit punt
-            a = t[0]; zz = a[2] - (n[0] * (cx - a[0]) + n[1] * (-cz - a[1])) / n[2]
+            a = t[0]; zz = a[2] - (n[0] * (cx - a[0]) + n[1] * (-cz - a[1])) / n[2]   # hoogte van het vlak in dit punt
             hits.append((zz, n[2] > 0, math.hypot(n[0], n[1]) / abs(n[2]), k))
-        hits.sort()
+        hits.sort(); uit = {}
         for zz, op, helling, k in hits:
             if not op or helling > 0.2: continue
             Lv = int(round(zz / LH))
@@ -82,7 +88,48 @@ def omzetten(naam, M, sp):
             if boven:
                 z2, o2 = min(boven)
                 if o2 or z2 < zz + 2.0: continue                     # binnen in een blok, of te laag plafond
-            lv[Lv]['f']['%d,%d,%d' % key3] = vloer_mat(k, naam)
+            uit[Lv] = k
+        return uit
+    # het precieze vloervlak per verdieping (voor driehoeken die maar half vloer zijn): alle vlakke bovenkanten op die hoogte
+    from shapely.geometry import Polygon as SPoly
+    from shapely.ops import unary_union
+    vlak = collections.defaultdict(list)
+    for t, n, l in zip(T, N_, L):
+        if n[2] <= 0 or math.hypot(n[0], n[1]) / n[2] > 0.2: continue
+        zz = t[:, 2].mean(); Lv = int(round(zz / LH))
+        if abs(zz - Lv * LH) > 0.45 or Lv >= nlv: continue
+        pg = SPoly([XZ(p) for p in t[:, :2]])
+        if pg.area > 1e-4: vlak[Lv].append(pg)
+    vlak = {Lv: unary_union(v).buffer(0) for Lv, v in vlak.items()}
+    for key3, (cx, cz) in zip(TRIS, CENT):
+        V3 = np.array(tri_verts(*key3)); c = V3.mean(0)
+        proef = [c] + [c + (v - c) * 0.85 for v in V3] + [c + ((V3[a] + V3[b]) / 2 - c) * 0.9 for a, b in ((0, 1), (1, 2), (2, 0))]
+        tel = collections.defaultdict(list)
+        for q in proef:
+            for Lv, k in vloer_in(*q).items(): tel[Lv].append(k)
+        for Lv, ks in tel.items():
+            key = '%d,%d,%d' % key3; mat = vloer_mat(collections.Counter(ks).most_common(1)[0][0], naam)
+            if len(ks) == len(proef): lv[Lv]['f'][key] = mat; continue
+            # half vloer: de driehoek afknippen op de rand van het vloervlak (rechte knip, ook dwars door de driehoek)
+            reg = vlak.get(Lv)
+            if reg is None: continue
+            tri = SPoly(V3); inter = tri.intersection(reg)
+            if inter.is_empty or inter.area < 0.04 * tri.area: continue
+            if inter.area > 0.97 * tri.area: lv[Lv]['f'][key] = mat; continue
+            if inter.geom_type != 'Polygon': inter = max(getattr(inter, 'geoms', [inter]), key=lambda g: g.area)
+            if inter.geom_type != 'Polygon' or inter.area < 0.04 * tri.area: continue
+            ic = np.array(inter.centroid.coords[0]); knip = []
+            pts = np.array(inter.exterior.coords)[:-1]
+            for a_, b_ in zip(pts, np.roll(pts, -1, 0)):
+                m_ = (a_ + b_) / 2
+                if tri.exterior.distance(SPoly([m_, m_ + 1e-6, m_ + [0, 1e-6]]).centroid) < 1e-3: continue   # ligt op de rand van de driehoek zelf
+                e = b_ - a_; le = np.hypot(*e)
+                if le < 0.02: continue
+                nx, nz = -e[1] / le, e[0] / le
+                if (ic - a_) @ (nx, nz) < 0: nx, nz = -nx, -nz
+                knip.append([round(float(nx), 4), round(float(nz), 4), round(float(nx * a_[0] + nz * a_[1]), 4)])
+            if not knip: continue
+            lv[Lv]['f'][key] = mat; lv[Lv].setdefault('fk', {})[key] = knip[0] if len(knip) == 1 else knip
     # 2. muren: doorsneden van de verticale vlakken op 0,6 m (laag muurtje) en 2,2 m (hele muur) boven elke verdieping
     vert = [(t, k) for t, n, l, k in zip(T, N_, L, K) if abs(n[2]) < 0.3 * l]
     def doorsnede(h):
