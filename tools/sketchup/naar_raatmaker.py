@@ -38,7 +38,9 @@ TRIS = [(i, j, t) for i in range(-12, 13) for j in range(-24, 25) for t in (0, 1
 CENT = np.array([np.mean(tri_verts(i, j, t), 0) for i, j, t in TRIS])           # (x, z) per driehoek
 
 KLEUR_VLOER = {'43484e': 'asphalt', '7ab256': 'grass', '6f9a4a': 'grass', '7fa957': 'grass', 'c9c3b6': 'tile', 'ece9e2': 'roof', '5d6268': 'roof', '8a8f94': 'roof', '468cbe': 'water'}
-def vloer_mat(kl): return KLEUR_VLOER.get((kl or '').lower(), 'stonetile')
+def vloer_mat(kl, naam=''):
+    """de vloer: uit de kleur in SketchUp; het witte concept wordt betonnen zeshoektegels (pleinen: het raatpatroon)"""
+    return KLEUR_VLOER.get((kl or '').lower(), 'hexraat' if naam.startswith('Plein') else 'hexbeton')
 
 V = json.load(open(os.path.join(HERE, 'raatstad-vorm.json'))); V.update(json.load(open(os.path.join(HERE, 'raatstad-extra.json')))['vorm'])
 
@@ -80,7 +82,7 @@ def omzetten(naam, M, sp):
             if boven:
                 z2, o2 = min(boven)
                 if o2 or z2 < zz + 2.0: continue                     # binnen in een blok, of te laag plafond
-            lv[Lv]['f']['%d,%d,%d' % key3] = vloer_mat(k)
+            lv[Lv]['f']['%d,%d,%d' % key3] = vloer_mat(k, naam)
     # 2. muren: doorsneden van de verticale vlakken op 0,6 m (laag muurtje) en 2,2 m (hele muur) boven elke verdieping
     vert = [(t, k) for t, n, l, k in zip(T, N_, L, K) if abs(n[2]) < 0.3 * l]
     def doorsnede(h):

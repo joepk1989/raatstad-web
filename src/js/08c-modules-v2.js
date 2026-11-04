@@ -19,7 +19,7 @@
     // trappen en hellingen: d 0–5 langs de ribben (30°, 90°, …), d 6–11 haaks op de zijden van het vak (0°, 60°, …)
     DIR12: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1], [2, -1], [1, 1], [-1, 2], [-2, 1], [-1, -1], [1, -2]],
     DIR6: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
-    floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
+    floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', hexbeton: 'Beton zeshoek\u00ADtegels', hexgroot: 'Grote beton\u00ADzeshoeken', hexdonker: 'Antraciet zeshoeken', hexsteen: 'Natuur\u00ADsteen zeshoeken', hexraat: 'Raat\u00ADpatroon', hexgras: 'Gras\u00ADtegels zeshoek', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
     walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', hedge: 'Haag', fence: 'Hek' },
     openings: { '': 'Dicht', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open' },
     objects: { tree: 'Boom', bush: 'Struik', bench: 'Bankje', lamp: 'Lantaarn', pillar: 'Zuil', table: 'Tafel', planter: 'Plantenbak', fountain: 'Fontein', bin: 'Prullenbak', bike: 'Fietsenrek', shelf: 'Winkelstelling', counter: 'Toonbank', sign: 'Lichtreclame',
@@ -78,7 +78,33 @@
       corten: mk(mvTex(2, 3, (g, w, h, p) => { const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#8d4b2b'); grd.addColorStop(1, '#a35a32'); g.fillStyle = grd; g.fillRect(0, 0, w, h); for (let i = 0; i < 2600; i++) { const k = hash01(i, 11); g.fillStyle = k > 0.5 ? 'rgba(190,110,60,0.25)' : 'rgba(60,25,10,0.25)'; g.fillRect(hash01(i, 12) * w, hash01(i, 13) * h, 1 + k * 3, 1 + k * 2); } g.fillStyle = 'rgba(40,18,8,0.6)'; for (let y = 0; y < 3; y++) g.fillRect(0, y * p - 1, w, 2); }, 64), { roughness: 0.9, metalness: 0.2 }),
       curtain: mk(mvTex(1.5, 3, (g, w, h, p) => { const grd = g.createLinearGradient(0, 0, w * 0.4, h); grd.addColorStop(0, '#9fbfd3'); grd.addColorStop(0.55, '#5f7f97'); grd.addColorStop(1, '#3d5468'); g.fillStyle = grd; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.moveTo(0.1 * w, h); g.lineTo(0.55 * w, 0); g.lineTo(0.7 * w, 0); g.lineTo(0.25 * w, h); g.fill(); g.fillStyle = '#2b3a46'; g.fillRect(0, h - 0.9 * p, w, 0.9 * p); g.fillStyle = '#cfd4d7'; g.fillRect(0, 0, 4, h); g.fillRect(w - 4, 0, 4, h); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 0.9 * p - 2, w, 4); }, 64), { roughness: 0.15, metalness: 0.35 }),
     };
+    // zeshoekige tegels (punt in de lengte van het raster, net als de vakken): naad in de kleur van de voeg, elke tegel
+    // een tikje anders; een blok van C × RR tegels herhaalt, zodat de textuur naadloos doorloopt. kleur(c, r): tint per tegel
+    const hexTegels = (s, C, RR, voeg, voegB, kleur, extra) => mvTex(C * SQ3 * s, RR * 1.5 * s, (g, w, h) => {
+      const ux = w / (C * SQ3 * s), uy = h / (RR * 1.5 * s);
+      g.fillStyle = voeg; g.fillRect(0, 0, w, h);
+      for (let r = -1; r <= RR; r++) for (let c = -1; c <= C; c++) {
+        const cx = (c + ((r & 1) ? 0.5 : 0)) * SQ3 * s, cz = r * 1.5 * s, cm = ((c % C) + C) % C, rm = ((r % RR) + RR) % RR, rad = s - voegB / SQ3;
+        g.beginPath(); for (let k = 0; k < 6; k++) { const a = (90 + 60 * k) * Math.PI / 180; g.lineTo((cx + Math.cos(a) * rad) * ux, (cz + Math.sin(a) * rad) * uy); } g.closePath();
+        g.fillStyle = kleur(cm, rm); g.fill(); if (extra) extra(g, cx * ux, cz * uy, rad * ux, cm, rm);
+      }
+    }, 96, true);
+    const tint = (h, s2, l, k, d) => `hsl(${h}, ${s2}%, ${(l + (k - 0.5) * d).toFixed(1)}%)`;
     const fl = {
+      // betonnen zeshoektegels (≈ 1 m breed): grijs, voeg 8 mm
+      hexbeton: mk(hexTegels(0.5625, 4, 4, '#5c5b57', 0.022, (c, r) => tint(45, 3, 60, hash01(c + 1, r + 2), 9)), { roughness: 0.9 }),
+      // grote betonzeshoeken (2 m breed), licht, brede voeg
+      hexgroot: mk(hexTegels(1.125, 3, 4, '#62605b', 0.035, (c, r) => tint(40, 4, 66, hash01(c + 4, r + 7), 8)), { roughness: 0.9 }),
+      // antraciet zeshoeken
+      hexdonker: mk(hexTegels(0.5625, 4, 4, '#2a2c2e', 0.012, (c, r) => tint(210, 5, 30, hash01(c + 9, r + 3), 6)), { roughness: 0.8 }),
+      // natuursteen zeshoeken: warme tinten, ongelijk
+      hexsteen: mk(hexTegels(0.75, 4, 4, '#6e6658', 0.02, (c, r) => tint(36 + hash01(c, r + 5) * 10, 18 + hash01(c + 2, r) * 10, 62, hash01(c + 3, r + 1), 16)), { roughness: 0.85 }),
+      // raatpatroon: drie tinten beton, elke tegel anders dan zijn buren (driekleuring van het raster)
+      hexraat: mk(hexTegels(0.75, 3, 6, '#5e5c57', 0.02, (c, r) => { const q = c - ((r - (r & 1)) >> 1), t = (((q - r) % 3) + 3) % 3; return ['#b4b1a8', '#959289', '#7a776f'][t]; }), { roughness: 0.88 }),
+      // grastegels: betonnen zeshoekige ring met gras in het midden
+      hexgras: mk(hexTegels(0.5625, 4, 4, '#6f9a4a', 0.04, (c, r) => tint(45, 3, 66, hash01(c + 5, r + 5), 6), (g, x, z, rad, c, r) => {
+        g.beginPath(); for (let k = 0; k < 6; k++) { const a = (90 + 60 * k) * Math.PI / 180; g.lineTo(x + Math.cos(a) * rad * 0.55, z + Math.sin(a) * rad * 0.55); } g.closePath();
+        g.fillStyle = hash01(c + 7, r + 1) > 0.5 ? '#6b9846' : '#7aa653'; g.fill(); }), { roughness: 0.95 }),
       polished: mk(mvTex(2, 2, (g, w, h) => { noise(g, w, h, '#c9c8c3', 0.07, 2200); }, 96, true), { roughness: 0.35 }),
       stonetile: mk(mvTex(1.2, 1.2, (g, w, h, p) => { g.fillStyle = '#9c968a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { const k = hash01(i + 3, j + 5); g.fillStyle = `hsl(40, ${12 + k * 6}%, ${74 + k * 8}%)`; g.fillRect(i * 0.6 * p + 1, j * 0.6 * p + 1, 0.6 * p - 2, 0.6 * p - 2); } }, 96, true), { roughness: 0.6 }),
       parquet: mk(mvTex(1.2, 1.2, (g, w, h, p) => { g.fillStyle = '#6e4a2c'; g.fillRect(0, 0, w, h); const pl = 0.48 * p, pw = 0.08 * p;

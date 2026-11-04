@@ -233,7 +233,7 @@
     // ---------- zijpaneel: materiaal of keuze bij het gereedschap ----------
     const COL = { paver: '#8a5141', tile: '#cbc8bd', wood: '#a97c52', carpet: '#8b9397', concrete: '#c4c6c2', grass: '#6fa356', water: '#2d5a66', asphalt: '#3c4045', roof: '#5a5d59',
       brick: '#9a5b45', plaster: '#ece8e0', glass: '#a8cbd8', stone: '#bdb5a5', hedge: '#5a9440', fence: '#3b4248',
-      glass: '#bfe0f0', darkbrick: '#3d3a36', panel: '#4b5157', slats: '#a8743f', corten: '#97512e', curtain: '#6d8ea6', parquet: '#9a6a3e', polished: '#c9c8c3', stonetile: '#d9d0bf' };
+      glass: '#bfe0f0', darkbrick: '#3d3a36', panel: '#4b5157', slats: '#a8743f', corten: '#97512e', curtain: '#6d8ea6', parquet: '#9a6a3e', polished: '#c9c8c3', stonetile: '#d9d0bf', hexbeton: '#b6b4ae', hexgroot: '#c3c0b8', hexdonker: '#3f4245', hexsteen: '#c8b89c', hexraat: '#a9a69e', hexgras: '#8fae6a' };
     const OBJ_GLYPH = { tree: '🌳', bush: '🌿', bench: '🪑', lamp: '💡', pillar: '🏛', table: '☕', planter: '🌷', fountain: '⛲', bin: '🗑', bike: '🚲', shelf: '🗄', counter: '🛒', sign: '🪧', bed: '🛏', sofa: '🛋', desk: '🖥', kitchen: '🍳', screen: '🎬', car: '🚗', pump: '⛽', charger: '🔌', solar: '🔆', turbine: '🌬', chimney: '🏭', container: '♻', goal: '🥅', grave: '🪦', boat: '🛥', shelter: '🚏', slide: '🛝', swing: '🎡', sheep: '🐑' };
     function renderCtx() {
       const sw = $('sw'), title = $('ctxTitle'), hint = $('ctxHint'); sw.innerHTML = '';
