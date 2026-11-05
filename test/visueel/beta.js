@@ -20,7 +20,7 @@ const { OUT } = require('./helper');
  console.log('geopend', JSON.stringify(await p.evaluate(() => { const c = window.__SC().getCells(); return { vakken: c.size, modules: (c.inst || []).length, wegen: (c.paths || []).length }; })));
  // feedback en credits
  await p.evaluate(() => { document.getElementById('menuBtn').click(); document.querySelector('[data-act=feedback]').click(); }); await p.waitForTimeout(400);
- console.log('feedback', JSON.stringify(await p.evaluate(() => ({ info: document.getElementById('fbInfo').textContent, link: document.getElementById('fbGo').href.slice(0, 60) }))));
+ console.log('feedback', JSON.stringify(await p.evaluate(() => ({ info: document.getElementById('fbInfo').textContent, knop: document.getElementById('fbGo').textContent.trim() }))));
  await p.screenshot({ path: OUT + '/beta_feedback.png' });
  await p.evaluate(() => { document.querySelector('#fbSheet [data-close]').click(); document.getElementById('menuBtn').click(); document.querySelector('[data-act=credits]').click(); }); await p.waitForTimeout(400);
  await p.screenshot({ path: OUT + '/beta_credits.png' });

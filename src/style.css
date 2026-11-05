@@ -929,3 +929,13 @@ body.tool-kies #scene { cursor: default; }
 ol.welcome-list { padding-left: 22px; }
 .welcome-beta { font-size: 12px !important; opacity: .8; margin-top: 8px !important; }
 .beta-note { color: var(--ink) !important; }
+
+/* Melden (15h-beta.js): lichte tekst op donker, velden met eigen kleuren */
+.fb-soort { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.fb-chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--ink); font: 700 13px var(--font-ui); cursor: pointer; }
+.fb-chip.on { background: var(--accent, #f2b632); border-color: var(--accent, #f2b632); color: #161c23; }
+.fb-veld { width: 100%; box-sizing: border-box; margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f1419; color: var(--ink); font: 500 15px/1.4 var(--font-ui); resize: vertical; -webkit-user-select: text; user-select: text; }
+.fb-veld::placeholder { color: var(--ink-dim); opacity: 1; }
+.fb-veld:focus { outline: 2px solid var(--accent, #f2b632); outline-offset: 0; }
+.fb-meer { margin: 0 0 8px; color: var(--ink-dim); font-size: 13px; }
+.fb-meer summary { cursor: pointer; }

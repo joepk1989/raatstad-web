@@ -327,7 +327,7 @@ Opslag: `cells.rails = [{ p: [[x, z], …] }]`, in de stadsdata als `__r` (allee
 
 ## Beta (15h-beta.js)
 - Versie **0.1.0-beta** staat in het menu (met bouwtijd en commit) en op het welkomstscherm.
-- **Feedback** (menu): toont versie, apparaat en de laatste fout om te kopiëren, en opent het formulier (`FEEDBACK_URL`; leeg = een nieuw bericht op GitHub).
+- **Melden** (menu, en de knop in de foutmelding): een formulier in het spel met soort (Fout of bug, Ik liep vast, Idee, Dit vond ik leuk), tekst en een e-mailadres dat niet verplicht is. Er gaat automatisch mee: versie en commit, browser en apparaat, videokaart, grootte van de stad, speeltijd, bouwen of lopen, en de laatste vijf fouten met plek in de code. Verstuurd naar een Google Formulier (`FORM.url` = de formResponse-link, `FORM.velden` = de entry-nummers van de vier vragen) met een POST zonder account; de antwoorden komen in de gekoppelde Google Sheet. Zonder verbinding blijft de melding bewaard (`raatstad-melding-wacht`) en gaat hij bij de volgende start, elke minuut of zodra de browser weer online is. Zolang `FORM.url` leeg is opent Versturen een ingevuld bericht op GitHub. Typen in een tekstveld laat de camera en het lopen met rust. Test: `test/visueel/melden.js`.
 - **Fouten**: een fout (ook in een beeld van de hoofdlus) geeft onderaan de melding "Er ging iets mis. Meld het via Feedback" in plaats van een vastgelopen scherm; het spel tekent gewoon door.
 - **Stad opslaan als bestand / Stad openen** (menu), met de waarschuwing dat steden tussen beta-versies kunnen verdwijnen.
 - **Credits** (menu): ontwerp, AI-hulp bij de code, three.js en lettertypen, geluiden (bron en licentie nog in te vullen).

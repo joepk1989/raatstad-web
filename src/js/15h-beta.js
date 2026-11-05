@@ -4,16 +4,22 @@
   // van een vastgelopen scherm, je stad bewaren en openen als bestand, en een credits-scherm.
   const beta = (() => {
     const VERSIE = '0.1.0-beta';
-    // Het formulier voor de testers. Leeg: dan gaat Feedback naar een nieuw bericht op GitHub (daar is een account voor nodig).
-    const FEEDBACK_URL = '';
+    // Meldingen gaan naar een Google Formulier (antwoorden in een Google Sheet), zonder account voor de tester.
+    // FORM.url = de formResponse-link; FORM.velden = de entry-nummers van de vier vragen (uit een vooraf ingevulde link).
+    // Leeg: dan opent Versturen een nieuw bericht op GitHub (daar is een account voor nodig).
+    const FORM = { url: '', velden: { soort: '', tekst: '', email: '', gegevens: '' } };
     const FALLBACK_URL = 'https://github.com/joepk1989/raatstad-web/issues/new';
-    let lastErr = '', lastShow = -1e9;
+    let lastErr = '', lastShow = -1e9; const fouten = [];
     const device = () => {
       const ua = navigator.userAgent, b = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'onbekende browser';
       const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
       return b + (os ? ' op ' + os : '') + ' · scherm ' + window.innerWidth + '×' + window.innerHeight + ' · ' + (document.body.classList.contains('coarse') ? 'aanraken' : 'muis');
     };
-    const info = () => 'Raatstad ' + ((document.querySelector('#sheet .ver') || {}).textContent || VERSIE) + '\n' + device() + (lastErr ? '\nLaatste fout: ' + lastErr : '');
+    const gpu = () => { try { const gl = renderer.getContext(), x = gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } };
+    const stad = () => { try { return (cells.size || 0) + ' vakken · ' + ((cells.inst || []).length) + ' modules · ' + ((cells.paths || []).length) + ' wegen'; } catch (e) { return '?'; } };
+    const info = () => 'Raatstad ' + ((document.querySelector('#sheet .ver') || {}).textContent || VERSIE) + '\n' + device() + '\nGrafisch: ' + gpu() + '\nStad: ' + stad() +
+      '\nSpeeltijd: ' + Math.round(performance.now() / 60000) + ' min · ' + (document.body.classList.contains('walk') ? 'lopen' : 'bouwen') +
+      (fouten.length ? '\nFouten (nieuwste eerst):\n' + fouten.slice().reverse().map(f => '- ' + f).join('\n') : '\nGeen fouten gezien');
     // ---------- vensters ----------
     function makeSheet(id, html) {
       let el = document.getElementById(id); if (el) return el;
@@ -22,20 +28,50 @@
       el.addEventListener('click', e => { if (e.target === el || e.target.closest('[data-close]')) el.hidden = true; });
       document.body.appendChild(el); return el;
     }
-    function feedback() {
-      const el = makeSheet('fbSheet', `<h2>Feedback</h2>
-        <p>Wat ging er mis, waar liep je vast, of wat vond je leuk? Alles helpt. Plak in het formulier ook de gegevens hieronder, dan weet ik op welk apparaat het was.</p>
-        <pre class="fb-info" id="fbInfo"></pre>
+    // ---------- melden: kort formulier in het spel ----------
+    const SOORTEN = ['Fout of bug', 'Ik liep vast', 'Idee', 'Dit vond ik leuk'];
+    const WACHT = 'raatstad-melding-wacht';   // meldingen die nog niet weg konden (geen internet): bij de volgende start opnieuw
+    function post(m) {
+      const d = new URLSearchParams(); for (const k in FORM.velden) if (FORM.velden[k]) d.append(FORM.velden[k], m[k] || '');
+      return fetch(FORM.url, { method: 'POST', mode: 'no-cors', body: d });
+    }
+    function wachtrij(m) { try { const l = JSON.parse(localStorage.getItem(WACHT) || '[]'); if (m) l.push(m); localStorage.setItem(WACHT, JSON.stringify(l.slice(-10))); return l; } catch (e) { return []; } }
+    function stuurWachtend() {
+      if (!FORM.url) return; let l = []; try { l = JSON.parse(localStorage.getItem(WACHT) || '[]'); } catch (e) { }
+      if (!l.length) return; try { localStorage.removeItem(WACHT); } catch (e) { }
+      for (const m of l) post(m).catch(() => wachtrij(m));
+    }
+    function feedback(soort) {
+      const el = makeSheet('fbSheet', `<h2>Melden</h2>
+        <p>Wat ging er mis, waar liep je vast, of wat vond je leuk? Alles helpt.</p>
+        <div class="fb-soort" role="radiogroup">${SOORTEN.map((t, i) => `<button type="button" class="fb-chip" data-s="${i}" role="radio">${t}</button>`).join('')}</div>
+        <textarea id="fbTekst" class="fb-veld" rows="5" placeholder="Wat deed je, en wat gebeurde er?"></textarea>
+        <input id="fbMail" class="fb-veld" type="email" autocomplete="email" placeholder="E-mail (niet verplicht, alleen als ik je iets mag vragen)">
+        <details class="fb-meer"><summary>Wat er automatisch meegaat</summary><pre class="fb-info" id="fbInfo"></pre></details>
         <div class="welcome-btns" style="grid-template-columns:1fr 1fr">
-          <button class="btn mbtn" type="button" id="fbCopy"><span class="lbl"><b>Gegevens kopiëren</b><small>Versie, apparaat, laatste fout</small></span></button>
-          <a class="btn mine" id="fbGo" target="_blank" rel="noopener"><span class="lbl"><span>Naar het formulier</span><small>Opent in een nieuw tabblad</small></span></a>
-        </div>
-        <button class="btn" type="button" data-close>Sluiten</button>`);
+          <button class="btn" type="button" data-close>Annuleren</button>
+          <button class="btn mine" type="button" id="fbGo"><span class="lbl"><b>Versturen</b></span></button>
+        </div>`);
+      let keuze = soort != null ? soort : (lastErr ? 0 : -1);
+      const zet = i => { keuze = i; for (const b of el.querySelectorAll('.fb-chip')) { const on = +b.dataset.s === i; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); } };
+      for (const b of el.querySelectorAll('.fb-chip')) b.onclick = () => zet(+b.dataset.s);
+      zet(keuze);
+      const tekst = el.querySelector('#fbTekst'), mail = el.querySelector('#fbMail');
+      try { mail.value = localStorage.getItem('raatstad-melding-mail') || ''; } catch (e) { }
       el.querySelector('#fbInfo').textContent = info();
-      const url = FEEDBACK_URL || (FALLBACK_URL + '?title=' + encodeURIComponent('Feedback ' + VERSIE) + '&body=' + encodeURIComponent('Wat gebeurde er?\n\n\n---\n' + info()));
-      el.querySelector('#fbGo').href = url;
-      el.querySelector('#fbCopy').onclick = () => { try { navigator.clipboard.writeText(info()).then(() => toast('Gekopieerd', 1200), () => toast('Kopiëren mislukt', 1600)); } catch (e) { toast('Kopiëren mislukt', 1600); } };
-      el.hidden = false;
+      el.querySelector('#fbGo').onclick = () => {
+        const t = tekst.value.trim();
+        if (!t && keuze !== 3) { tekst.focus(); toast('Schrijf kort wat er gebeurde', 1800); return; }
+        const m = { soort: SOORTEN[keuze] || 'Anders', tekst: t, email: mail.value.trim(), gegevens: info() };
+        try { if (m.email) localStorage.setItem('raatstad-melding-mail', m.email); } catch (e) { }
+        if (!FORM.url) {   // nog geen formulier: GitHub, met alles ingevuld
+          window.open(FALLBACK_URL + '?title=' + encodeURIComponent(m.soort + ' · ' + VERSIE) + '&body=' + encodeURIComponent(t + '\n\n---\n' + m.gegevens), '_blank', 'noopener');
+          el.hidden = true; return;
+        }
+        el.hidden = true; tekst.value = ''; lastErr = '';
+        post(m).then(() => toast('Verstuurd. Dank je wel!', 2200), () => { wachtrij(m); toast('Geen verbinding: je melding gaat mee zodra je weer online bent', 3200); });
+      };
+      el.hidden = false; setTimeout(() => tekst.focus(), 50);
     }
     function credits() {
       const el = makeSheet('crSheet', `<h2>Credits</h2>
@@ -70,13 +106,13 @@
     }
     // ---------- fouten: een melding in plaats van een vastgelopen scherm ----------
     const bar = document.createElement('div'); bar.className = 'err-bar'; bar.hidden = true;
-    bar.innerHTML = '<span>Er ging iets mis. Meld het via Feedback, dan los ik het op.</span><button class="btn" type="button" data-f>Feedback</button><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button>';
+    bar.innerHTML = '<span>Er ging iets mis. Meld het, dan los ik het op.</span><button class="btn mine" type="button" data-f>Melden</button><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button>';
     document.body.appendChild(bar);
-    bar.querySelector('[data-f]').onclick = () => { bar.hidden = true; feedback(); };
+    bar.querySelector('[data-f]').onclick = () => { bar.hidden = true; feedback(0); };
     bar.querySelector('[data-x]').onclick = () => { bar.hidden = true; };
     function report(e) {
       const msg = e && (e.stack || e.message) ? String(e.message || e) + (e.stack ? ' @ ' + String(e.stack).split('\n').slice(1, 3).map(s => s.trim()).join(' · ') : '') : String(e);
-      lastErr = msg.slice(0, 400); try { console.error('Raatstad', e); } catch (e2) { }
+      lastErr = msg.slice(0, 400); if (fouten[fouten.length - 1] !== lastErr) { fouten.push(lastErr); if (fouten.length > 5) fouten.shift(); } try { console.error('Raatstad', e); } catch (e2) { }
       const now = performance.now(); if (now - lastShow < 30000) return; lastShow = now; bar.hidden = false;
     }
     window.addEventListener('error', ev => report(ev.error || ev.message));
@@ -101,6 +137,7 @@
       for (const b of document.querySelectorAll('.pal-tab')) if (!b.title) b.title = 'Tabblad ' + b.textContent.trim() + ': gereedschap en modules';
       const tod = document.querySelectorAll('[data-tod]'); for (const b of tod) if (!b.title) b.title = 'Zet de tijd op ' + b.textContent.trim().toLowerCase();
     }
-    applyTips(); setTimeout(applyTips, 1500);
-    return { VERSIE, feedback, credits, saveFile, openFile, report, info };
+    applyTips(); setTimeout(applyTips, 1500); setTimeout(stuurWachtend, 4000); setInterval(stuurWachtend, 60000); window.addEventListener('online', stuurWachtend);
+    return { VERSIE, FORM, stuurWachtend, feedback, credits, saveFile, openFile, report, info };
   })();
+  try { window.__beta = beta; } catch (e) { }
