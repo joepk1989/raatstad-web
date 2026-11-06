@@ -144,7 +144,16 @@
         for (const p of pts) { while (lw.length > 1 && cr(lw[lw.length - 2], lw[lw.length - 1], p) <= 0) lw.pop(); lw.push(p); }
         for (const p of pts.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
         const lo = [G0.lo[0], G0.lo[1]], hi = [G0.hi[0], G0.hi[1]], ex = hi[0] - lo[0], ez = hi[1] - lo[1], el = Math.hypot(ex, ez) || 1;
-        return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly: [...lw.slice(0, -1), ...up.slice(0, -1)], plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
+        let poly = [...lw.slice(0, -1), ...up.slice(0, -1)];
+        // een staande wand (muur, schuine wand) is van boven gezien een lijn zonder oppervlak: dan kon je er nooit op klikken
+        // (gum, kiezen). Geef hem een smalle strook van 0,35 m aan weerszijden van de lijn tussen de verste punten.
+        let opp = 0; for (let i = 0; i < poly.length; i++) { const A = poly[i], B = poly[(i + 1) % poly.length]; opp += A[0] * B[1] - B[0] * A[1]; }
+        if (Math.abs(opp / 2) < 0.4 && pts.length > 1) {
+          let A = pts[0], B = pts[pts.length - 1], dm = -1; for (const p of pts) for (const q of pts) { const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (d > dm) { dm = d; A = p; B = q; } }
+          const l = Math.sqrt(dm) || 1, h = Math.max(0.35, (S.w || 0) / 2), nx = -(B[1] - A[1]) / l * h, nz = (B[0] - A[0]) / l * h, ux = (B[0] - A[0]) / l * 0.15, uz = (B[1] - A[1]) / l * 0.15;
+          poly = [[A[0] - ux + nx, A[1] - uz + nz], [B[0] + ux + nx, B[1] + uz + nz], [B[0] + ux - nx, B[1] + uz - nz], [A[0] - ux - nx, A[1] - uz - nz]];
+        }
+        return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly, plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
       if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2, cut = 2 * w / SQ3; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)] }; }   // twee steken + schuin bordes
@@ -312,14 +321,31 @@
         if (u < -0.02 || u > 1.02 || py < y0 - 0.05 || py > y0 + h + 0.05) continue;
         bt = t; best = { id };
       }
+      // vrije platen (schuine wanden, zuilen, hellingen uit SketchUp): elk vlak als veelhoek in 3D
+      for (let si = 0; si < L.s.length; si++) {
+        const S = L.s[si]; if (S.k !== 'plaat') continue;
+        for (const pl of S.p || []) {
+          if (pl.length < 3) continue;
+          const Q = pl.map(p => [p[0], y0 + p[2], p[1]]);
+          let nx = 0, ny = 0, nz = 0; for (let i = 0; i < Q.length; i++) { const A = Q[i], B = Q[(i + 1) % Q.length]; nx += (A[1] - B[1]) * (A[2] + B[2]); ny += (A[2] - B[2]) * (A[0] + B[0]); nz += (A[0] - B[0]) * (A[1] + B[1]); }
+          const den = d.x * nx + d.y * ny + d.z * nz; if (Math.abs(den) < 1e-9) continue;
+          const t = ((Q[0][0] - o.x) * nx + (Q[0][1] - o.y) * ny + (Q[0][2] - o.z) * nz) / den; if (t <= 0 || t >= bt) continue;
+          const H = [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t], ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+          const [u, v] = ax >= ay && ax >= az ? [1, 2] : ay >= az ? [0, 2] : [0, 1];   // in het vlak met de grootste doorsnede testen
+          let inn = false; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const A = Q[i], B = Q[j]; if ((A[v] > H[v]) !== (B[v] > H[v]) && H[u] < (B[u] - A[u]) * (H[v] - A[v]) / (B[v] - A[v]) + A[u]) inn = !inn; }
+          if (inn) { bt = t; best = { si }; }
+        }
+      }
       return best;
     }
     E.wallRay = wallRay;   // voor tests
     // Wat de gum hier zou weghalen (zelfde volgorde als eraseAt): voor het oplichten vóór je klikt
     function eraseTarget(x, z, firstOnly) {
       const L = lvl(); const oi = objectAt(x, z, 0.8); if (oi >= 0) return { kind: 'voorwerp', oi };
-      const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45); if (w) return { kind: 'muur', id: w.id };
-      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
+      const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45);
+      if (w && w.si !== undefined) return { kind: L.s[w.si].muur ? 'wand' : 'helling', si: w.si };   // een vrije plaat in 3D aangewezen
+      if (w) return { kind: 'muur', id: w.id };
+      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'plaat' && L.s[si].muur ? 'wand' : L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
       const [q, r] = cellAt(x, z); if (L.r[q + ',' + r] && !firstOnly) return { kind: 'dak', rk: q + ',' + r, q, r };
       const tris = brushTris(x, z).filter(okTri).filter(id => L.f[id.join(',')]); if (tris.length) return { kind: 'vloer', tris };
       return null;
@@ -329,6 +355,7 @@
       if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else paintFloor(x, z, true);
       return T.kind;
     }
+    E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
     // ---------- Kiezen (V): aanklikken of een rechthoek slepen, dan verplaatsen, draaien per 60°, kopiëren, plakken, weghalen ----------
     // Een selectie hoort bij één verdieping: vloerdriehoeken, muren, trappen, voorwerpen en daken. Verplaatsen en draaien gaan langs het
     // raster (stappen van een driehoekzijde, draaien om een rasterpunt), zodat alles op de driehoeken blijft liggen. Daken en schansen
@@ -791,7 +818,8 @@
             }
             else if (T.si !== undefined) {   // in 3D het schuine trapvlak (en het bordes), anders de omtrek
               const S0 = lvl().s[T.si], g = stairGeom(S0), w = g.w, rise = MV2.LV_H;
-              if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
+              if (in3 && S0.k === 'plaat') { for (const pl of S0.p || []) poly3(pl.map(p => [p[0], p[1], y0 + p[2]])); }   // de echte vlakken (schuine wand, zuil, helling)
+              else if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
               else if (in3 && S0.k !== 'hexramp' && S0.k !== 'spiral') { poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len, -w / 2), y0 + rise]]); if (S0.k === 'stair') poly3([[...g.at(g.len, -w / 2), y0 + rise], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len + w * SQ3 / 2, 0), y0 + rise]]); }
               else { const pts = g.poly.map(p => toS(p[0], p[1])); ctx.beginPath(); pts.forEach((p, n) => n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             }
@@ -840,6 +868,7 @@
     }
     // ---------- 3D-weergave ----------
     let rnd = null, scn = null, grp = null, t3 = 0, cam = null, sun = null, base = null;
+    E.proj3 = (x, y, z) => { if (!cam) return null; camSync(); const v = new THREE.Vector3(x, y, z).project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; };   // voor tests: wereld → canvas
     let ghost = null, ghostKey = '', ghostWant = null;
     function objGhost(o) {   // het voorwerp dat je gaat neerzetten, half doorzichtig in de 3D-weergave
       if (!scn) return; const key = o && E.vm === '3d' ? o.t + '|' + o.rot.toFixed(3) : ''; let ch = false;
