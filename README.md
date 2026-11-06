@@ -101,6 +101,8 @@ Dat maakt `dist/raatstad.html` (één bestand, zelfde als de gepubliceerde versi
 
 Menu → Instellingen (`15c-instellingen.js`, bewaard in `localStorage` `raatstad-set`): **terrein** hoog (1 m rooster), normaal (2 m) of low poly (4 m, platte vlakken; het snelst), **schaduwen** zacht, eenvoudig of uit, **beeldscherpte** scherp, normaal of snel, **wolken**, en verder raster, hoogtelijnen, penseel, tijd, mensen, auto's en geluid.
 
+**Beeldscherpte Automatisch** zakt in stapjes (tot 60 %) als de beeldtijd te lang wordt en klimt terug als het weer snel gaat (niet bij software-rendering). Een andere pixelverhouding maakt het canvas leeg, dus de aanpassing gebeurt in de hoofdlus (`16-start.js`) vóór het tekenen; erna gaf het tijdens het bouwen een beeld lang een leeg scherm (knipperen). Test: `test/visueel/knipperen.js`.
+
 ## Gelaagde stad: modules op elkaar
 
 Een geplaatst exemplaar heeft een laag `lv` (0 = op de grond, 1 = op 3 m, enzovoort). **Klik op het dak** van een module en de gekozen module komt erbovenop; klik op de gevel en je wisselt zoals voorheen naar de variant die het best aansluit. De spookmodule laat zien waar hij komt. Regels (`mv2CanPlace` in `08c`):
