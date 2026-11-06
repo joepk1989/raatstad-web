@@ -127,6 +127,8 @@
     const distSeg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); return Math.hypot(a[0] + t * dx - x, a[1] + t * dz - z); };
     function stairAt(x, z) {
       const L = lvl();
+      // eerst staande wanden (smalle strook): die liggen vaak langs de rand van een helling, en dan pakte de gum de helling
+      for (let s = L.s.length - 1; s >= 0; s--) { const S = L.s[s]; if (S.k === 'plaat' && S.muur && inPoly(x, z, stairGeom(S).poly)) return s; }
       for (let s = L.s.length - 1; s >= 0; s--) { const S = L.s[s], g = stairGeom(S); if (inPoly(x, z, g.poly)) return s; }
       return -1;
     }
@@ -678,8 +680,12 @@
     });
     document.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
     // ---------- tekenen (bovenaanzicht) ----------
-    function resize() { const r = stage.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height)); cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); if (rnd) { rnd.setSize(W, H, false); cv3.width = W * dpr; cv3.height = H * dpr; rnd.setPixelRatio(dpr); dirty3(); } draw(); }
+    function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.max(1, stage.clientWidth); H = Math.max(1, stage.clientHeight);   // de echte maat: getBoundingClientRect telt de inzoom-animatie bij het openen mee, dan bleef het canvas te groot en wees de muis ernaast
+      cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); if (rnd) { rnd.setSize(W, H, false); cv3.width = W * dpr; cv3.height = H * dpr; rnd.setPixelRatio(dpr); dirty3(); } draw(); }
     window.addEventListener('resize', () => { if (!app.hidden) resize(); });
+    // ook als alleen het tekenvlak van maat verandert (zijpaneel breder of smaller, lettertype geladen): anders blijft het canvas
+    // op de oude maat, wordt de tekening in elkaar gedrukt en wijst de muis een andere plek aan dan je ziet
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (app.hidden) return; if (stage.clientWidth !== W || stage.clientHeight !== H) resize(); }).observe(stage);
     const css = n => getComputedStyle(app).getPropertyValue(n).trim();
     function draw() { if (drawReq) return; drawReq = true; requestAnimationFrame(() => { drawReq = false; if (!app.hidden) paint(); }); }
     function hexPath(cx, cz, rad) { ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = (30 + 60 * i) * Math.PI / 180, [sx, sz] = toS(cx + rad * Math.cos(a), cz + rad * Math.sin(a)); i ? ctx.lineTo(sx, sz) : ctx.moveTo(sx, sz); } ctx.closePath(); }
