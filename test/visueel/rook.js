@@ -7,8 +7,18 @@ const path = require('path');
   const [w, h] = (process.argv[2] || '800x560').split('x').map(Number);
   const { b, p } = await open({ width: w, height: h });
   const fouten = []; let stap = 'start';
-  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, fouten.length === 1 ? e.stack : e.message); if (process.env.STOP) process.exit(1); });
+  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, fouten.length === 1 ? e.stack : e.message); if (process.env.STOP) p.evaluate(() => window.__tekenfout).then(t => { console.log('TEKENFOUT', JSON.stringify(t, null, 1)); process.exit(1); }, () => process.exit(1)); });
   p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|net::|Failed to load resource/.test(m.text())) fouten.push(stap + ' (console): ' + m.text().slice(0, 200)); });
+  // bij een fout tijdens het tekenen: zoek de boosdoener (een vorm zonder materiaal) en bewaar de stack
+  await p.evaluate(() => {
+    const S = window.__SC(), R = S.renderer, echt = R.render.bind(R);
+    R.render = (sc, cam) => { try { return echt(sc, cam); } catch (e) {
+      if (!window.__tekenfout) { const slecht = []; sc.traverse(o => { if (!o.isMesh && !o.isLine && !o.isPoints && !o.isSprite) return; const m = o.material, gr = o.geometry && o.geometry.groups || [];
+        const fout = !m || (Array.isArray(m) && (m.some(x => !x) || gr.some(g => !m[g.materialIndex])));
+        if (fout) { const keten = []; for (let x = o; x; x = x.parent) keten.push((x.name || x.type) + (x.userData && Object.keys(x.userData).length ? JSON.stringify(x.userData).slice(0, 80) : '')); slecht.push({ keten: keten.join(' < '), mat: Array.isArray(m) ? m.map(x => x ? x.type : 'LEEG') : String(m), groepen: gr.map(g => g.materialIndex), zichtbaar: o.visible }); } });
+        window.__tekenfout = { stack: e.stack, slecht }; }
+      throw e; } };
+  });
   const pts = [[0.5, 0.45], [0.35, 0.4], [0.62, 0.5], [0.45, 0.6]].map(([x, y]) => [x * w, y * h]);
   const acts = ['start', 'gen:dorp:7', 'gen:kruis:7', 'gen:ring:7', 'gen:rotonde:7', 'heuvel', 'stad', 'file', 'mall', 'random', 'blocks', 'layers', 'sample', 'dorp1', 'empty', 'start'];
   for (const a of acts) { stap = 'stad ' + a; console.log(stap); await p.evaluate(a => window.__SC().doAct(a), a); await p.waitForTimeout(1200); }
