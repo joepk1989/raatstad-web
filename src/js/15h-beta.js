@@ -98,7 +98,7 @@
         f.text().then(t => {
           const m = parseCity((t || '').trim());
           if (!m || !m.size && !(m.paths && m.paths.length) && !(m.inst && m.inst.length)) return toast('Dit bestand is geen Raatstad-stad', 2400);
-          INC.reset(); collapse.reset(); cells = roofHouses(m); document.getElementById('sheet').hidden = true; rebuildAll(); changed(); buildPathNet();
+          nieuweStad(f.name.replace(/\.json$/i, '')); cells = roofHouses(m); document.getElementById('sheet').hidden = true; rebuildAll(); changed(); buildPathNet();
           toast('Stad geopend: ' + f.name, 2200);
         }, () => toast('Openen mislukt', 2000));
       };

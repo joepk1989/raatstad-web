@@ -316,6 +316,12 @@
     if (!act && e.target !== sheet) return;
     doAct(act || 'cancel');
   });
+  // Een andere stad openen (voorbeeld, generator, plakken, bestand): je eigen stad blijft apart bewaard en wordt nooit overschreven
+  function nieuweStad(naam) {
+    INC.reset(); collapse.reset(); kogels.clear();   // teller met ongelukjes en kapotte gebouwen beginnen opnieuw
+    if (slot !== 'mijn' && cells.size) offerUndo();   // je eigen stad hoeft niet terug: die staat veilig apart
+    slot = 'klad'; if (naam) slotName = naam;
+  }
   function doAct(act) {
     vecChainEnd(true);
     if (act === 'adopt') {
@@ -334,11 +340,9 @@
       else toast('Je eigen stad staat al open');
     }
     if (act === 'sketch') { document.getElementById('sheet').hidden = true; openSchets(); return; }
-    if (['start', 'sample', 'ring', 'random', 'blocks', 'layers', 'empty', 'dorp1', 'dorp2', 'dorp3', 'dorp4', 'mall', 'stad', 'file'].includes(act) || act.startsWith('gen:')) {
-      INC.reset(); collapse.reset(); kogels.clear();   // een nieuwe stad: teller met ongelukjes en kapotte gebouwen beginnen opnieuw
-      if (slot !== 'mijn' && cells.size) offerUndo();   // je eigen stad hoeft niet terug: die staat veilig apart
-      slot = 'klad';
-      slotName = act.startsWith('gen:') ? ({ dorp: 'Willekeurig dorp', kruis: 'Honingraatstad', ring: 'Zeshoekige ringstad', rotonde: 'Dorp met rotonde (zes armen)' }[act.split(':')[1]] || 'Gegenereerde stad') : { start: 'Startstadje', stad: 'Grote stad', file: 'Filestad', sample: 'Voorbeeldstad', ring: 'Ringstad', random: 'Willekeurige stad', blocks: 'Blokkenstad', layers: 'Gelaagde stad', empty: 'Lege bouwgrond', dorp1: 'Dorpsstraat', dorp2: 'Dorp met kruising', dorp3: 'Dorp met rotonde', mall: 'Winkelcentrum', dorp4: 'Dorp met brede weg' }[act];
+    if (['start', 'sample', 'ring', 'random', 'blocks', 'layers', 'empty', 'dorp1', 'dorp2', 'dorp3', 'dorp4', 'mall', 'stad', 'file', 'heuvel'].includes(act) || act.startsWith('gen:')) {
+      nieuweStad();
+      slotName = act.startsWith('gen:') ? ({ dorp: 'Willekeurig dorp', kruis: 'Honingraatstad', ring: 'Zeshoekige ringstad', rotonde: 'Dorp met rotonde (zes armen)' }[act.split(':')[1]] || 'Gegenereerde stad') : { start: 'Startstadje', heuvel: 'Heuveldorp', stad: 'Grote stad', file: 'Filestad', sample: 'Voorbeeldstad', ring: 'Ringstad', random: 'Willekeurige stad', blocks: 'Blokkenstad', layers: 'Gelaagde stad', empty: 'Lege bouwgrond', dorp1: 'Dorpsstraat', dorp2: 'Dorp met kruising', dorp3: 'Dorp met rotonde', mall: 'Winkelcentrum', dorp4: 'Dorp met brede weg' }[act];
     }
     if (act.startsWith('dorp')) { cells = roofHouses(dorp(+act[4])); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 120; orbit.phi = 0.85; applyOrbit(); toast('Dorpje geladen · je eigen stad staat veilig onder Mijn stad'); }
     if (act === 'stad') { cells = raatstadCity(); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 520; orbit.phi = 0.9; orbit.theta = 0.5; applyOrbit(); toast('Raatstad geladen: rotonde in het midden, zes buurten binnen de ringweg · je eigen stad staat veilig onder Mijn stad', 3500); }
@@ -350,7 +354,7 @@
       return;
     }
     if (act === 'pastecity') {
-      try { navigator.clipboard.readText().then(t => { const m = parseCity((t || '').trim()); if (!m || !m.size && !(m.paths && m.paths.length)) return toast('Geen stadscode in het klembord', 2400); INC.reset(); collapse.reset(); cells = roofHouses(m); sheet.hidden = true; rebuildAll(); changed(); buildPathNet(); toast('Stad geplakt: ' + m.size + ' vakken', 2000); }, () => toast('Plakken mislukt: klembord niet toegestaan', 2400)); } catch (e) { toast('Plakken mislukt', 2000); }
+      try { navigator.clipboard.readText().then(t => { const m = parseCity((t || '').trim()); if (!m || !m.size && !(m.paths && m.paths.length)) return toast('Geen stadscode in het klembord', 2400); nieuweStad('Geplakte stad'); cells = roofHouses(m); sheet.hidden = true; rebuildAll(); changed(); buildPathNet(); toast('Stad geplakt: ' + m.size + ' vakken', 2000); }, () => toast('Plakken mislukt: klembord niet toegestaan', 2400)); } catch (e) { toast('Plakken mislukt', 2000); }
       return;
     }
     if (act.startsWith('gen:')) { const [, lay, sd] = act.split(':'); cells = genTown(sd ? +sd : Math.floor(Math.random() * 1e6), lay); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 260; orbit.phi = 0.95; applyOrbit(); toast('Gegenereerd · je eigen stad staat veilig onder Mijn stad', 2600); }
