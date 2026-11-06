@@ -233,7 +233,8 @@
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
     const undo = () => { if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
     const redo = () => { if (!E.redo.length) return; E.sel = null; E.undo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.redo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); };
-    function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; renderLevels(); rebuild3(); draw(); liveCheck(); }
+    function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; if (E.m) { $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); }   // ook na ongedaan maken
+      renderLevels(); rebuild3(); draw(); liveCheck(); }
     // na elke wijziging (iets later) stil controleren: een groen of rood bolletje op de knop, de uitleg pas bij klikken
     let lcT = 0;
     function liveCheck() { clearTimeout(lcT); lcT = setTimeout(() => { if (!E.m || app.hidden) return; let r; try { r = checkModule(); } catch (err) { return; }
@@ -1015,7 +1016,7 @@
     stage.addEventListener('wheel', e => { if (E.walk) { e.stopPropagation(); e.preventDefault(); } }, { capture: true, passive: false });
     // ---------- module: laden, bewaren, bibliotheek ----------
     const catSel = $('cat'); for (const c of MV2.cats) { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); }
-    function loadModule(m, idx) { E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); fit(); changed(); renderLib(); }
+    function loadModule(m, idx) { E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
     function newModule() { loadModule(mv2New('Nieuwe module'), -1); $('name').value = ''; say('Nieuwe module: begin met vloer of muren', 2500); }
     // duidelijke melding bovenin (niet alleen het kleine regeltje rechtsonder) en de knop kleurt even groen
     let toastT = 0;
@@ -1038,16 +1039,32 @@
     $('grid').addEventListener('change', () => {
       const n = +$('grid').value, old = E.m.n || 4; if (n === old) return;
       if (n < old) { const empty = E.m.lv.every(isEmptyLevel); if (!empty) { $('grid').value = String(old); say('Grover raster kan alleen bij een lege module', 2500); return; } snap(); E.m.n = n; changed(); return; }
-      snap(); refineModule(E.m, n / old); changed(); say('Raster verfijnd naar ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 2 }) + ' m');
+      snap(); for (let f = n / old; f > 1; f /= 2) refineModule(E.m, 2); changed(); say('Raster verfijnd naar ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 2 }) + ' m');
     });
+    // Vakken en raster als knoppen linksonder in het tekenvlak; ze zetten de (verborgen) keuzelijsten en volgen ze
+    function maatKnoppen() {
+      for (const [sel, box, kort] of [['area', 'segArea', o => ['1', '7', '19', '37'][+o.value]], ['grid', 'segGrid', o => (R / +o.value).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m']]) {
+        const S = $(sel), B = $(box); if (!S || !B) continue; B.innerHTML = '';
+        for (const o of S.options) { const b = document.createElement('button'); b.type = 'button'; b.textContent = kort(o); b.dataset.v = o.value; b.title = o.textContent; b.addEventListener('click', () => { if (S.value === o.value) return; S.value = o.value; S.dispatchEvent(new Event('change')); maatSync(); }); B.appendChild(b); }
+      }
+      maatSync();
+    }
+    function maatSync() { for (const [sel, box] of [['area', 'segArea'], ['grid', 'segGrid']]) { const S = $(sel), B = $(box); if (S && B) for (const b of B.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.value)); } }
+    E.maatSync = maatSync;
     function refineModule(m, f) {   // f = 2: elk rasterpunt (i,j) wordt (2i,2j); driehoeken en ribben splitsen
       for (const L of m.lv) {
         const nf = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), mat = L.f[id]; const I2 = i * f, J = j * f; if (f === 2) { if (!t) [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]].forEach(k => { nf[k.join(',')] = mat; }); else [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]].forEach(k => { nf[k.join(',')] = mat; }); } else nf[id] = mat; } L.f = nf;
+        if (L.fk && f === 2) { const nk = {}; for (const id in L.fk) { const [i, j, t] = id.split(',').map(Number), v = L.fk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = v; }); } L.fk = nk; }   // vloersoort per driehoek mee splitsen
         const nw = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; for (let s = 0; s < f; s++) nw[wallKey(i * f + D[0] * s, j * f + D[1] * s, d)] = Object.assign({}, L.w[id]); } L.w = nw;
         for (const S of L.s) { S.a = [S.a[0] * f, S.a[1] * f]; S.n = S.n * f; }
       }
       m.n = (m.n || 4) * f;
     }
+    maatKnoppen();
+    // bibliotheek groter: breder paneel en grotere plaatjes (onthouden)
+    { const knop = $('libBig'), zet = aan => { app.classList.toggle('mm-libgroot', aan); if (knop) { knop.setAttribute('aria-pressed', String(aan)); knop.textContent = aan ? '⤡ Kleiner' : '⤢ Groter'; } try { localStorage.setItem('raatmaker-bib-groot', aan ? '1' : ''); } catch (e) { } if (E.m) renderLib(); };
+      let groot = false; try { groot = localStorage.getItem('raatmaker-bib-groot') === '1'; } catch (e) { }
+      zet(groot); if (knop) knop.addEventListener('click', e => { e.stopPropagation(); zet(!app.classList.contains('mm-libgroot')); }); }
     function renderLib() {
       const el = $('lib'), q = ($('filter').value || '').trim().toLowerCase(); el.innerHTML = '';
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
@@ -1055,7 +1072,8 @@
       $('libN').textContent = list.length + (list.length === modules.length ? '' : ' van ' + modules.length);
       for (const [m, i] of list) {
         const d = document.createElement('div'); d.className = 'mod'; d.setAttribute('aria-current', String(i === E.editing));
-        const c = m.v === 2 ? mv2Thumb(m, 0, 18) : modThumb(m, 0, 18); d.appendChild(c);
+        const px = app.classList.contains('mm-libgroot') ? 96 : 18;   // grote bibliotheek: scherpe plaatjes
+        const c = m.v === 2 ? mv2Thumb(m, 0, px) : modThumb(m, 0, px); d.appendChild(c);
         const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') : 'oude schets'}</small>`; d.appendChild(sp);
         const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Verwijderen'; del.addEventListener('click', ev => { ev.stopPropagation(); if (!sure('del' + m.id, '"' + m.name + '" verwijderen? Geplaatste exemplaren gaan ook weg')) { del.textContent = 'Zeker?'; del.classList.add('warn'); return; } say('"' + m.name + '" verwijderd'); dropModule(m); modules.splice(i, 1); if (E.editing === i) { E.editing = -1; } else if (E.editing > i) E.editing--; saveMods(); renderStrip(); renderLib(); });
         d.appendChild(del);

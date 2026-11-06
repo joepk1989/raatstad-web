@@ -479,6 +479,31 @@ body.night .btn.tod { color: #cdd8ff; }
 #mm_levels button.mm-lvcopy { width: auto; height: 26px; padding: 0 8px; margin-top: 4px; font: 600 11px var(--ui); color: var(--muted); }
 #mm_levels button:disabled { opacity: .35; cursor: default; }
 #mm_lvName { font: 600 12px var(--ui); text-align: center; width: 70px; }
+/* grootte en raster van de module: linksonder in het tekenvlak, boven de coördinaten */
+#mm_maat { position: absolute; left: 12px; bottom: 30px; display: flex; flex-direction: column; gap: 5px; background: rgba(23,27,20,.88); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; z-index: 3; }
+#mm_maat .mm-maatrij { display: flex; align-items: center; gap: 8px; }
+#mm_maat .mm-maatrij > span { width: 48px; font: 700 11px var(--ui); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+#mm_maat .mm-seg { display: flex; gap: 3px; }
+#mm_maat .mm-seg button { min-width: 38px; height: 28px; padding: 0 7px; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font: 600 12px var(--ui); white-space: nowrap; }
+#mm_maat .mm-seg button:hover { border-color: var(--muted); }
+#mm_maat .mm-seg button[aria-pressed="true"] { background: var(--signal); color: var(--signal-ink); border-color: transparent; }
+#mmApp.mm-walking #mm_maat { visibility: hidden; }
+/* bibliotheek groter: breder paneel, de lijst over de hele hoogte, plaatjes groter in twee kolommen */
+#mmApp h2.mm-libkop { display: flex; align-items: center; gap: 6px; }
+#mmApp #mm_side button.mm-libbig { margin-left: auto; min-height: 26px; padding: 2px 8px; font: 600 11px var(--ui); text-transform: none; letter-spacing: 0; color: var(--muted); }
+#mmApp #mm_side button.mm-libbig[aria-pressed="true"] { color: var(--signal-ink); background: var(--signal); border-color: transparent; }
+#mmApp.mm-libgroot { grid-template-columns: 1fr min(660px, 55vw); }
+/* twee kolommen: links materialen en module, rechts de bibliotheek over de volle hoogte */
+#mmApp.mm-libgroot #mm_side { display: grid; grid-template-columns: minmax(0, 250px) minmax(0, 1fr); grid-auto-rows: min-content; align-items: start; column-gap: 14px; }
+#mmApp.mm-libgroot #mm_side > * { grid-column: 1; }
+#mmApp.mm-libgroot #mm_libSec { grid-column: 2; grid-row: 1 / span 20; position: sticky; top: 0; max-height: calc(100vh - 92px); display: flex; flex-direction: column; min-height: 0; }
+#mmApp.mm-libgroot .mm-swatches { grid-template-columns: 1fr; }
+#mmApp.mm-libgroot #mm_lib { flex: 1; min-height: 0; overflow-y: auto; max-height: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+#mmApp.mm-libgroot .mod { flex-direction: column; align-items: stretch; text-align: center; padding: 6px; }
+#mmApp.mm-libgroot .mod canvas { width: 100%; height: auto; aspect-ratio: 1; }
+#mmApp.mm-libgroot .mod span { white-space: normal; }
+#mmApp.mm-libgroot .mod { position: relative; }
+#mmApp.mm-libgroot #mm_side .mod > button { position: absolute; top: 5px; right: 5px; min-height: 26px; padding: 1px 8px; background: rgba(23,27,20,.85); }
 #mm_readout { position: absolute; left: 12px; bottom: 10px; font: 400 12px var(--mono); color: var(--muted); pointer-events: none; }
 #mm_msg { position: absolute; right: 12px; bottom: 10px; font: 600 13px var(--ui); color: var(--signal); pointer-events: none; }
 #mm_toast { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: min(520px, calc(100% - 32px)); padding: 10px 16px; border-radius: 10px; background: #2f5d34; color: #f1f7ec; border: 1px solid #5d9a5f; box-shadow: 0 6px 20px rgba(0,0,0,.35); font: 600 14px var(--ui); pointer-events: none; z-index: 5; transition: opacity .25s, transform .25s; }
@@ -530,6 +555,9 @@ body.night .btn.tod { color: #cdd8ff; }
   #mm_levels button.mm-lvcopy { height: 40px; margin: 0 0 0 4px; }
   #mm_lvName { width: auto; min-width: 74px; max-width: 108px; padding: 0 4px; font-size: 11px; line-height: 1.15; }
   #mm_readout { left: 8px; bottom: 6px; font-size: 11px; }
+  #mm_maat { left: 8px; bottom: 24px; padding: 4px 6px; gap: 4px; }
+  #mm_maat .mm-maatrij > span { width: 42px; font-size: 10px; }
+  #mm_maat .mm-seg button { min-width: 32px; height: 30px; padding: 0 5px; font-size: 11px; }
   #mm_msg { right: 8px; bottom: 6px; font-size: 12px; max-width: 60%; text-align: right; }
 }
 @media (max-width: 760px) {
@@ -548,6 +576,10 @@ body.night .btn.tod { color: #cdd8ff; }
   #mm_side:not(.mm-open) .mm-swatches button { flex: none; min-height: 44px; padding: 6px 12px; scroll-snap-align: start; white-space: nowrap; }
   #mm_side:not(.mm-open) #mm_ctxHint { margin: 4px 0 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #mm_side.mm-open { max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  #mmApp.mm-libgroot { grid-template-columns: 1fr; }
+  #mmApp.mm-libgroot #mm_side.mm-open { display: flex; }
+  #mmApp.mm-libgroot #mm_libSec { position: static; max-height: none; }
+  #mmApp.mm-libgroot #mm_side.mm-open { max-height: 88vh; }
   #mm_side.mm-open > #mm_sheet { position: sticky; top: 0; z-index: 2; background: var(--panel); flex: none; }
   #mm_side.mm-open #mm_ctx .mm-swatches button { min-height: 44px; }
   #mmApp #mm_side button, #mmApp select, #mmApp input[type=text] { min-height: 44px; }
