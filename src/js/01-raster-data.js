@@ -183,9 +183,14 @@
     try {
       localStorage.setItem(STORE, snap);
       localStorage.setItem(SLOT, JSON.stringify({ slot, slotName }));
-      if (slot === 'mijn') localStorage.setItem(MINE, serialize(cells));
-    } catch (e) {}
+      if (slot === 'mijn') localStorage.setItem(MINE, snap);
+      saveWarned = false;
+    } catch (e) {
+      // browseropslag vol of geblokkeerd (privévenster): één keer waarschuwen, anders raak je ongemerkt werk kwijt
+      if (!saveWarned) { saveWarned = true; setTimeout(() => { try { toast('Bewaren in de browser lukt niet (opslag vol of privévenster). Bewaar je stad als bestand via Menu.', 6000); } catch (e2) { } }, 60); }   // na de melding van de actie zelf
+    }
   }
+  let saveWarned = false;
   function load(key = STORE) {
     let raw = null; try { raw = localStorage.getItem(key); } catch (e) { return null; }
     return raw ? parseCity(raw) : null;
