@@ -286,6 +286,10 @@ De **Raatmaker** (vroeger module maker of schets; in het menu **Raatmaker**, of 
 
 **Voorwerpen tegen de muur**: een kast, (binnen)bank, bed, bureau, keukenblok, toonbank, bankje of filmdoek gaat vanzelf met de rug tegen de dichtstbijzijnde muur staan (binnen ongeveer een meter; het bed met het hoofdeinde). Het voorbeeld laat het al zien; met Ctrl blijft het los.
 
+**Draaien en spiegelen van een keuze** (Q/E, M, Shift+M): de hele laag (Ctrl+A) draait en spiegelt om het midden van de module; een kleinere keuze om haar eigen midden, en dat punt blijft hetzelfde zolang je dezelfde keuze blijft draaien of spiegelen (zes keer 60° komt dus terug waar je begon; eerst schoof het draaipunt telkens op). Zou er na de bewerking iets buiten het gebied van de module vallen, dan gebeurt er niets en zegt de Raatmaker hoeveel onderdelen dat zouden zijn (eerst verdwenen die ongemerkt). Test: `test/visueel/mmkiezen_bergfort.js`.
+
+**Gum en vrije platen**: de schuine wanden, zuilen en hellingen uit SketchUp (`plaat` in `08c`) zijn met de gum en Kiezen aan te wijzen: een staande wand krijgt van boven een strook van 0,35 m aan weerszijden, en in 3D raakt de straal vanuit de camera de vlakken zelf. Het oplichten toont de echte vorm. Test: `test/visueel/mmbergfort.js` (gumt alle 34 bergfort-modules leeg).
+
 **Voorwerpen fijn verplaatsen**: kies één voorwerp (Kiezen, V) en sleep het: het schuift vrij mee met de muis (op de millimeter), niet in rasterstappen. Zitten er ook vloer, muren of trappen in de keuze, dan gaat alles samen langs het raster. Een langwerpig voorwerp (bank, stelling, bed, toonbank, filmdoek) is over zijn hele lengte aan te klikken, niet alleen in het midden; daardoor pak je niet meer per ongeluk de vloer of muur eronder.
 
 **Materiaal van een keuze**: zitten er muren of vloer in de keuze, dan staan onder de knoppen van Kiezen de muur- en vloermaterialen; één klik geeft alle gekozen muren (openingen blijven) of vloerdriehoeken dat materiaal.

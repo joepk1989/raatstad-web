@@ -453,13 +453,33 @@
     }
     function selSay(pre) { const S = sel(), parts = []; if (S.f.size) parts.push(S.f.size + ' vloerdriehoek' + (S.f.size === 1 ? '' : 'en')); if (S.w.size) parts.push(S.w.size + (S.w.size === 1 ? ' muur' : ' muren')); if (S.s.size) parts.push(S.s.size + (S.s.size === 1 ? ' trap' : ' trappen')); if (S.o.size) parts.push(S.o.size + (S.o.size === 1 ? ' voorwerp' : ' voorwerpen')); if (S.r.size) parts.push(S.r.size + (S.r.size === 1 ? ' dak' : ' daken')); return (pre ? pre + ': ' : '') + (parts.join(', ') || 'niets gekozen'); }
     // bewerkingen
-    function selApply(fn, msg) { const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return; } snap(); const c = selClip(S); selRemove(S); const { out, stay } = fn(c); clipInsert(stay, S.lv); E.sel = clipInsert(out, S.lv); changed(); renderCtx(); const left = clipSize(stay); say(msg + (left ? ' · ' + left + ' dak/schans bleef staan (die horen bij een heel vak)' : ''), 1400); }
+    // Valt er na de bewerking iets buiten het gebied van de module (en zou het dus verdwijnen), dan gebeurt er niets en zegt hij waarom.
+    function selApply(fn, msg) {
+      const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return false; }
+      const oud = JSON.stringify(E.m.lv[S.lv]), redo0 = E.redo, dirty0 = E.dirty;
+      snap(); const c = selClip(S); selRemove(S); const { out, stay } = fn(c); const S1 = clipInsert(stay, S.lv); E.sel = clipInsert(out, S.lv);
+      const weg = clipSize(c) - selCount(E.sel) - selCount(S1);
+      if (weg > 0) {   // terugzetten: niets kwijtraken
+        E.m.lv[S.lv] = JSON.parse(oud); E.undo.pop(); E.redo = redo0; E.dirty = dirty0; E.sel = S; changed(); renderCtx();
+        say('Kan niet: ' + weg + ' onderde' + (weg === 1 ? 'el' : 'len') + ' zou' + (weg === 1 ? '' : 'den') + ' buiten het gebied van de module vallen', 2200); return false;
+      }
+      changed(); renderCtx(); const left = clipSize(stay); say(msg + (left ? ' · ' + left + ' dak/schans bleef staan (die horen bij een heel vak)' : ''), 1400); return true;
+    }
+    // Draaipunt voor draaien en spiegelen: de hele laag om het midden van de module; anders het midden van de keuze, en bij
+    // nog eens draaien of spiegelen van dezelfde keuze hetzelfde punt (anders schuift hij op en komt 6× 60° niet terug).
+    function selPivot(c) {
+      const S = sel(), L = E.m.lv[S.lv], tot = Object.keys(L.f).length + Object.keys(L.w).length + L.s.length + L.o.length + Object.keys(L.r).length;
+      if (selCount(S) === tot) return [0, 0];
+      if (E.selPv && E.selPv.sel === S) return E.selPv.pv;
+      return clipPivot(c);
+    }
+    function selTurn(fn, msg) { const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return; } const pv = selPivot(selClip(S)); if (selApply(c => fn(c, pv), msg)) E.selPv = { sel: E.sel, pv }; }   // draaipunt vóór het weghalen bepalen
     const selMove = (di, dj) => selApply(c => clipShift(c, di, dj), 'Verplaatst');
     // een los gekozen voorwerp (geen vloer/muur/trap/dak erbij) vrij verplaatsen, zonder aan het raster vast te zitten
     const clipShiftObjFree = (c, ox, oz) => ({ f: c.f, w: c.w, s: c.s, r: c.r, o: c.o.map(o => Object.assign({}, o, { x: Math.round((o.x + ox) * 1000) / 1000, z: Math.round((o.z + oz) * 1000) / 1000 })) });
     const selMoveFree = (dx, dz) => selApply(c => ({ out: clipShiftObjFree(c, dx, dz), stay: { f: [], w: [], s: [], o: [], r: [] } }), 'Verplaatst');
-    const selRotate = k => selApply(c => clipRot(c, k, clipPivot(c)), k > 0 ? 'Gedraaid 60° rechtsom' : 'Gedraaid 60° linksom');
-    const selMirror = axis => selApply(c => clipMirror(c, axis, clipPivot(c)), axis === 'x' ? 'Gespiegeld (links ↔ rechts)' : 'Gespiegeld (boven ↕ onder)');
+    const selRotate = k => selTurn((c, pv) => clipRot(c, k, pv), k > 0 ? 'Gedraaid 60° rechtsom' : 'Gedraaid 60° linksom');
+    const selMirror = axis => selTurn((c, pv) => clipMirror(c, axis, pv), axis === 'x' ? 'Gespiegeld (links ↔ rechts)' : 'Gespiegeld (boven ↕ onder)');
     // materiaal van de gekozen muren of vloeren in één keer wisselen
     function selMat(kind, mat) { const S = sel(), L = E.m.lv[S.lv], ids = [...S[kind]].filter(id => kind === 'w' ? L.w[id] : L.f[id]); if (!ids.length) return; snap(); for (const id of ids) { if (kind === 'w') L.w[id] = Object.assign({}, L.w[id], { m: mat }); else L.f[id] = mat; } changed(); say(ids.length + (kind === 'w' ? (ids.length === 1 ? ' muur' : ' muren') + ': ' + MV2.walls[mat] : ' vloerdriehoek' + (ids.length === 1 ? '' : 'en') + ': ' + MV2.floors[mat]), 1400); }
     function selDelete() { const S = sel(); if (!selCount(S)) return; snap(); selRemove(S); E.sel = selEmpty(); changed(); renderCtx(); say('Weggehaald', 900); }

@@ -29,7 +29,7 @@ const { open, OUT } = require('./helper');
  console.log(res.join('\n')); console.log('neergezet', total, '· in een muur', flagged);
  await p.waitForTimeout(600);
  const ck = await p.evaluate(() => { const r = window.__MME.checkModule(); return r.marks.map(m => m.msg); });
- console.log('controle-opmerkingen:', JSON.stringify(ck)); console.log('bolletje:', await dot());
+ console.log('controle-opmerkingen:', JSON.stringify(ck)); console.log('waar:', JSON.stringify(await p.evaluate(() => ({ marks: window.__MME.checkModule().marks.map(m => [m.msg, +(+m.x).toFixed(2), +(+m.z).toFixed(2)]), dingen: window.__MME.m.lv[0].o.map(o => [o.t, +o.x.toFixed(2), +o.z.toFixed(2), Math.round(o.rot * 180 / Math.PI)]) })))); console.log('bolletje:', await dot());
  await p.screenshot({ path: OUT + '/muur_voorwerpen_2d.png', timeout: 120000 });
  await p.keyboard.press('Digit3'); await p.waitForTimeout(1500); await p.screenshot({ path: OUT + '/muur_voorwerpen.png', timeout: 120000 });
  await p.keyboard.press('Digit2'); await p.waitForTimeout(300);
