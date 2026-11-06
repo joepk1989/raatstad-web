@@ -7,7 +7,7 @@ const path = require('path');
   const [w, h] = (process.argv[2] || '800x560').split('x').map(Number);
   const { b, p } = await open({ width: w, height: h });
   const fouten = []; let stap = 'start';
-  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, e.message); });
+  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, fouten.length === 1 ? e.stack : e.message); if (process.env.STOP) process.exit(1); });
   p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|net::|Failed to load resource/.test(m.text())) fouten.push(stap + ' (console): ' + m.text().slice(0, 200)); });
   const pts = [[0.5, 0.45], [0.35, 0.4], [0.62, 0.5], [0.45, 0.6]].map(([x, y]) => [x * w, y * h]);
   const acts = ['start', 'gen:dorp:7', 'gen:kruis:7', 'gen:ring:7', 'gen:rotonde:7', 'heuvel', 'stad', 'file', 'mall', 'random', 'blocks', 'layers', 'sample', 'dorp1', 'empty', 'start'];
@@ -18,7 +18,7 @@ const path = require('path');
     await p.evaluate(t => document.querySelectorAll('.pal-tab, [data-cat]')[t].click(), t); await p.waitForTimeout(150);
     const n = await p.evaluate(() => document.querySelectorAll('.tool-scroll .tool:not([disabled]):not(.add)').length);
     for (let i = 0; i < Math.min(n, 60); i++) {
-      const nm = await p.evaluate(i => { const el = document.querySelectorAll('.tool-scroll .tool:not([disabled]):not(.add)')[i]; if (!el) return null; el.click(); return el.id || el.title.split(':')[0]; }, i);
+      const nm = await p.evaluate(i => { const el = document.querySelectorAll('.tool-scroll .tool:not([disabled]):not(.add)')[i]; if (!el) return null; el.click(); return el.id || el.title.split(/[:\n]/)[0]; }, i);
       if (!nm) break; stap = 'tab ' + t + ' gereedschap ' + nm; console.log(stap);
       await p.mouse.click(...pts[(i + t) % 4]); await p.mouse.click(...pts[(i + t + 1) % 4]);   // twee klikken: neerzetten, of begin en eind van een weg
       await p.keyboard.press('r'); await p.keyboard.press('Escape');
