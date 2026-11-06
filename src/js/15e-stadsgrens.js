@@ -48,7 +48,10 @@
     const W = window.innerWidth, H = window.innerHeight, behind = cityV.z > 1;
     let sx = (cityV.x + 1) / 2 * W, sy = (1 - cityV.y) / 2 * H;
     const M = 70, inView = !behind && sx > M && sx < W - M && sy > M && sy < H - M;
-    if (inView || (CITY.rad === 0 && Math.hypot(orbit.target.x, orbit.target.z) < 30)) { cityArrow.hidden = true; return; }
+    // niet nodig als het centrum in beeld is, of als je al boven je stad bent (hoog kijken: het centrum op de grond valt dan
+    // onder het beeld, en de pijl zei 'Centrum · 0 m')
+    const hx = mode === 'walk' ? player.x : orbit.target.x, hz = mode === 'walk' ? player.z : orbit.target.z;
+    if (inView || Math.hypot(hx - CITY.cx, hz - CITY.cz) < Math.max(30, CITY.rad)) { cityArrow.hidden = true; return; }
     if (behind) { sx = W - sx; sy = H - sy; }
     let vx = sx - W / 2, vy = sy - H / 2; if (behind && Math.hypot(vx, vy) < 1) vy = 1;
     const mT = 120, mB = 130, mS = 90;   // vrij van de balk bovenaan en het palet onderaan

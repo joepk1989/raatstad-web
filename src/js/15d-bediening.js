@@ -2,8 +2,8 @@
   // Bij bouwen én lopen op dezelfde plek: links het gereedschap (en tijdens het lopen de handen), in het midden de
   // snelbalk met negen blokken onder 1–9 en daarboven "Alle blokken" (Tab), rechts de schakelaar bouwen/lopen, aan de
   // rechterrand de laagkiezer. Wat je in de catalogus kiest, komt in het gekozen vak van de snelbalk.
-  // De laagkiezer bouwt modules op de gekozen laag; alles daarboven wordt doorzichtig en is niet aan te klikken
-  // (de stad wordt dan in twee keer getekend: tot de snede gewoon, daarboven als glas).
+  // De laagkiezer bouwt modules op de gekozen laag; alles daarboven wordt weggelaten en is niet aan te klikken
+  // (een doorsnede op laag × 3 m + 2,65 m, zoals een plattegrond).
   // Ongedaan maken: na elke wijziging een momentopname van de stad (de tekst die toch al bewaard wordt), max. 15.
   // Deze functies worden ook elders aangeroepen (ook vóór dit bestand klaar is), dus ze kijken eerst of HUD er is.
   var HUD = null, hudFirstSnap = null;
@@ -111,35 +111,33 @@
       return t;
     }
     function renderLayers() {
-      maxLv = Math.max(3, Math.min(9, topLevel() - 1));
+      maxLv = Math.max(3, Math.min(MV2.STAD_LV - 1, topLevel()));   // tot en met de eerste vrije laag, hooguit 50 lagen (0 t/m 49)
       const walk = mode === 'walk', here = walk ? Math.max(0, Math.round((player.y - gH(...worldToCell(player.x, player.z))) / MV2.LV_H)) : null;
       let h = '<small>Laag</small><button type="button" data-l="alles" aria-pressed="' + (!walk && layer === null) + '" title="Alle lagen zien (Page Up boven de bovenste laag)"' + (walk ? ' disabled' : '') + '>Alles</button>';
+      h += '<div class="lp-list">';   // schuiflijst: bij veel lagen blijft de gekozen laag in beeld
       for (let l = maxLv; l >= 0; l--) {
         const on = walk ? l === here : layer === l, above = !walk && layer !== null && l > layer;
-        h += '<button type="button" data-l="' + l + '" aria-pressed="' + on + '"' + (above ? ' class="above"' : '') + (walk ? ' disabled' : '') + ' title="' + (walk ? 'Je loopt op laag ' + here : 'Bouw op laag ' + l + ' (' + (l * MV2.LV_H) + ' m) · wat erboven ligt wordt doorzichtig') + '">' + l + '</button>';
+        h += '<button type="button" data-l="' + l + '" aria-pressed="' + on + '"' + (above ? ' class="above"' : '') + (walk ? ' disabled' : '') + ' title="' + (walk ? 'Je loopt op laag ' + here : 'Bouw op laag ' + l + ' (' + (l * MV2.LV_H) + ' m) · wat erboven ligt wordt weggelaten') + '">' + l + '</button>';
       }
-      h += '<small class="lk">PgUp/Dn</small>';
+      h += '</div><small class="lk">PgUp/Dn</small>';
+      const oud = layerPick.querySelector('.lp-list'), top0 = oud ? oud.scrollTop : null;
       layerPick.innerHTML = h;
+      const lijst = layerPick.querySelector('.lp-list'), aan = lijst.querySelector('[aria-pressed="true"]');
+      if (top0 !== null) lijst.scrollTop = top0; else lijst.scrollTop = lijst.scrollHeight;   // eerste keer: de onderste lagen
+      if (aan) { const a0 = aan.offsetTop - lijst.offsetTop, a1 = a0 + aan.offsetHeight; if (a0 < lijst.scrollTop) lijst.scrollTop = a0; else if (a1 > lijst.scrollTop + lijst.clientHeight) lijst.scrollTop = a1 - lijst.clientHeight; }
     }
     function setLayer(n, quiet) {
       layer = n === null ? null : Math.max(0, Math.min(maxLv, n));
       renderLayers();
-      if (!quiet) toast(layer === null ? 'Alle lagen' : 'Laag ' + layer + ' (' + layer * MV2.LV_H + ' m) · wat erboven ligt is doorzichtig', 1600);
+      if (!quiet) toast(layer === null ? 'Alle lagen' : 'Laag ' + layer + ' (' + layer * MV2.LV_H + ' m) · wat erboven ligt is weggelaten', 1600);
       if (mode === 'build') { moduleGhostKey = ''; updateGhost(); }
     }
     layerPick.addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (!b || b.disabled) return; setLayer(b.dataset.l === 'alles' ? null : +b.dataset.l); });
-    const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), aboveP = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const glassMat = new THREE.MeshBasicMaterial({ color: '#dfe9f2', transparent: true, opacity: 0.13, depthWrite: false, side: THREE.DoubleSide });
-    function skipGlass(o) { if (!o.visible) return false; if (o.renderOrder < 0 || o.isPoints || o.isLine || o.isSprite || o.userData.noOcc || o.userData.wxPrecip) return true; const m = o.material || (o.children && o.children[0] && o.children[0].material); return !!(m && !Array.isArray(m) && m.isMeshBasicMaterial); }
+    // alles boven de snede weg (een doorsnede, zoals een plattegrond): als glas werd het bij veel lagen een troebele brij
+    const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
     function renderLayered() {
-      const cut = hudCut(); below.constant = cut; aboveP.constant = -cut;
-      renderer.clippingPlanes = [below]; renderer.render(scene, camera);
-      const hidden = []; for (const o of scene.children) if (skipGlass(o)) { o.visible = false; hidden.push(o); }
-      const bg = scene.background, ac = renderer.autoClear, au = renderer.shadowMap.autoUpdate;
-      scene.background = null; scene.overrideMaterial = glassMat; renderer.autoClear = false; renderer.shadowMap.autoUpdate = false; renderer.clippingPlanes = [aboveP];
-      renderer.render(scene, camera);
-      scene.background = bg; scene.overrideMaterial = null; renderer.autoClear = ac; renderer.shadowMap.autoUpdate = au; renderer.clippingPlanes = [];
-      for (const o of hidden) o.visible = true;
+      below.constant = hudCut();
+      renderer.clippingPlanes = [below]; renderer.render(scene, camera); renderer.clippingPlanes = [];
     }
     // ---------- ongedaan maken ----------
     const undoList = []; let undoCur = hudFirstSnap, undoT = 0, layersT = 0;

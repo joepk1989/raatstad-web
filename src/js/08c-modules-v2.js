@@ -11,7 +11,7 @@
   // Rasterpunt (i, j) ligt op P(i, j) = (i·ts·√3/2, i·ts/2 + j·ts). Ribrichtingen d: 0 = (1,0) op 30°, 1 = (0,1) op 90°,
   // 2 = (−1,1) op 150°. Zes looprichtingen voor trappen: 30°, 90°, 150°, 210°, 270°, 330°.
   const MV2 = {
-    LV_H: 3, WALL_T: 0.25, FLOOR_T: 0.2, MAX_LV: 8,
+    LV_H: 3, WALL_T: 0.25, FLOOR_T: 0.2, MAX_LV: 8, STAD_LV: 50,   // MAX_LV: lagen in één module (Raatmaker); STAD_LV: zo hoog stapel je modules in de stad
     DIR3: [[1, 0], [0, 1], [-1, 1]],
     // muurrichtingen: 0–2 langs de ribben van het raster, 3–5 haaks daarop (0°, 60°, 120°; √3 × zo lang), zodat je
     // muren onder 90° op elkaar kunt laten aansluiten
@@ -945,7 +945,7 @@
       if (t.top !== lv) return t.top > lv ? 'Hier staat al een module' : 'Niet overal even hoog: ' + (lv - t.top) + ' laag lager';
       if (t.kap) return 'Op een schuin dak kun je niet bouwen';
     }
-    if (lv + modMeta(mod).fl > MV2.MAX_LV + 1) return 'Te hoog';
+    if (lv + modMeta(mod).fl > MV2.STAD_LV) return 'Te hoog: maximaal ' + MV2.STAD_LV + ' lagen';
     return null;
   }
   // de laag waarop de gekozen module terechtkomt als je op dit vak klikt: bovenop wat er staat (0 op de grond)
