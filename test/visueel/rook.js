@@ -7,7 +7,10 @@ const path = require('path');
   const [w, h] = (process.argv[2] || '800x560').split('x').map(Number);
   const { b, p } = await open({ width: w, height: h });
   const fouten = []; let stap = 'start';
-  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, fouten.length === 1 ? e.stack : e.message); if (process.env.STOP) p.evaluate(() => window.__tekenfout).then(t => { console.log('TEKENFOUT', JSON.stringify(t, null, 1)); process.exit(1); }, () => process.exit(1)); });
+  let eerste = true;
+  p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, eerste ? e.stack : e.message);
+    if (eerste && process.env.STOP) p.evaluate(() => ({ t: window.__tekenfout, stad: window.__SC().serialize(window.__SC().getCells()) })).then(r => { console.log('TEKENFOUT', JSON.stringify(r.t, null, 1)); require('fs').writeFileSync(path.join(OUT, 'rook-stad-bij-fout.json'), r.stad); process.exit(1); }, () => process.exit(1));
+    eerste = false; });
   p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|net::|Failed to load resource/.test(m.text())) fouten.push(stap + ' (console): ' + m.text().slice(0, 200)); });
   // bij een fout tijdens het tekenen: zoek de boosdoener (een vorm zonder materiaal) en bewaar de stack
   await p.evaluate(() => {
