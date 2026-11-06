@@ -811,6 +811,19 @@ body.walk.hand-kijken .crosshair { opacity: 0.45; transform: scale(0.7); }
   body.coarse.walk .walk-hint { top: calc(var(--st) + 112px); max-width: calc(100% - 32px); }
 }
 @media (max-width: 480px) { body.coarse.walk #todBtn, body.coarse.walk #soundBtn { display: none; } }
+/* bouwen op een telefoon: vijf ronde knoppen links en de schakelaar rechts passen niet met twee teksten; de actieve kant
+   (Bouwen) houdt zijn tekst, Lopen wordt alleen het poppetje (de knop heeft een aria-label en een title) */
+@media (max-width: 420px) {
+  body:not(.walk) .modeswitch .ms-l { font-size: 0; gap: 0; padding-left: 11px; padding-right: 11px; }
+  body:not(.walk) .modeswitch .ms-l svg { width: 18px; height: 18px; }
+}
+/* heel smalle telefoon: de bovenbalk past niet naast naam en score; de klokknop toont alleen zon of maan (de tijd staat
+   in het paneel erachter) en de Menu-knop wordt smaller */
+@media (max-width: 379px) {
+  #todLbl { display: none; }
+  .actions { gap: 6px; }
+  #menuBtn { padding-left: 11px; padding-right: 11px; }
+}
 @media (max-width: 380px) {
   .rt, .rtools .tool, .rtools .tool.rot { width: 34px; height: 34px; }
   .modeswitch .ms { padding: 6px 8px; font-size: 12px; }
@@ -835,8 +848,14 @@ body.walk .hud-top { justify-content: flex-end; }
   body.coarse.walk.hand-bouwen .joy { bottom: calc(var(--base) + 102px); }
   body.coarse.walk .jump { right: calc(var(--gutter-r) + 62px); bottom: calc(var(--base) + 56px); }
   body.coarse.walk .place { right: calc(var(--gutter-r) + 67px); bottom: calc(var(--base) + 142px); }
-  .layerpick { top: 50%; }
+  .layerpick { top: 50%; padding: 4px; gap: 1px; }
+  .layerpick button { height: 21px; font-size: 12px; }
+  .layerpick button[data-l="alles"] { height: 21px; }
+  .rt, .rtools .tool, .rtools .tool.rot { width: 34px; height: 34px; }   /* vijf knoppen links naast de snelbalk */
+  .dockl .rtools { gap: 4px; }
 }
+/* lage telefoon, lopen: de laagkiezer (alleen een aanwijzer van je verdieping) botst met de knoppen voor bouwen en springen */
+@media (max-width: 760px) and (max-height: 700px) { body.coarse.walk .layerpick { display: none; } }
 
 /* lopen en kijken (aanraakscherm): ook het menu en de fps-teller onderaan, het beeld bovenin blijft vrij */
 @media (max-width: 760px) {
