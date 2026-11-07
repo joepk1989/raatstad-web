@@ -1,7 +1,7 @@
-// Raatmaker, Trap: de trap ligt altijd tussen de driehoeklijnen (een rij hele driehoeken, schuine koppen langs de
-// driehoeklijnen) en schuift tegen de rand van het vak of tegen een muur als die langs de rij loopt.
+// Raatmaker, Trap: de trap ligt recht tussen twee driehoeklijnen (een rij, van rasterpunt tot rasterpunt, haakse uiteinden)
+// en schuift tegen de rand van het vak of tegen een muur als die langs de rij loopt.
 // Module: vloer op de begane grond en op de 1e verdieping (één vak). Controles per geval: de trap bedekt alleen hele driehoeken
-// (2 per zijde), ligt met zijn lijnzijde op de rand/muur, het gat erboven zijn hele driehoeken, en de controle van de
+// (in de rij), ligt met zijn lijnzijde op de rand/muur, het gat erboven is de trap, en de controle van de
 // Raatmaker vindt geen fouten (je kunt van beneden naar boven). Screenshots: trap_rij_*.png
 const { open, OUT } = require('./helper');
 (async () => {
@@ -32,9 +32,9 @@ const { open, OUT } = require('./helper');
   let r = await meet(), info = await p.evaluate(() => window.__MME.coverInfo);
   const opRand = await p.evaluate(() => { const E = window.__MME, S = E.m.lv[0].s[0], t = window.__SC().mv2Ts(E.m), a = window.__SC().mv2P(S.a[0], S.a[1], t), A2 = 9 * Math.sqrt(3) / 2;
     return Math.max(...[0, 1, 2, 3, 4, 5].map(k => a[0] * Math.cos(k * Math.PI / 3) + a[1] * Math.sin(k * Math.PI / 3))) - A2; });
-  await p.waitForTimeout(600); const chk1 = await p.evaluate(() => window.__MME.checkState);
+  await p.waitForTimeout(600); const chk1 = await p.evaluate(() => window.__MME.checkState), marks1 = await p.evaluate(() => window.__MME.checkModule().marks); if (marks1.length) console.log('   opmerkingen:', JSON.stringify(marks1));
   console.log('1. langs de rand:', JSON.stringify(r.S), '· gat', r.gat, 'driehoeken · beginpunt op de rand:', opRand.toFixed(2), '· controle', JSON.stringify(chk1));
-  uit.push(r.S.kop && Math.abs(r.S.n * t1 - 4.5) < 0.01 && Math.abs(opRand) < 0.05 && r.gat > 0 && chk1 && chk1.ok);
+  uit.push(r.S.rij && Math.abs(r.S.n * t1 - 4.5) < 0.01 && Math.abs(opRand) < 0.05 && r.gat > 0 && chk1 && chk1.ok);
   await p.screenshot({ path: OUT + '/trap_rij_rand.png' });
   await p.keyboard.press('Digit3'); await p.waitForTimeout(1200); await p.screenshot({ path: OUT + '/trap_rij_rand_3d.png' }); await p.keyboard.press('Digit2'); await p.waitForTimeout(300);
   // 2. tegen een muur midden in het vak: muur langs een rasterlijn, de muis in de rij ernaast
@@ -45,7 +45,7 @@ const { open, OUT } = require('./helper');
   await p.mouse.move(pt[0], pt[1]); await p.waitForTimeout(250); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(500);
   r = await meet();
   const tegenMuur = await p.evaluate(() => { const E = window.__MME, S = E.m.lv[0].s[0], D = window.__mv2.MV2.DIR6[S.d], j1 = S.a[1] + D[1] * S.n; return S.a[0] === 0 && D[0] === 0 && Math.min(S.a[1], j1) < 2 && Math.max(S.a[1], j1) > -2; });   // lijn langs i = 0 (de muur), evenwijdig eraan, en hij ligt (deels) langs de muur (j −2 … 2)
-  console.log('2. tegen een muur:', JSON.stringify(r.S), '· langs de muur:', tegenMuur); uit.push(r.S.kop && tegenMuur);
+  console.log('2. tegen een muur:', JSON.stringify(r.S), '· langs de muur:', tegenMuur); uit.push(r.S.rij && tegenMuur);
   await p.mouse.move(10, 10); await p.waitForTimeout(150); await p.screenshot({ path: OUT + '/trap_rij_muur.png' });
   // muis bij het onderste eind van de muur: de trap gaat langs de muur omhoog, niet het open veld in
   await nieuw(muur); await p.keyboard.press('KeyT'); await p.waitForTimeout(200);
@@ -59,15 +59,17 @@ const { open, OUT } = require('./helper');
   const c0 = [t3 * Math.sqrt(3) / 2 * 0.33, t3 * 0.5];   // in een driehoekje bij het midden
   pt = await scherm(c0[0], c0[1]); const pt2 = await scherm(c0[0], c0[1] + 1.4 * t3);
   await p.mouse.move(pt[0], pt[1]); await p.mouse.down(); await p.mouse.move(pt2[0], pt2[1], { steps: 6 }); await p.waitForTimeout(200); await p.screenshot({ path: OUT + '/trap_rij_slepen.png' }); await p.mouse.up(); await p.waitForTimeout(400);
-  r = await meet(); console.log('3. midden, gesleept:', JSON.stringify(r.S), '· gat', r.gat); uit.push(r.S.kop && r.S.n === 2);
+  r = await meet(); console.log('3. midden, gesleept:', JSON.stringify(r.S), '· gat', r.gat); uit.push(r.S.rij && r.S.n === 2);
   // de vorm: alleen hele driehoeken bedekt (2 per zijde, per rij)
-  const dekking = await p.evaluate(() => { const E = window.__MME, t = window.__SC().mv2Ts(E.m); return E.m.lv[0].s.map(S => ({ fr: E.trapDekking(S), moet: 2 * S.n * Math.round(S.w / (t * Math.sqrt(3) / 2)) })); });
-  console.log('bedekte driehoeken (aandeel per driehoek):', JSON.stringify(dekking)); uit.push(dekking.every(D => D.fr.length === D.moet && D.fr.every(x => x > 0.98)));
+  const dekking = await p.evaluate(() => { const E = window.__MME; return E.m.lv[0].s.map(S => ({ w: S.w, n: S.n, d: E.trapDekking(S) })); });
+  // recht en tussen de driehoeklijnen: alle bedekte driehoeken liggen in de rij(en) van de trap, en de rechthoek is n zijden lang
+  const binnenRij = dekking.every(D => D.d.every(C => Math.abs(C.lat) < D.w / 2));
+  console.log('driehoeken onder de trap:', dekking.map(D => D.d.length + ' (' + D.d.filter(C => C.fr > 0.98).length + ' helemaal)').join(', '), '· allemaal in de rij:', binnenRij); uit.push(binnenRij);
   // 4. foto zoals Joeps tekening: raster 2,25 m, 1 rij, langs de rand rechtsboven; daarna de verdieping erboven met het gat
   await nieuw(null, 4); await p.keyboard.press('KeyT'); await p.waitForTimeout(200);
   pt = await scherm(nRand[0] * (A - 0.6) + nRand[1] * 0.4, -(nRand[1] * (A - 0.6)) + nRand[0] * 0.4);
   await p.mouse.move(pt[0], pt[1]); await p.waitForTimeout(200); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(400);
-  const S4 = await p.evaluate(() => window.__MME.m.lv[0].s[0]); await p.waitForTimeout(600); const chk4 = await p.evaluate(() => window.__MME.checkState); console.log('4. raster 2,25 m:', JSON.stringify(S4), '· controle', JSON.stringify(chk4)); uit.push(S4.kop && S4.n === 2 && chk4 && chk4.ok);
+  const S4 = await p.evaluate(() => window.__MME.m.lv[0].s[0]); await p.waitForTimeout(600); const chk4 = await p.evaluate(() => window.__MME.checkState); console.log('4. raster 2,25 m:', JSON.stringify(S4), '· controle', JSON.stringify(chk4)); uit.push(S4.rij && S4.n === 2 && chk4 && chk4.ok);
   await p.mouse.move(10, 10); await p.screenshot({ path: OUT + '/trap_rij_tekening_2d.png' });
   await p.keyboard.press('Digit3'); await p.waitForTimeout(1500); await p.mouse.move(10, 10); await p.waitForTimeout(300); await p.screenshot({ path: OUT + '/trap_rij_tekening_3d.png' });
   await p.evaluate(() => { document.getElementById('mm_lvUp').click(); }); await p.waitForTimeout(1500); await p.mouse.move(10, 10); await p.waitForTimeout(300); await p.screenshot({ path: OUT + '/trap_rij_tekening_3d_boven.png' });
