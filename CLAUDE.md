@@ -15,6 +15,7 @@ Alles is in het Nederlands: code-commentaar, interface, commits en antwoorden aa
 - Screenshots van de ontwikkeling bewaren, nooit verwijderen.
 - Geen hekken of railings in het bergdorp: lichte schuine muurtjes (`rand: 'muurtje'`).
 - Kleine stappen, elke stap getest, dan committen en pushen.
+- Na elke geteste stap: committen, pushen en de pull request naar `main` meteen samenvoegen, zonder te vragen (Joep wil het automatisch online). Daarna de werkbranch opnieuw vanaf de nieuwe `main` beginnen.
 
 ## Waar alles staat
 - `README.md` beschrijft per onderdeel hoe het werkt (maten, regels, formules). Lees het deel dat je gaat aanpassen.

@@ -75,7 +75,11 @@
       roof(li, q, r, kind = 'hip') { lv(li).r[q + ',' + r] = kind; return B; },
       roofAll(li, kind = 'hip') { for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) if (mv2HexDist(q, r) <= k) B.roof(li, q, r, kind); return B; },
       obj(li, t, x, z, rot = 0) {   // altijd binnen het gebied: wat erbuiten valt schuift naar het midden (anders staat het op de straat of bij de buren)
-        const ok = (x2, z2) => { const d = Math.hypot(x2, z2) || 1; return mv2InArea(m, x2, z2) && mv2InArea(m, x2 + x2 / d * 0.9, z2 + z2 / d * 0.9); };
+        // het hele voorwerp, niet alleen het midden: beide uiteinden (lengte langs rot) en 0,5 m diep, met 0,4 m tot de rand (de gevel)
+        const half = (OBJ_LEN[t] || 0) / 2, ux = Math.cos(rot), uz = Math.sin(rot);
+        const binnen = (x2, z2) => { const d = Math.hypot(x2, z2) || 1; return mv2InArea(m, x2, z2) && mv2InArea(m, x2 + x2 / d * 0.4, z2 + z2 / d * 0.4); };
+        const ok = (x2, z2) => { const d = Math.hypot(x2, z2) || 1; if (!(mv2InArea(m, x2, z2) && mv2InArea(m, x2 + x2 / d * 0.9, z2 + z2 / d * 0.9))) return false; if (!half) return true;
+          for (const s of [-1, 1]) for (const w of [-0.5, 0.5]) if (!binnen(x2 + ux * half * s - uz * w, z2 + uz * half * s + ux * w)) return false; return true; };
         for (let g = 0; g < 60 && !ok(x, z); g++) { x *= 0.97; z *= 0.97; }
         lv(li).o.push({ t, x: Math.round(x * 4) / 4, z: Math.round(z * 4) / 4, rot }); return B; },
       // voorwerpen in een kring
@@ -100,6 +104,8 @@
     'Fietsenstalling · overdekt': 'Vervoer', 'Tankstation · luifel': 'Vervoer', 'Laadplein · zonnedak': 'Vervoer', 'Haven · steiger': 'Vervoer', 'Kade · klinkers': 'Vervoer',
   };
   const catBase = n => (n || '').replace(/( · \d+[Lv])+$/, '');
+  // lengte van langwerpige voorwerpen (zoals in de Raatmaker-controle): voor het binnen houden in obj()
+  const OBJ_LEN = { bench: 1.8, shelf: 2.4, counter: 2.2, bike: 2.4, sign: 1.6, bed: 1.8, sofa: 2.0, desk: 1.6, kitchen: 2.4, screen: 6.0, car: 4.3, solar: 3.4, container: 2.4, goal: 3.7, boat: 4.2, shelter: 3.0, swing: 2.7 };
   function libStandard() {
     const out = [], add = b => {   // een bovenste laag met alleen betonvloer is een plat dak: dakbedekking
       libOldDetails(b); pruneNearStairs(b);   // inrichting en bijzonderheden (08d9), niets bij de trappen
@@ -219,8 +225,8 @@
     { const b = libBuilder('Zitkuil', 'Pleinen'); b.cell(0, 0, 0, 'paver').hex(0, 0, 0, 4.5, 'grass').circle(0, 'bench', 0, 0, 3, 6).obj(0, 'tree', 0, 0); add(b); }
     { const b = libBuilder('Leeg plein', 'Pleinen'); b.cell(0, 0, 0, 'paver'); add(b); }
     // ---------- Trappen en hoogte ----------
-    { const b = libBuilder('Trap naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -7.794, 0, 0, 4, 2); b.ring(1, 0, 0, 9, 'fence'); add(b); }
-    { const b = libBuilder('Helling naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -7.794, 0, 0, 4, 2, 'ramp'); b.ring(1, 0, 0, 9, 'fence'); add(b); }
+    { const b = libBuilder('Trap naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -5.846, 0, 0, 4, 2); b.ring(1, 0, 0, 9, 'fence'); add(b); }   // begint een rasterstap binnen de rand (eerst stak de eerste tree het buurvak in)
+    { const b = libBuilder('Helling naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -5.846, 0, 0, 4, 2, 'ramp'); b.ring(1, 0, 0, 9, 'fence'); add(b); }
     { const b = libBuilder('Trappenhuis 3 lagen', 'Verbindingen'); for (let f = 0; f < 3; f++) { b.cell(f, 0, 0, 'concrete'); if (f) b.hex(f, 0, 0, 2.25, null); b.cellRing(f, 0, 0, 'concrete', { open: f ? {} : { 0: 'door' }, win: 2 }); if (f < 2) b.stair(f, -3.897, 2.25, 5, 3, 1.5); } b.cell(3, 0, 0, 'concrete'); add(b); }
     { const b = libBuilder('Tribune', 'Verbindingen'); b.cell(0, 0, 0, 'concrete'); for (const lat of [-3, 0, 3]) b.stair(0, -7.794, lat, 0, 5, 3, 'trib'); b.cell(1, 0, 0, null); add(b); }
     { const b = libBuilder('Terras op hoogte', 'Verbindingen'); b.cell(0, 0, 0, 'paver').cell(1, 0, 0, 'wood').ring(1, 0, 0, 9, 'fence').circle(0, 'pillar', 0, 0, 7, 6, Math.PI / 6).circle(1, 'table', 0, 0, 4, 3, Math.PI / 2); b.stairUp(0, -0.25, 3.375, 5, 3, 1.5); add(b); }   // de trap komt onder het terras vandaan en eindigt in het gat
@@ -382,6 +388,16 @@
       const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), have = new Set(modules.map(m => base(m.name)));
       for (const m of libStandard()) if (!have.has(base(m.name))) { m.lib = 15; modules.push(m); libNews++; }
       saveMods(); localStorage.setItem('raatstad-lib15', '1'); libRefreshed = true;
+    }
+    // lib16: niets steekt meer buiten de module (voorwerpen door de gevel, trappen het buurvak in): die standaardmodules
+    // vervangen, zelfde id (geplaatste exemplaren gaan mee); wat je zelf hebt aangepast (_sig) blijft staan
+    if (!localStorage.getItem('raatstad-lib16')) {
+      const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), nu = new Map(libStandard().map(m => [base(m.name), m])); let n = 0;
+      for (const naam of ['Winkel · supermarkt', 'Bouwmarkt · hal', 'Trap · naar terras', 'Helling · naar terras']) {
+        const st = nu.get(naam), i = modules.findIndex(x => x.v === 2 && base(x.name) === naam); if (!st || i < 0 || modules[i]._sig) continue;
+        st.id = modules[i].id; st.lib = 16; modules[i] = st; n++;
+      }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib16', '1'); if (n) libRefreshed = true;
     }
     // lib13: nieuwe indeling (Horeca, Sport, Vervoer); ook voor aangepaste modules met dezelfde naam
     if (!localStorage.getItem('raatstad-lib13')) {

@@ -340,9 +340,9 @@
       else toast('Je eigen stad staat al open');
     }
     if (act === 'sketch') { document.getElementById('sheet').hidden = true; openSchets(); return; }
-    if (['start', 'sample', 'ring', 'random', 'blocks', 'layers', 'empty', 'dorp1', 'dorp2', 'dorp3', 'dorp4', 'mall', 'stad', 'file', 'heuvel'].includes(act) || act.startsWith('gen:')) {
+    if (['start', 'sample', 'ring', 'random', 'blocks', 'layers', 'empty', 'dorp1', 'dorp2', 'dorp3', 'dorp4', 'mall', 'stad', 'file', 'heuvel', 'bergspiraal'].includes(act) || act.startsWith('gen:')) {
       nieuweStad();
-      slotName = act.startsWith('gen:') ? ({ dorp: 'Willekeurig dorp', kruis: 'Honingraatstad', ring: 'Zeshoekige ringstad', rotonde: 'Dorp met rotonde (zes armen)' }[act.split(':')[1]] || 'Gegenereerde stad') : { start: 'Startstadje', heuvel: 'Heuveldorp', stad: 'Grote stad', file: 'Filestad', sample: 'Voorbeeldstad', ring: 'Ringstad', random: 'Willekeurige stad', blocks: 'Blokkenstad', layers: 'Gelaagde stad', empty: 'Lege bouwgrond', dorp1: 'Dorpsstraat', dorp2: 'Dorp met kruising', dorp3: 'Dorp met rotonde', mall: 'Winkelcentrum', dorp4: 'Dorp met brede weg' }[act];
+      slotName = act.startsWith('gen:') ? ({ dorp: 'Willekeurig dorp', kruis: 'Honingraatstad', ring: 'Zeshoekige ringstad', rotonde: 'Dorp met rotonde (zes armen)' }[act.split(':')[1]] || 'Gegenereerde stad') : { start: 'Startstadje', heuvel: 'Heuveldorp', bergspiraal: 'Spiraalburcht', stad: 'Grote stad', file: 'Filestad', sample: 'Voorbeeldstad', ring: 'Ringstad', random: 'Willekeurige stad', blocks: 'Blokkenstad', layers: 'Gelaagde stad', empty: 'Lege bouwgrond', dorp1: 'Dorpsstraat', dorp2: 'Dorp met kruising', dorp3: 'Dorp met rotonde', mall: 'Winkelcentrum', dorp4: 'Dorp met brede weg' }[act];
     }
     if (act.startsWith('dorp')) { cells = roofHouses(dorp(+act[4])); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 120; orbit.phi = 0.85; applyOrbit(); toast('Dorpje geladen · je eigen stad staat veilig onder Mijn stad'); }
     if (act === 'stad') { cells = raatstadCity(); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 520; orbit.phi = 0.9; orbit.theta = 0.5; applyOrbit(); toast('Raatstad geladen: rotonde in het midden, zes buurten binnen de ringweg · je eigen stad staat veilig onder Mijn stad', 3500); }
@@ -358,6 +358,7 @@
       return;
     }
     if (act.startsWith('gen:')) { const [, lay, sd] = act.split(':'); cells = genTown(sd ? +sd : Math.floor(Math.random() * 1e6), lay); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 260; orbit.phi = 0.95; applyOrbit(); toast('Gegenereerd · je eigen stad staat veilig onder Mijn stad', 2600); }
+    if (act === 'bergspiraal') { cells = bergSpiraal.stad(); rebuildAll(); changed(); orbit.target.set(0, 12, 0); orbit.dist = 190; orbit.phi = 0.9; orbit.theta = 0.7; applyOrbit(); toast('Spiraalburcht: door de poort naar het binnenplein, dan langs de muren omhoog tot het poortgebouw op 33 m · je eigen stad staat veilig', 3200); }
     if (act === 'heuvel') { cells = hillVillage(); rebuildAll(); changed(); orbit.target.set(0, 12, 0); orbit.dist = 260; orbit.phi = 0.95; orbit.theta = 0.6; applyOrbit(); toast('Heuveldorp geladen: een Italiaans dorpje op een heuvel'); }
     if (act === 'start') { cells = startCity(); rebuildAll(); changed(); orbit.target.set(0, 0, 0); orbit.dist = 230; orbit.phi = 0.95; orbit.theta = 0.4; applyOrbit(); toast('Startdorp geladen: school, winkels, huisarts, café, sportveld, station en huizen'); }
     if (act === 'sample') { cells = roofHouses(sampleCity()); rebuildAll(); changed(); toast('Voorbeeldstad geladen · je eigen stad staat veilig onder Mijn stad'); }
