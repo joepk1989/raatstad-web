@@ -951,6 +951,12 @@ body.fly #modeBtn, body.fly #layerPick, body.fly .city-arrow, body.fly #catBtn, 
   #mmApp .mm-tools button kbd { top: 2px; right: 3px; bottom: auto; }
   #mmApp .mm-sep { display: block; width: 1px; height: 34px; background: var(--line); margin: 0 4px; flex: none; }
 }
+/* met Massief erbij: tot 1440 px breed iets compacter, zodat de hele werkbalk op één regel past */
+@media (min-width: 761px) and (max-width: 1440px) and (min-height: 521px) {
+  #mmApp #mm_tools button { min-width: 42px; padding: 2px 2px 0; }
+  #mmApp .mm-sep { margin: 0 2px; }
+  #mm_top { gap: 6px; }
+}
 #mmApp .mm-opts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
 #mmApp .mm-opts button { flex: 1 1 auto; justify-content: center; text-align: center; min-height: 38px; padding: 6px 10px; font-weight: 600; }
 #mmApp .mm-opts + .mm-opts { margin-top: 2px; }
