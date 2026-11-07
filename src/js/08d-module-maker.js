@@ -291,7 +291,7 @@
     // ---------- massief (L.v): dichte zuilen van deze vloer tot de verdieping erboven ----------
     function paintSolid(x, z, erase) {
       const L = lvl(), list = brushTris(x, z).filter(okTri); let n = 0; if (!L.v) L.v = {};
-      for (const id of list) { const k = id.join(','); if (erase) { if (L.v[k]) { delete L.v[k]; n++; } } else if (L.v[k] !== E.vmat) { L.v[k] = E.vmat; n++; } }
+      for (const id of list) { const k = id.join(','); if (L.vk) delete L.vk[k]; if (erase) { if (L.v[k]) { delete L.v[k]; n++; } } else if (L.v[k] !== E.vmat) { L.v[k] = E.vmat; n++; } }
       return n;
     }
     // de schuine wanden (vrije platen met muur) van deze verdieping als lijnstukken: die begrenzen een ruimte ook
@@ -301,20 +301,33 @@
       const L = lvl(), start = triAt(x, z), sk = start.join(','); if (!okTri(start)) return 0; if (!L.v) L.v = {};
       if (erase) {   // hol maken: het aaneengesloten massief rond de klik
         if (!L.v[sk]) return 0; const seen = new Set([sk]), q = [start]; let n = 0;
-        while (q.length) { const id = q.pop(), k = id.join(','); delete L.v[k]; n++; for (const [, nb] of triEdges(id)) { const nk = nb.join(','); if (!seen.has(nk) && L.v[nk]) { seen.add(nk); q.push(nb); } } }
+        while (q.length) { const id = q.pop(), k = id.join(','); delete L.v[k]; if (L.vk) delete L.vk[k]; n++; for (const [, nb] of triEdges(id)) { const nk = nb.join(','); if (!seen.has(nk) && L.v[nk]) { seen.add(nk); q.push(nb); } } }
         return n;
       }
       const boven = E.m.lv[E.lv + 1], onder = boven && boven.f && boven.f[sk] ? boven.f : null;   // onder een vloer: alleen zover die vloer reikt
       const pm = plaatMuren(L), t = ts(), mid = ([i, j, tt]) => { const v = mv2TriVerts(i, j, tt, t); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };
-      const seen = new Set([sk]), queue = [start]; let n = 0;
+      // Eerst de ruimte zoeken (driehoeken met hun midden binnen), dan elke driehoek die een schuine wand snijdt daarop afknippen
+      // (L.vk, zoals L.fk bij de vloer): zo loopt het massief tot precies aan de wand, zonder zaagtand en zonder erdoorheen te steken.
+      const seen = new Set([sk]), queue = [start], kant = new Map([[sk, mid(start)]]);   // kant: een punt aan de goede kant van de wand
       while (queue.length) {
-        const id = queue.pop(), k = id.join(','); if (L.v[k] !== E.vmat) { L.v[k] = E.vmat; n++; }
-        const c0 = mid(id);
+        const id = queue.pop(), k = id.join(','), c0 = mid(id);
         for (const [wk, nb] of triEdges(id)) {
           const nk = nb.join(','); if (seen.has(nk) || L.w[wk] || !okTri(nb) || (onder && !onder[nk])) continue;
-          const c1 = mid(nb); if (pm.some(([a, b]) => snijdt(c0, c1, a, b))) continue;   // niet door een schuine wand heen
-          seen.add(nk); queue.push(nb); if (seen.size > 20000) return n;
+          const c1 = mid(nb);
+          if (pm.some(([a, b]) => snijdt(c0, c1, a, b))) { if (!kant.has(nk)) kant.set(nk, c0); continue; }   // achter de wand: alleen het stukje aan deze kant, niet verder
+          seen.add(nk); kant.set(nk, c1); queue.push(nb); if (seen.size > 20000) break;
         }
+      }
+      // snijdt lijnstuk ab driehoek v? (een hoekpunt erin, of een rand gekruist)
+      const inT = (p, v) => { const d = (a, b) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]), d1 = d(v[0], v[1]), d2 = d(v[1], v[2]), d3 = d(v[2], v[0]); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+      const raakt = (a, b, v) => inT(a, v) || inT(b, v) || [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]].some(([p, q]) => snijdt(a, b, p, q));
+      let n = 0; if (!L.vk) L.vk = {};
+      for (const [k, P] of kant) {
+        const [i, j, tt] = k.split(',').map(Number), v = mv2TriVerts(i, j, tt, t), knip = [];
+        for (const [a, b] of pm) { if (!raakt(a, b, v)) continue; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, c = nx * a[0] + nz * a[1]; if (nx * P[0] + nz * P[1] < c) { nx = -nx; nz = -nz; c = -c; } knip.push([+nx.toFixed(4), +nz.toFixed(4), +c.toFixed(4)]); }
+        let pl = v; for (const h of knip) pl = pl.length >= 3 ? mv2ClipKeep(pl, h) : pl; if (pl.length < 3) continue;   // niets over aan deze kant
+        if (L.v[k] !== E.vmat || JSON.stringify(L.vk[k] || null) !== JSON.stringify(knip.length ? (knip.length === 1 ? knip[0] : knip) : null)) n++;
+        L.v[k] = E.vmat; if (knip.length) L.vk[k] = knip.length === 1 ? knip[0] : knip; else delete L.vk[k];
       }
       return n;
     }
@@ -398,7 +411,7 @@
     }
     function eraseAt(x, z, firstOnly) {
       const T = eraseTarget(x, z, firstOnly); if (!T) return null; const L = T.li !== undefined ? E.m.lv[T.li] : lvl();
-      if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else if (T.massief) { for (const id of T.tris) delete L.v[id.join(',')]; } else paintFloor(x, z, true);
+      if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else if (T.massief) { for (const id of T.tris) { delete L.v[id.join(',')]; if (L.vk) delete L.vk[id.join(',')]; } } else paintFloor(x, z, true);
       return T.li !== undefined ? T.kind + ' (' + (T.li === 0 ? 'begane grond' : T.li + 'e verdieping') + ')' : T.kind;
     }
     E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
@@ -417,7 +430,7 @@
       return { f: [...S.f].filter(id => L.f[id]).map(id => [...id.split(',').map(Number), L.f[id]]), v: [...(S.v || [])].filter(id => L.v && L.v[id]).map(id => [...id.split(',').map(Number), L.v[id]]), w: [...S.w].filter(id => L.w[id]).map(id => [...id.split(',').map(Number), JSON.parse(JSON.stringify(L.w[id]))]),
         s: [...S.s].filter(i => L.s[i]).map(i => JSON.parse(JSON.stringify(L.s[i]))), o: [...S.o].filter(i => L.o[i]).map(i => Object.assign({}, L.o[i])), r: [...S.r].filter(k => L.r[k]).map(k => [...k.split(',').map(Number), L.r[k]]) };
     }
-    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) { delete L.f[id]; if (L.fk) delete L.fk[id]; } for (const id of S.v || []) if (L.v) delete L.v[id]; for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
+    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) { delete L.f[id]; if (L.fk) delete L.fk[id]; } for (const id of S.v || []) { if (L.v) delete L.v[id]; if (L.vk) delete L.vk[id]; } for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
     function clipInsert(c, li = E.lv) {
       while (E.m.lv.length <= li) E.m.lv.push(mv2Level()); const L = E.m.lv[li], S = selEmpty(li);
       for (const [i, j, t, mat] of c.f) { const id = i + ',' + j + ',' + t; if (!okTri([i, j, t])) continue; L.f[id] = mat; S.f.add(id); }
@@ -758,7 +771,7 @@
         for (let i = -iM; i <= iM; i++) for (let j = -jM; j <= jM; j++) { const a = P(i, j); for (const D of MV2.DIR3) { const b = P(i + D[0], j + D[1]); if (!mv2NearArea(E.m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue; const A = toS(a[0], a[1]), B = toS(b[0], b[1]); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } }
         ctx.stroke();
       }
-      const tri = (id, fill) => { const [i, j, tt] = id.split(',').map(Number), v = mv2TriVerts(i, j, tt, t); ctx.beginPath(); v.forEach((p, n) => { const S = toS(p[0], p[1]); n ? ctx.lineTo(S[0], S[1]) : ctx.moveTo(S[0], S[1]); }); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); };
+      const tri = (id, fill, knip) => { const [i, j, tt] = id.split(',').map(Number); let v = mv2TriVerts(i, j, tt, t); if (knip) { for (const h of (Array.isArray(knip[0]) ? knip : [knip])) v = v.length >= 3 ? mv2ClipKeep(v, h) : v; if (v.length < 3) return; } ctx.beginPath(); v.forEach((p, n) => { const S = toS(p[0], p[1]); n ? ctx.lineTo(S[0], S[1]) : ctx.moveTo(S[0], S[1]); }); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); };
       const wallLine = (id, Wd, ghost) => {
         const [i, j, d] = id.split(',').map(Number), [a, b] = segOf(i, j, d), A = toS(a[0], a[1]), B = toS(b[0], b[1]), o = Wd.o || '';
         ctx.lineCap = 'butt'; ctx.strokeStyle = ghost ? 'rgba(233,236,223,0.25)' : (COL[Wd.m] || '#888'); ctx.lineWidth = ghost ? 2 : Math.max(3, (Wd.m === 'hedge' ? 0.6 : Wd.m === 'fence' ? 0.12 : 0.25) * s);
@@ -806,7 +819,7 @@
       if (E.lv > 0) { const U = m.lv[E.lv - 1]; ctx.globalAlpha = 0.35; for (const id in U.f) tri(id, COL[U.f[id]] || '#888'); ctx.globalAlpha = 1; for (const id in U.w) wallLine(id, U.w[id], true); }
       // huidige verdieping
       for (const id in L.f) tri(id, COL[L.f[id]] || '#888');
-      for (const id in L.v || {}) { tri(id, COL[L.v[id]] || '#999'); tri(id, 'rgba(0,0,0,0.3)'); }   // massief: muurkleur, donkerder
+      for (const id in L.v || {}) { const kn = L.vk && L.vk[id]; tri(id, COL[L.v[id]] || '#999', kn); tri(id, 'rgba(0,0,0,0.3)', kn); }   // afgeknipt: alleen het deel tot aan de wand   // massief: muurkleur, donkerder
       for (const id in L.r) { const [q, r] = id.split(',').map(Number); roofDraw(q, r, L.r[id], false); }
       for (const S of L.s) stairDraw(S, false);
       for (const id in L.w) wallLine(id, L.w[id], false);
@@ -1108,7 +1121,7 @@
     function refineModule(m, f) {   // f = 2: elk rasterpunt (i,j) wordt (2i,2j); driehoeken en ribben splitsen
       for (const L of m.lv) {
         const nf = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), mat = L.f[id]; const I2 = i * f, J = j * f; if (f === 2) { if (!t) [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]].forEach(k => { nf[k.join(',')] = mat; }); else [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]].forEach(k => { nf[k.join(',')] = mat; }); } else nf[id] = mat; } L.f = nf;
-        if (L.v && f === 2) { const nv = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), v = L.v[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nv[k.join(',')] = v; }); } L.v = nv; }   // massief mee splitsen
+        if (L.v && f === 2) { const nv = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), v = L.v[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nv[k.join(',')] = v; }); } L.v = nv; if (L.vk) { const nk = {}; for (const id in L.vk) { const [i, j, t] = id.split(',').map(Number), h = L.vk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = h; }); } L.vk = nk; } }   // massief mee splitsen (afknip in meters blijft gelden)
         if (L.fk && f === 2) { const nk = {}; for (const id in L.fk) { const [i, j, t] = id.split(',').map(Number), v = L.fk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = v; }); } L.fk = nk; }   // vloersoort per driehoek mee splitsen
         const nw = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; for (let s = 0; s < f; s++) nw[wallKey(i * f + D[0] * s, j * f + D[1] * s, d)] = Object.assign({}, L.w[id]); } L.w = nw;
         for (const S of L.s) { S.a = [S.a[0] * f, S.a[1] * f]; S.n = S.n * f; }

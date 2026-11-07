@@ -362,7 +362,12 @@
       if (L.v && Object.keys(L.v).length) {
         const yt = y0 + LH, boven = m.lv[li + 1], vk = p => Math.round(p[0] * 64) * 1048576 + Math.round(p[1] * 64), ek = (p, q) => { const a = vk(p), b = vk(q); return a < b ? a + ':' + b : b + ':' + a; };
         const perMat = {}, cnt = new Map();
-        for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); (perMat[L.v[id]] || (perMat[L.v[id]] = [])).push([id, v]); for (let e = 0; e < 3; e++) { const k = ek(v[e], v[(e + 1) % 3]); cnt.set(k, (cnt.get(k) || 0) + 1); } }
+        for (const id in L.v) {
+          const [i, j, t] = id.split(',').map(Number), v0 = mv2TriVerts(i, j, t, ts);
+          // afgeknipt op een schuine wand (L.vk, zoals L.fk bij de vloer): alleen het deel aan de kant van de ruimte
+          const kn = L.vk && L.vk[id] ? (() => { let pl = v0; for (const h of (Array.isArray(L.vk[id][0]) ? L.vk[id] : [L.vk[id]])) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) return []; } return pl; })() : null;
+          for (const v of kn ? mv2Fan(kn) : [v0]) { (perMat[L.v[id]] || (perMat[L.v[id]] = [])).push([id, v]); for (let e = 0; e < 3; e++) { const k = ek(v[e], v[(e + 1) % 3]); cnt.set(k, (cnt.get(k) || 0) + 1); } }
+        }
         for (const mat in perMat) {
           const pos = [], uv = [], P = (W, y, u, w) => { pos.push(W[0], y, W[1]); uv.push(u, w); };
           for (const [id, v] of perMat[mat]) {
@@ -1004,7 +1009,7 @@
       const f = {}, fk = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; f[nid] = L.f[id];
         if (L.fk && L.fk[id]) { const k = L.fk[id], mk = h => [h[0], -h[1], h[2]]; fk[nid] = Array.isArray(k[0]) ? k.map(mk) : mk(k); } }   // knip spiegelt mee (z → −z)
       L.f = f; if (L.fk) L.fk = fk;
-      if (L.v) { const v = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number); v[i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t] = L.v[id]; } L.v = v; }   // massief spiegelt als de vloer
+      if (L.v) { const v = {}, vk = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; v[nid] = L.v[id]; if (L.vk && L.vk[id]) { const k = L.vk[id], mk = h => [h[0], -h[1], h[2]]; vk[nid] = Array.isArray(k[0]) ? k.map(mk) : mk(k); } } L.v = v; if (L.vk) L.vk = vk; }   // massief spiegelt als de vloer
       const w = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; if (d === 3) { const [a, b] = mp(i, j); w[a + ',' + b + ',3'] = L.w[id]; } else { const [a, b] = mp(i + D[0], j + D[1]); w[a + ',' + b + ',' + WMAP[d]] = L.w[id]; } } L.w = w;
       for (const S of L.s) {
         if (S.k === 'hexramp') { const q = S.q || 0, r = S.r || 0; S.q = q + r; S.r = -r; S.side = (6 - (S.side || 0)) % 6; continue; }
