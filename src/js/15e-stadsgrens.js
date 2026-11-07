@@ -17,6 +17,7 @@
       for (const k of cells.keys()) { const [q, r] = k.split(',').map(Number); if (!isFinite(q)) continue; const c = cellToWorld(q, r); chk(c.x, c.z); }
       for (const p of cells.paths || []) for (const pt of p.p || []) chk(pt[0], pt[1]);
       for (const r of cells.rails || []) for (const pt of r.p || []) chk(pt[0], pt[1]);
+      for (const I of cells.inst || []) if (isFinite(I.q)) { const c = cellToWorld(I.q, I.r); chk(c.x, c.z); }   // ook modules (een stad van alleen modules, zoals de Spiraalburcht)
       CITY.rad += R;
     }
     CITY.lim = Math.max(220, CITY.rad + 160);
