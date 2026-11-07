@@ -136,13 +136,13 @@
     // trapbreedte in rijen van het fijne driehoekraster (2,25 m zijde): 1 rij = 1,95 m, 2 rijen = 3,9 m
     const STAIR_W = { 1.95: '1 rij · 1,95 m', 3.9: '2 rijen · 3,9 m' };
     const stairW = () => (E.sw === 1.95 || E.sw === 3.9) ? E.sw : 1.95;
-    const newStair = D => { const k = E.tool === 'ramp' ? 'ramp' : E.tool === 'ustair' ? 'u' : 'stair', w = k === 'ramp' ? (E.sw || 1.2) : stairW(), S = { a: D.a, d: D.d, n: D.n, w, k };
+    const newStair = D => { if (D.rij && E.tool === 'stair') return trapUit(D.rij, D.sg, D.n || trapN()); const k = E.tool === 'ramp' ? 'ramp' : E.tool === 'ustair' ? 'u' : 'stair', w = k === 'ramp' ? (E.sw || 1.2) : stairW(), S = { a: D.a, d: D.d, n: D.n, w, k };
       if (k === 'u') { S.side = E.usd || 1; S.off = S.side * w / 2; } else if (k === 'stair') { const sd = E.ssd ?? 1; if (sd) S.off = sd * w / 2; }
       return S; };
     const newSpiral = D => ({ a: D.a, d: D.d, n: 1, w: 1.5, k: 'spiral', side: E.wsd || 1 });
     function stairGeom(S) {
       const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = P(S.a[0], S.a[1]), t = ts(), dx = D[0] * t * SQ3 / 2, dz = D[0] * t / 2 + D[1] * t, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, len = (S.n || 1) * t, w = S.w || 1.2;
-      const off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];
+      const off = S.off || 0, kp = S.kop ? S.kop * (Math.sign(off) || 1) / SQ3 : 0, at = (al, lat) => { const ag = al + kp * (lat + off); return [a[0] + ux * ag + nx * (lat + off), a[1] + uz * ag + nz * (lat + off)]; };   // kop: schuine koppen langs de driehoeklijnen
       if (S.k === 'plaat') { const G0 = mv2Plaat(S), pts = G0.polys.flatMap(Q => Q.pl.map(p => [p[0], p[1]])).sort((p, q) => p[0] - q[0] || p[1] - q[1]), cr = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]), lw = [], up = [];
         for (const p of pts) { while (lw.length > 1 && cr(lw[lw.length - 2], lw[lw.length - 1], p) <= 0) lw.pop(); lw.push(p); }
         for (const p of pts.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
@@ -160,7 +160,7 @@
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
       if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2, cut = 2 * w / SQ3; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)] }; }   // twee steken + schuin bordes
-      if (S.k === 'stair') return { a, ux, uz, nx, nz, len, w, at, poly: [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len + w * SQ3 / 2, 0), at(len, -w / 2)] };   // met driehoekig bordes
+      if (S.k === 'stair' && !S.kop) return { a, ux, uz, nx, nz, len, w, at, poly: [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len + w * SQ3 / 2, 0), at(len, -w / 2)] };   // met driehoekig bordes
       return { a, ux, uz, nx, nz, len, w, at, poly: [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len, -w / 2)] };
     }
     // Richting uit het driehoekje onder de muis: om rasterpunt a liggen zes driehoeken (sector d .. d+1, elk 60°). Een trap links van
@@ -174,6 +174,50 @@
     function hoverStair(x, z) {   // de trap die er komt als je hier klikt (3 zijden lang = één verdieping)
       const a = vertexAt(x, z), d = sectorDir(a, x, z, stairSide());
       return E.tool === 'spiral' ? newSpiral({ a, d }) : newStair({ a, d, n: 3 });
+    }
+    // ---- Trap tussen de driehoeklijnen (Trap-gereedschap) ----
+    // Een trap beslaat een rij hele driehoeken: een parallellogram tussen twee evenwijdige rasterlijnen, met schuine koppen langs
+    // de driehoeklijnen (S.kop ±1). Welke rij: die van het driehoekje onder de muis, tegen een muur of de rand van het vak als die
+    // langs die rij loopt, anders tegen de driehoekzijde die het dichtst bij de muis ligt. Rijen van 1 of 2 driehoeken breed.
+    function wandOp(p, q) {   // rib p–q (rasterpunten): staat daar een muur, of is het de rand van het gebied?
+      const k = keyFromSeg(p, q); if (k && lvl().w[k]) return true;
+      const A = P(p[0], p[1]), B = P(q[0], q[1]), mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2, l = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / l * 0.3, nz = (B[0] - A[0]) / l * 0.3;
+      return inArea(mx + nx, mz + nz) !== inArea(mx - nx, mz - nz);
+    }
+    function trapRij(x, z) {
+      const T = triAt(x, z), V = triVertsIdx(...T), W3 = V.map(v => P(v[0], v[1])), c = [(W3[0][0] + W3[1][0] + W3[2][0]) / 3, (W3[0][1] + W3[1][1] + W3[2][1]) / 3], cands = [];
+      const afstand = (B, e) => { const A = P(B[0], B[1]), E2 = P(B[0] + e[0], B[1] + e[1]), dx = E2[0] - A[0], dz = E2[1] - A[1], l = Math.hypot(dx, dz) || 1; return Math.abs((x - A[0]) * dz - (z - A[1]) * dx) / l; };
+      for (let k = 0; k < 3; k++) { const p = V[k], q = V[(k + 1) % 3], o = V[(k + 2) % 3], e = [q[0] - p[0], q[1] - p[1]];
+        cands.push({ B: p, e, wand: wandOp(p, q), d: afstand(p, e), zijde: true });   // de lijn door een zijde van het driehoekje
+        cands.push({ B: o, e, wand: wandOp(o, [o[0] + e[0], o[1] + e[1]]) || wandOp([o[0] - e[0], o[1] - e[1]], o), d: afstand(o, e) });   // de evenwijdige lijn door de punt ertegenover
+      }
+      const muur = cands.filter(C => C.wand).sort((A, B) => A.d - B.d)[0], C = muur || cands.filter(C2 => C2.zijde).sort((A, B) => A.d - B.d)[0];
+      return { T, c, B: C.B, e: C.e, wand: !!muur };
+    }
+    function trapUit(R, sg, n) {   // de trap in rij R, de richting langs de lijn (sg ±1), n zijden lang
+      const t = ts(), e = [R.e[0] * sg, R.e[1] * sg], d = Math.max(0, MV2.DIR6.findIndex(D => D[0] === e[0] && D[1] === e[1]));
+      const B = P(R.B[0], R.B[1]), E2 = P(R.B[0] + e[0], R.B[1] + e[1]), ux = (E2[0] - B[0]) / t, uz = (E2[1] - B[1]) / t, nx = -uz, nz = ux;
+      const sd = (R.c[0] - B[0]) * nx + (R.c[1] - B[1]) * nz > 0 ? 1 : -1, V = triVertsIdx(...R.T);
+      const opLijn = V.filter(v => { const p = P(v[0], v[1]); return Math.abs((p[0] - B[0]) * nx + (p[1] - B[1]) * nz) < 0.01 * t; }), al = v => { const p = P(v[0], v[1]); return Math.round(((p[0] - B[0]) * ux + (p[1] - B[1]) * uz) / t); };
+      // zijde van het driehoekje op de lijn: de trap begint bij het achterste punt en de kop helt vooruit; alleen een punt op de lijn: de kop helt terug
+      const k0 = Math.min(...opLijn.map(al)), kop = opLijn.length === 2 ? 1 : -1, a = [R.B[0] + e[0] * k0, R.B[1] + e[1] * k0];
+      const rows = Math.max(1, Math.round(stairW() / (t * SQ3 / 2))), w = rows * t * SQ3 / 2;
+      return { a, d, n: Math.max(1, n), w, k: 'stair', off: sd * w / 2, kop };
+    }
+    const trapN = () => Math.max(1, Math.round(4.5 / ts()));   // standaardlengte 4,5 m: 16 treden van 28 cm, 3 m omhoog
+    function trapHover(x, z) {   // zonder slepen: 4,5 m lang, de richting waarin de trap het best in het gebied past
+      const R = trapRij(x, z), u = (() => { const A = P(R.B[0], R.B[1]), E2 = P(R.B[0] + R.e[0], R.B[1] + R.e[1]); return [E2[0] - A[0], E2[1] - A[1]]; })();
+      // hoe goed past de trap: eerst zoveel mogelijk driehoeken binnen het gebied, dan een uitgang bovenaan, dan zo lang mogelijk langs de muur of de rand
+      const past = sg => { const S = trapUit(R, sg, trapN()), D = MV2.DIR6[S.d]; let langs = 0; for (let k = 0; k < S.n; k++) if (wandOp([S.a[0] + D[0] * k, S.a[1] + D[1] * k], [S.a[0] + D[0] * (k + 1), S.a[1] + D[1] * (k + 1)])) langs++;
+        const g = stairGeom(S), uit = g.at(g.len + 0.6, 0);   // bovenaan moet je ergens heen kunnen: niet tegen de rand of in een hoek eindigen
+        return 100 * coverTris(g.poly).filter(C => C.fr > 0.5 && inArea((C.v[0][0] + C.v[1][0] + C.v[2][0]) / 3, (C.v[0][1] + C.v[1][1] + C.v[2][1]) / 3)).length + (inArea(uit[0], uit[1]) ? 50 : 0) + langs; };
+      const p1 = past(1), p2 = past(-1), voor = (x - R.c[0]) * u[0] + (z - R.c[1]) * u[1] <= 0 ? 1 : -1;   // gelijk: weg van de muis
+      const sg = p1 === p2 ? voor : p1 > p2 ? 1 : -1; return { R, sg, S: trapUit(R, sg, trapN()) };
+    }
+    function trapSleep(D, x, z) {   // slepen langs de rij: richting en lengte
+      const A = P(D.rij.B[0], D.rij.B[1]), E2 = P(D.rij.B[0] + D.rij.e[0], D.rij.B[1] + D.rij.e[1]), t = ts(), ux = (E2[0] - A[0]) / t, uz = (E2[1] - A[1]) / t, s2 = (x - D.rij.c[0]) * ux + (z - D.rij.c[1]) * uz;
+      if (Math.abs(s2) < t * 0.5) { D.n = 0; return; }
+      D.sg = s2 > 0 ? 1 : -1; D.n = Math.max(1, Math.round(Math.abs(s2) / t + 0.5)); const S = trapUit(D.rij, D.sg, D.n); D.a = S.a; D.d = S.d;
     }
     // welke driehoeken van het raster een (bolle) veelhoek bedekt, met het bedekte deel (0–1) per driehoek
     function clipConvex(subj, clip) {
@@ -265,7 +309,7 @@
       else if (E.tool === 'wall') { title.textContent = 'Muur'; mk(MV2.walls, E.wmat, k => { E.wmat = k; }); hint.textContent = 'Sleep van rasterpunt naar rasterpunt. Haag en hek zijn laag; glas is een glaswand. Een muur op een bestaande muur wisselt het materiaal.'; }
       else if (['door', 'window', 'gate', 'open', 'close'].includes(E.tool)) { title.textContent = MV2.openings[E.tool === 'close' ? '' : E.tool]; hint.textContent = E.tool === 'close' ? 'Klik op een muur om de opening dicht te maken.' : 'Klik op een muur. Deur 1,2 m breed en 2,2 m hoog; raam vanaf 0,9 m; poort tot 2,8 m; open laat alleen een latei staan.'; }
       else if (E.tool === 'ustair') { title.textContent = 'Bordestrap'; mk(STAIR_W, String(stairW()), k => { E.sw = +k; }); mk({ 1: 'Keert naar links', '-1': 'Keert naar rechts' }, String(E.usd || 1), k => { E.usd = +k; }); hint.textContent = 'Wijs een driehoekje aan en klik, of sleep langs een rasterlijn de eerste steek, van onderaan in de looprichting (3 driehoekzijden is het mooist). Beide steken liggen naast de lijn, elk één rij breed; aan het eind een bordes op 1,5 m met een schuine kant, de tweede steek loopt ernaast terug omhoog. Het gat in de vloer erboven komt vanzelf.'; }
-      else if (E.tool === 'stair') { title.textContent = 'Trap'; mk(STAIR_W, String(stairW()), k => { E.sw = +k; }); mk({ 1: 'Links van de lijn', 0: 'Op de lijn', '-1': 'Rechts van de lijn' }, String(E.ssd ?? 1), k => { E.ssd = +k; }); hint.textContent = 'Wijs een driehoekje aan en klik: daar begint een trap van 3 zijden (oranje: de driehoeken die hij bezet, rood gestippeld: het gat erboven). Of sleep langs een rasterlijn van het laagste punt omhoog: 16 treden naar de verdieping erboven (3 m), met een driehoekig bordes bovenaan. 3 driehoekzijden lang (6,75 m) is de goede helling. Het gat in de vloer erboven komt vanzelf.'; }
+      else if (E.tool === 'stair') { title.textContent = 'Trap'; mk(STAIR_W, String(stairW()), k => { E.sw = +k; }); hint.textContent = 'Wijs een driehoekje aan: de trap beslaat de rij driehoeken waarin het ligt, met schuine koppen langs de driehoeklijnen. Staat er een muur langs die rij, of is het de rand van het vak, dan komt de trap daartegenaan; anders tegen de driehoekzijde die het dichtst bij de muis ligt. Klik: een trap van 4,5 m (16 treden van 28 cm). Of sleep langs de rij: zo kies je de richting en de lengte. 16 treden naar de verdieping erboven (3 m); oranje: de driehoeken die hij bezet, rood gestippeld: het gat erboven, dat komt vanzelf.'; }
       else if (E.tool === 'spiral') { title.textContent = 'Wenteltrap'; mk({ 1: 'Linksom omhoog', '-1': 'Rechtsom omhoog' }, String(E.wsd || 1), k => { E.wsd = +k; }); hint.textContent = 'Wijs een driehoekje aan: het rasterpunt ernaast wordt het midden, in dat driehoekje stap je onderaan in (slepen draait hem per 60°). De zeshoek valt precies over de zes driehoeken om het punt. Zeshoekige wenteltrap, 12 treden van 25 cm per verdieping, één rondje (3 m); het gat in de vloer erboven komt vanzelf, op het stuk waar je uitstapt na.'; }
       else if (E.tool === 'ramp') { title.textContent = 'Helling'; mk({ 1.2: 'Smal 1,2 m', 2: 'Breed 2 m', 3: 'Extra breed 3 m' }, String(E.sw || 1.2), k => { E.sw = +k; }); hint.textContent = 'Sleep van het laagste punt omhoog. De helling stijgt 3 m naar de volgende verdieping. Hoe langer, hoe flauwer.'; }
       else if (E.tool === 'hexramp') { title.textContent = 'Schans'; hint.textContent = 'Klik in een vak, vlak bij de zijde waar de helling onderaan begint. Het hele vak wordt een oprit die aan de overkant 3 m hoger uitkomt (de verdieping erboven). Rechtermuisknop haalt hem weg.'; }
@@ -436,7 +480,7 @@
       changed(); say(n + (n === 1 ? ' muur' : ' muren') + ' weggehaald' + (alles ? ' uit de hele module' : '') + ' · Ctrl+Z zet ze terug', 2200);
     }
     E.wegAlleMuren = wegAlleMuren;
-    E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
+    E.trapHover = trapHover; E.trapUit = trapUit; E.trapDekking = S => coverTris(stairGeom(S).poly).map(C => +C.fr.toFixed(3)); E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
     // ---------- Kiezen (V): aanklikken of een rechthoek slepen, dan verplaatsen, draaien per 60°, kopiëren, plakken, weghalen ----------
     // Een selectie hoort bij één verdieping: vloerdriehoeken, muren, trappen, voorwerpen en daken. Verplaatsen en draaien gaan langs het
     // raster (stappen van een driehoekzijde, draaien om een rasterpunt), zodat alles op de driehoeken blijft liggen. Daken en schansen
@@ -678,7 +722,7 @@
       if (E.tool === 'room') { snap(); const n = roomAt(x, z); changed(); say(n ? n + ' muurdelen' : 'Klik binnen het gebied', 900); return; }
       if (E.tool === 'wall') { if (right) { const w = nearestWall(x, z); if (w) { snap(); delete lvl().w[w.id]; changed(); } return; } E.drag = { kind: 'wall', a: vertexAt(x, z), d: 0, n: 0 }; draw(); return; }
       if (['door', 'window', 'gate', 'open', 'close'].includes(E.tool)) { const before = JSON.stringify(E.m); if (setOpening(x, z, E.tool === 'close' ? '' : E.tool)) { E.undo.push(before); E.redo = []; E.dirty = true; changed(); } return; }
-      if (E.tool === 'stair' || E.tool === 'ramp' || E.tool === 'ustair') { if (right) { const si = stairAt(x, z); if (si >= 0) { snap(); lvl().s.splice(si, 1); changed(); } return; } { const H0 = hoverStair(x, z); E.drag = { kind: 'stair', a: H0.a, d: H0.d, n: 0 }; } draw(); return; }
+      if (E.tool === 'stair' || E.tool === 'ramp' || E.tool === 'ustair') { if (right) { const si = stairAt(x, z); if (si >= 0) { snap(); lvl().s.splice(si, 1); changed(); } return; } if (E.tool === 'stair') { const H0 = trapHover(x, z); E.drag = { kind: 'stair', a: H0.S.a, d: H0.S.d, n: 0, rij: H0.R, sg: H0.sg }; } else { const H0 = hoverStair(x, z); E.drag = { kind: 'stair', a: H0.a, d: H0.d, n: 0 }; } draw(); return; }
       if (E.tool === 'spiral') { if (right) { const si = stairAt(x, z); if (si >= 0) { snap(); lvl().s.splice(si, 1); changed(); } return; } { const H0 = hoverStair(x, z); E.drag = { kind: 'spiral', a: H0.a, d: H0.d, n: 1 }; } draw(); return; }
       if (E.tool === 'hexramp') { const L = lvl(); if (right) { const si = stairAt(x, z); if (si >= 0) { snap(); L.s.splice(si, 1); changed(); } return; } if (!inArea(x, z)) return; const [q, r] = cellAt(x, z), c = mv2CellXZ(q, r); let side = 0, bd = -1e9; FRAMES.forEach((f, k) => { const d = (x - c[0]) * f.nx + (z - c[1]) * f.nz; if (d > bd) { bd = d; side = k; } }); snap(); const old = L.s.findIndex(S => S.k === 'hexramp' && S.q === q && S.r === r); if (old >= 0) L.s.splice(old, 1); L.s.push({ a: [0, 0], d: 0, n: 1, w: 9, k: 'hexramp', q, r, side }); changed(); say('Schans: instap aan zijde ' + (side + 1), 1000); return; }
       if (E.tool === 'roof') { if (!inArea(x, z)) return; const [q, r] = cellAt(x, z), k = q + ',' + r, L = lvl(), kind = roofKindAt(x, z); snap(); if (right || L.r[k] === kind) delete L.r[k]; else L.r[k] = kind; changed(); say(L.r[k] ? ROOF_NAME[E.rkind || 'hip'] + (mv2RoofFit(E.m, E.lv, q, r) < R ? ' · volgt de muren' : '') : 'Dak weg', 900); return; }
@@ -708,7 +752,7 @@
         if (E.drag.kind === 'floor') { if (paintFloor(x, z, E.drag.erase)) dirty3(); }
         if (E.drag.kind === 'solid') { if (paintSolid(x, z, E.drag.erase)) dirty3(); }
         else if (E.drag.kind === 'spiral') { const pa = P(...E.drag.a); if (Math.hypot(x - pa[0], z - pa[1]) > ts() * 0.35) E.drag.d = sectorDir(E.drag.a, x, z, E.wsd || 1); say('Wenteltrap · 12 treden van 25 cm · ' + ((E.wsd || 1) > 0 ? 'linksom' : 'rechtsom') + ' omhoog · instap aan de kant van de muis', 1500); }
-        else if (E.drag.kind === 'wall' || E.drag.kind === 'stair') { const ds = dirSteps(E.drag.a, x, z, E.drag.kind === 'wall'), near = Math.hypot(x - P(...E.drag.a)[0], z - P(...E.drag.a)[1]) < ts() * 0.5; if (!near || E.drag.kind === 'wall') E.drag.d = ds.d; E.drag.n = near ? 0 : Math.max(E.drag.kind === 'stair' ? 1 : 0, ds.n);
+        else if (E.drag.kind === 'wall' || E.drag.kind === 'stair') { if (E.drag.rij) trapSleep(E.drag, x, z); else { const ds = dirSteps(E.drag.a, x, z, E.drag.kind === 'wall'), near = Math.hypot(x - P(...E.drag.a)[0], z - P(...E.drag.a)[1]) < ts() * 0.5; if (!near || E.drag.kind === 'wall') E.drag.d = ds.d; E.drag.n = near ? 0 : Math.max(E.drag.kind === 'stair' ? 1 : 0, ds.n); }
           if (E.drag.kind === 'stair' && E.drag.n > 0 && E.tool !== 'ramp') {   // meting tijdens het slepen: lengte, treden en of de helling goed is
             const n = E.drag.n, len = n * ts(), u = E.tool === 'ustair', N = u ? 8 : 16, run = len / N, f = s => s.toFixed(2).replace('.', ',');
             const up = E.m.lv[E.lv + 1] && Object.keys(E.m.lv[E.lv + 1].f).length;
@@ -727,7 +771,7 @@
       const D = E.drag; E.drag = null; if (!D) return;
       if (D.kind === 'wall' && D.n > 0) { snap(); const n = addWalls(D.a, D.d, D.n); if (n) say(n + (n === 1 ? ' muurdeel' : ' muurdelen'), 800); changed(); }
       else if (D.kind === 'stair' && D.n > 0) { snap(); lvl().s.push(newStair(D)); changed(); }
-      else if (D.kind === 'stair') { snap(); lvl().s.push(newStair({ a: D.a, d: D.d, n: 3 })); changed(); say(E.tool === 'ramp' ? 'Helling geplaatst' : 'Trap geplaatst · sleep voor een andere lengte of richting', 1200); }
+      else if (D.kind === 'stair') { snap(); lvl().s.push(newStair(Object.assign({}, D, { n: D.rij ? trapN() : 3 }))); changed(); say(E.tool === 'ramp' ? 'Helling geplaatst' : 'Trap geplaatst · sleep voor een andere lengte of richting', 1200); }
       else if (D.kind === 'spiral') { snap(); lvl().s.push(newSpiral(D)); changed(); say('Wenteltrap geplaatst', 900); }
       else if (D.kind === 'selmove') { if (D.free) { if (D.fx || D.fz) selMoveFree(D.fx, D.fz); else draw(); } else if (D.di || D.dj) selMove(D.di, D.dj); else draw(); }
       else if (D.kind === 'marq') { if (Math.hypot(D.s1[0] - D.s0[0], D.s1[1] - D.s0[1]) < 5) { if (!D.add) E.sel = selEmpty(); } else { const R2 = selRect(D.s0, D.s1); if (D.add) { const S = sel(); for (const kk of ['f', 'w', 's', 'o', 'r']) for (const v of R2[kk]) S[kk].add(v); } else E.sel = R2; } renderCtx(); draw(); if (selCount(sel())) say(selSay(), 1200); }
@@ -914,14 +958,14 @@
       // voorbeeld van wat je doet
       const hv = E.hover, D = E.drag;
       if (D && D.kind === 'wall' && D.n > 0) { for (const [i, j, d] of segsBetween(D.a, D.d, D.n)) wallLine(wallKey(i, j, d), { m: E.wmat, o: '' }, false); }
-      else if (D && D.kind === 'stair') { stairPreviewCover(D.n > 0 ? newStair(D) : newStair({ a: D.a, d: D.d, n: 3 })); }
+      else if (D && D.kind === 'stair') { stairPreviewCover(D.n > 0 ? newStair(D) : newStair(Object.assign({}, D, { n: D.rij ? trapN() : 3 }))); }
       else if (D && D.kind === 'spiral') stairPreviewCover(newSpiral(D));
       else if (D && D.kind === 'obj' && D.oi < 0) objPreview({ t: E.obj, x: D.x, z: D.z, rot: D.rot });
       else if (D && D.kind === 'obj') { const o = lvl().o[D.oi]; if (o) { ctx.lineWidth = 2.5; objShape(o, 'rgba(242,178,51,0.18)', '#f2b233', in3 ? lvY() + 0.05 : undefined); } }
       else if (hv && !E.pan) {
         const [x, z] = hv; ctx.strokeStyle = '#f2b233'; ctx.lineWidth = 2;
         if (E.tool === 'floor' || (E.tool === 'solid' && E.vmode === 'penseel')) { for (const id of brushTris(x, z).filter(okTri)) { const v = mv2TriVerts(id[0], id[1], id[2], t); ctx.beginPath(); v.forEach((p, n) => { const S3 = toS(p[0], p[1]); n ? ctx.lineTo(S3[0], S3[1]) : ctx.moveTo(S3[0], S3[1]); }); ctx.closePath(); ctx.stroke(); } }
-        else if (E.tool === 'stair' || E.tool === 'ramp' || E.tool === 'ustair' || E.tool === 'spiral') stairPreviewCover(hoverStair(x, z));   // al vóór het klikken: de trap en de driehoeken die hij bezet
+        else if (E.tool === 'stair') stairPreviewCover(trapHover(x, z).S); else if (E.tool === 'ramp' || E.tool === 'ustair' || E.tool === 'spiral') stairPreviewCover(hoverStair(x, z));   // al vóór het klikken: de trap en de driehoeken die hij bezet
         else if (E.tool === 'wall') { const v = vertexAt(x, z), p = toS(...P(v[0], v[1])); ctx.beginPath(); ctx.arc(p[0], p[1], 5, 0, Math.PI * 2); ctx.stroke(); }
         else if (E.tool === 'erase') {   // gum: wat er onder de muis weggaat, rood oplichten (zelfde keus als bij het klikken)
           const T = eraseTarget(x, z, !!(D && D.kind === 'erase')), RED = '#ff5a4d', fillR = 'rgba(255,90,77,0.35)'; E.lastT = T;
@@ -940,7 +984,7 @@
               const S0 = LT.s[T.si], g = stairGeom(S0), w = g.w, rise = MV2.LV_H;
               if (in3 && S0.k === 'plaat') { for (const pl of S0.p || []) poly3(pl.map(p => [p[0], p[1], y0 + p[2]])); }   // de echte vlakken (schuine wand, zuil, helling)
               else if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
-              else if (in3 && S0.k !== 'hexramp' && S0.k !== 'spiral') { poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len, -w / 2), y0 + rise]]); if (S0.k === 'stair') poly3([[...g.at(g.len, -w / 2), y0 + rise], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len + w * SQ3 / 2, 0), y0 + rise]]); }
+              else if (in3 && S0.k !== 'hexramp' && S0.k !== 'spiral') { poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len, -w / 2), y0 + rise]]); if (S0.k === 'stair' && !S0.kop) poly3([[...g.at(g.len, -w / 2), y0 + rise], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len + w * SQ3 / 2, 0), y0 + rise]]); }
               else { const pts = g.poly.map(p => toS(p[0], p[1])); ctx.beginPath(); pts.forEach((p, n) => n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             }
             else if (T.kind === 'dak') { const c = mv2CellXZ(T.q, T.r); hexPath(c[0], c[1], R - 0.3); ctx.fill(); ctx.stroke(); }
