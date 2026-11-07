@@ -1068,20 +1068,26 @@
     function renderLib() {
       const el = $('lib'), q = ($('filter').value || '').trim().toLowerCase(); el.innerHTML = '';
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
-      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
+      // bergfort-modules (en kopieën ervan) vind je ook met 'bergfort'; bij elk staat hoe vaak hij in het fort voorkomt
+      const berg = m => m.bron === 'bergfort' || String(m.id || '').startsWith('bergfort:');
+      const inFort = new Map(); if (typeof SKP_RAAT !== 'undefined') for (const p of SKP_RAAT.fort) { const id = 'bergfort:' + SKP_RAAT.mods[p[0]].name; inFort.set(id, (inFort.get(id) || 0) + 1); }
+      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '') + (berg(m) ? ' bergfort' : '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
       $('libN').textContent = list.length + (list.length === modules.length ? '' : ' van ' + modules.length);
       for (const [m, i] of list) {
         const d = document.createElement('div'); d.className = 'mod'; d.setAttribute('aria-current', String(i === E.editing));
         const px = app.classList.contains('mm-libgroot') ? 96 : 18;   // grote bibliotheek: scherpe plaatjes
         const c = m.v === 2 ? mv2Thumb(m, 0, px) : modThumb(m, 0, px); d.appendChild(c);
-        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') : 'oude schets'}</small>`; d.appendChild(sp);
+        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') + (berg(m) ? ' · bergfort' + (inFort.get(m.id) ? ' ' + inFort.get(m.id) + '×' : ' (kopie)') : '') : 'oude schets'}</small>`; d.appendChild(sp);
         const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Verwijderen'; del.addEventListener('click', ev => { ev.stopPropagation(); if (!sure('del' + m.id, '"' + m.name + '" verwijderen? Geplaatste exemplaren gaan ook weg')) { del.textContent = 'Zeker?'; del.classList.add('warn'); return; } say('"' + m.name + '" verwijderd'); dropModule(m); modules.splice(i, 1); if (E.editing === i) { E.editing = -1; } else if (E.editing > i) E.editing--; saveMods(); renderStrip(); renderLib(); });
         d.appendChild(del);
         d.addEventListener('click', () => { if (m.v !== 2) { say('Een oude schets-module kun je hier niet bewerken; wel plaatsen of verwijderen', 3000); return; } if (E.dirty && !sure('load' + m.id, 'Niet-bewaarde wijzigingen weggooien?')) return; loadModule(m, i); });
         el.appendChild(d);
       }
     }
-    $('filter').addEventListener('input', renderLib);
+    // knop Bergfort: zet het filter op 'bergfort' (nog eens: weer alles); de knop licht op zolang dat filter staat
+    const fBerg = $('fBerg'), bergSync = () => { if (fBerg) fBerg.setAttribute('aria-pressed', String(($('filter').value || '').trim().toLowerCase() === 'bergfort')); };
+    $('filter').addEventListener('input', () => { bergSync(); renderLib(); });
+    if (fBerg) fBerg.addEventListener('click', e => { e.stopPropagation(); const f = $('filter'); f.value = fBerg.getAttribute('aria-pressed') === 'true' ? '' : 'bergfort'; bergSync(); renderLib(); });
     // delen
     async function download(name, text) {
       try { const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null; if (dl) { try { await dl.save({ filename: name, data: text }); say('Bestand bewaard'); } catch (e) { say(e && e.code === 'declined' ? 'Niet bewaard' : 'Bewaren lukt hier niet'); } return; } } catch (e) { /* geen artifact-omgeving */ }
