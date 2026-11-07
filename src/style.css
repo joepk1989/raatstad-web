@@ -578,6 +578,7 @@ body.night .btn.tod { color: #cdd8ff; }
   #mm_side:not(.mm-open) #mm_ctx h2 { display: none; }
   #mm_side:not(.mm-open) .mm-swatches { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; scroll-snap-type: x proximity; }
   #mm_side:not(.mm-open) .mm-swatches button { flex: none; min-height: 44px; padding: 6px 12px; scroll-snap-align: start; white-space: nowrap; }
+  #mm_side:not(.mm-open) .mm-swatches .mm-opts { display: contents; }   /* keuzeknoppen (zoals bij de gum) gewoon mee in de schuifrij, niet als hoge blokken naast elkaar */
   #mm_side:not(.mm-open) #mm_ctxHint { margin: 4px 0 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #mm_side.mm-open { max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
   #mmApp.mm-libgroot { grid-template-columns: 1fr; }
