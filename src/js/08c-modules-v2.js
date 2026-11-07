@@ -225,6 +225,9 @@
     // op een rij driehoeken valt, zoals 2 m breed midden op een rasterlijn) als er een hoekpunt echt binnen de baan ligt; anders kreeg je een zigzag van gaatjes
     // Boven: hele driehoeken, zodat de rand van het gat een driehoekzijde is (geen schuine afknip dwars door een driehoek). Het stuk van zo'n
     // driehoek voorbij de bovenste tree wordt in mv2Build een bordes op vloerhoogte (stairEndFill); de grens vloer–trap ligt dan op het raster.
+    // trap met schuine koppen (kop ±1): hij beslaat precies een rij hele driehoeken (een parallellogram langs de driehoeklijnen);
+    // het gat erboven zijn die driehoeken, vanaf 30 % van de lengte (daaronder is er hoofdruimte genoeg)
+    if (S.k === 'stair' && S.kop) { const sd = Math.sign(off) || 1; return v => { const [al, lat] = cen(v), l = sd * (lat + off), ag = al - S.kop * l / SQ3; return l > 0.05 && l < w - 0.05 && ag > 0.3 * len && ag < len - 0.05 ? { keep: null } : null; }; }
     if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(al > 0.3 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null; const inBand = Math.abs(lat) < w / 2 + 0.05 || v.some(p => Math.abs(loc(p[0], p[1])[1]) < w / 2 - 0.05); return inBand ? { keep: null, fill: keepAl(len, 1) } : null; };   // fill: het stuk voorbij de bovenste tree wordt bordes
     return () => null;
   }
@@ -465,7 +468,7 @@
       for (const S of far ? [] : L.s || []) {
         const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2;
         const dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux;
-        const rise = S.h || LH, off = S.off || 0, at = (al, lat) => [a[0] + ux * al + nx * (lat + off), a[1] + uz * al + nz * (lat + off)];   // off: zijwaarts verschoven (trap in een galerijband)
+        const rise = S.h || LH, off = S.off || 0, kp = S.kop ? S.kop * (Math.sign(off) || 1) / SQ3 : 0, at = (al, lat) => { const ag = al + kp * (lat + off); return [a[0] + ux * ag + nx * (lat + off), a[1] + uz * ag + nz * (lat + off)]; };   // kop: schuine koppen langs de driehoeklijnen (60°), zie mv2StairHole   // off: zijwaarts verschoven (trap in een galerijband)
         // bordes boven: het deel van de weggehaalde vloerdriehoeken voorbij de bovenste tree, op vloerhoogte, in het materiaal van de trap
         const endFill = (yt, mat) => { const U = m.lv[li + 1]; if (!U) return; const hole = mv2StairHole(S, ts);
           for (const id in U.f) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), h = hole(v); if (!h || !h.fill) continue; const pl = mv2ClipKeep(v, h.fill); if (pl.length < 3) continue;
@@ -609,8 +612,8 @@
           railBar(Mt.metal, at(len - 0.05, -w / 2), yt + 1.0, at(len - 0.05, w / 2), yt + 1.0); for (const f of [0, 0.5, 1]) railPost(Mt.metal, at(len - 0.05, -w / 2 + f * w), yt, yt + 1.0); addWall(at(len - 0.05, -w / 2), at(len - 0.05, w / 2), yt, yt + 1.0, 0.05);
         } else {   // rechte steek (naar trappen.dae): 16 treden per 3 m (0,1875 m), zwevend (0,3 m dik), boven een bordes tot de driehoekzijde
           const N = Math.max(2, Math.round(rise / 0.1875)), run = len / N, rs = rise / N, TH = 0.3, yt = y0 + rise;
-          for (let s = 0; s < N; s++) { const top = y0 + (s + 1) * rs; wallBox(Mt.step, at(s * run, 0), at((s + 1) * run, 0), Math.max(y0, top - rs - TH), top, w); pushWalk(at(s * run, -w / 2), at((s + 1) * run, w / 2), at(s * run, w / 2), top, top, top); pushWalk(at(s * run, -w / 2), at((s + 1) * run, -w / 2), at((s + 1) * run, w / 2), top, top, top); }
-          endFill(yt, Mt.step);   // bordes tot de driehoekzijde waar de vloer begint
+          for (let s = 0; s < N; s++) { const top = y0 + (s + 1) * rs; if (S.kop) slabPoly(Mt.step, [at(s * run, -w / 2), at((s + 1) * run, -w / 2), at((s + 1) * run, w / 2), at(s * run, w / 2)], Math.max(y0, top - rs - TH), top); else wallBox(Mt.step, at(s * run, 0), at((s + 1) * run, 0), Math.max(y0, top - rs - TH), top, w); pushWalk(at(s * run, -w / 2), at((s + 1) * run, w / 2), at(s * run, w / 2), top, top, top); pushWalk(at(s * run, -w / 2), at((s + 1) * run, -w / 2), at((s + 1) * run, w / 2), top, top, top); }
+          if (!S.kop) endFill(yt, Mt.step);   // bordes tot de driehoekzijde (een trap met schuine koppen eindigt al op een driehoekzijde) waar de vloer begint
           landing(len, yt); landing(-1, y0 + 0.02);
           // leuning aan beide kanten: schuine stang op palen, tot de verdieping erboven
           for (const sg of [-1, 1]) { const e = sg * (w / 2 - 0.05); railBar(Mt.metal, at(0, e), y0 + 0.95, at(len, e), yt + 0.95); for (const f of [0, 0.5, 1]) railPost(Mt.metal, at(f * len, e), y0 + f * rise, y0 + f * rise + 0.95); addWall(at(0.6, e), at(len, e), y0 + 0.3, yt + 0.95, 0.05); }
