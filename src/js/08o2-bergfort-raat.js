@@ -45,19 +45,38 @@
     }
     return totaal;
   }
+  // Binnen het eigen vak houden. Een paar onderdelen uit SketchUp liggen net over de rand van hun zeshoek: de helling van
+  // 'Pad · halve ring met helling' ligt in zes varianten 0,49 m te ver naar buiten, en de zuilen eronder staan op of over
+  // de rand. Elke helling of bordes (plaat) die uitsteekt schuift loodrecht op die zijde precies tot de rand terug, een
+  // zuil tot zijn kapiteel (0,9 m breed) binnen de rand valt. Alleen modules van één vak; geeft het aantal verschoven delen.
+  function mv2BinnenVak(m) {
+    if ((m.k || 0) !== 0) return 0;
+    const A = R * Math.sqrt(3) / 2, N = [0, 1, 2, 3, 4, 5].map(k => [Math.cos(k * Math.PI / 3), Math.sin(k * Math.PI / 3)]);
+    const terug = (pts, marge) => { let dx = 0, dz = 0; for (const [nx, nz] of N) { const e = Math.max(...pts.map(p => p[0] * nx + p[1] * nz)) + marge - A; if (e > 0.01) { dx -= e * nx; dz -= e * nz; } } return [dx, dz]; };
+    let n = 0;
+    for (const L of m.lv || []) {
+      for (const S of L.s || []) { if (S.k !== 'plaat' || S.muur || !S.p) continue;
+        const [dx, dz] = terug(S.p.flat(), 0); if (!dx && !dz) continue;
+        for (const pl of S.p) for (const p of pl) { p[0] = +(p[0] + dx).toFixed(3); p[1] = +(p[1] + dz).toFixed(3); } n++; }
+      for (const O of L.o || []) { if (O.t !== 'pillar') continue;
+        const [dx, dz] = terug([[O.x, O.z]], 0.45); if (!dx && !dz) continue;
+        O.x = +(O.x + dx).toFixed(3); O.z = +(O.z + dz).toFixed(3); n++; }
+    }
+    return n;
+  }
   // welke bergfort-modules gevuld worden: niet de toren en de gebouwen (die blijven hol, dat zijn juist gebouwen)
   const BERG_VUL = m => !/^(Toren|Gebouw|Dak|Deel)\b/.test(m.name || '');
   const bergRaat = (() => {
     const VERSIE = 'raatstad-berg-raat', ids = SKP_RAAT.mods.map(m => 'bergfort:' + m.name);
     function mod(i) {
       let m = modules.find(x => x.id === ids[i]);
-      if (!m) { m = JSON.parse(JSON.stringify(SKP_RAAT.mods[i])); m.id = ids[i]; mv2Fix(m); if (BERG_VUL(m)) mv2VulHol(m); modules.push(m); }
+      if (!m) { m = JSON.parse(JSON.stringify(SKP_RAAT.mods[i])); m.id = ids[i]; mv2Fix(m); mv2BinnenVak(m); if (BERG_VUL(m)) mv2VulHol(m); modules.push(m); }
       return m;
     }
     try {
       if (localStorage.getItem(VERSIE) !== SKP_RAAT.versie) {
         modules = modules.filter(m => !String(m.id || '').startsWith('bergfort:') || ids.includes(m.id));
-        SKP_RAAT.mods.forEach((src, i) => { const j = modules.findIndex(x => x.id === ids[i]); if (j >= 0) { const m = JSON.parse(JSON.stringify(src)); m.id = ids[i]; mv2Fix(m); if (BERG_VUL(m)) mv2VulHol(m); modules[j] = m; } else mod(i); });
+        SKP_RAAT.mods.forEach((src, i) => { const j = modules.findIndex(x => x.id === ids[i]); if (j >= 0) { const m = JSON.parse(JSON.stringify(src)); m.id = ids[i]; mv2Fix(m); mv2BinnenVak(m); if (BERG_VUL(m)) mv2VulHol(m); modules[j] = m; } else mod(i); });
         saveMods(); localStorage.setItem(VERSIE, SKP_RAAT.versie);
       }
     } catch (e) { /* geen opslag */ }
@@ -66,6 +85,13 @@
       if (localStorage.getItem(VUL) !== '1') {
         let n = 0; for (const m of modules) if (String(m.id || '').startsWith('bergfort:') && BERG_VUL(m) && !m.lv.some(L => L.v && Object.keys(L.v).length)) { if (mv2VulHol(m)) { m._sig = Date.now(); n++; } }
         if (n) saveMods(); localStorage.setItem(VUL, '1');
+      }
+    } catch (e) { /* geen opslag */ }
+    try {   // eenmalig: bewaarde bergfort-modules binnen hun vak brengen; lib 18 zorgt dat geplaatste exemplaren meegaan
+      const BINNEN = 'raatstad-berg-binnen';
+      if (localStorage.getItem(BINNEN) !== '1') {
+        let n = 0; for (const m of modules) if (String(m.id || '').startsWith('bergfort:') && mv2BinnenVak(m)) { m.lib = Math.max(m.lib || 0, 18); n++; }
+        if (n) saveMods(); localStorage.setItem(BINNEN, '1');
       }
     } catch (e) { /* geen opslag */ }
     return { mod, index: id => ids.indexOf(id) };
