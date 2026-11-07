@@ -356,6 +356,32 @@
       if (lifted) {   // randen van de vloerplaat: een zijkant van 22 cm waar geen buurdriehoek ligt
         for (const mat in byMat) for (const v of byMat[mat]) for (const [p, q] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) if (edgeCnt.get(eid(p, q)) === 1) wallBox(Mt.slab, p, q, y0 - MV2.FLOOR_T, y0 + 0.02, 0.06);
       }
+      // --- massief (L.v): dichte zuilen van deze vloer tot de verdieping erboven, bijv. een opgevuld plateau of een betonnen pijler.
+      // Zijkanten alleen waar het massief ophoudt (textuur in meters, zoals muren); een bovenvlak alleen waar erboven geen vloer
+      // ligt (anders flikkeren twee vlakken), en daar is het ook beloopbaar; de randen botsen.
+      if (L.v && Object.keys(L.v).length) {
+        const yt = y0 + LH, boven = m.lv[li + 1], vk = p => Math.round(p[0] * 64) * 1048576 + Math.round(p[1] * 64), ek = (p, q) => { const a = vk(p), b = vk(q); return a < b ? a + ':' + b : b + ':' + a; };
+        const perMat = {}, cnt = new Map();
+        for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); (perMat[L.v[id]] || (perMat[L.v[id]] = [])).push([id, v]); for (let e = 0; e < 3; e++) { const k = ek(v[e], v[(e + 1) % 3]); cnt.set(k, (cnt.get(k) || 0) + 1); } }
+        for (const mat in perMat) {
+          const pos = [], uv = [], P = (W, y, u, w) => { pos.push(W[0], y, W[1]); uv.push(u, w); };
+          for (const [id, v] of perMat[mat]) {
+            const W = v.map(tfp), up = (W[1][0] - W[0][0]) * (W[2][1] - W[0][1]) - (W[1][1] - W[0][1]) * (W[2][0] - W[0][0]) < 0;
+            if (!(boven && boven.f && boven.f[id])) { for (const i of (up ? [0, 1, 2] : [0, 2, 1])) P(W[i], yt, W[i][0], W[i][1]); pushWalk(v[0], v[1], v[2], yt, yt, yt); }
+            const cx = (W[0][0] + W[1][0] + W[2][0]) / 3, cz = (W[0][1] + W[1][1] + W[2][1]) / 3;
+            for (let e = 0; e < 3; e++) {
+              if (cnt.get(ek(v[e], v[(e + 1) % 3])) !== 1) continue;   // binnenin het massief: geen zijkant
+              let A = W[e], B = W[(e + 1) % 3]; if (-(B[1] - A[1]) * ((A[0] + B[0]) / 2 - cx) + (B[0] - A[0]) * ((A[1] + B[1]) / 2 - cz) < 0) [A, B] = [B, A];
+              const dx = B[0] - A[0], dz = B[1] - A[1], l = Math.hypot(dx, dz) || 1, ua = (A[0] * dx + A[1] * dz) / l, ub = ua + l;
+              P(A, y0, ua, y0); P(B, y0, ub, y0); P(B, yt, ub, yt); P(A, y0, ua, y0); P(B, yt, ub, yt); P(A, yt, ua, yt);
+              addWall(v[e], v[(e + 1) % 3], y0, yt, 0.05);
+            }
+          }
+          if (!pos.length) continue;
+          const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+          put(Mt.wl[mat] || Mt.wl.concrete || Mt.slab, g);
+        }
+      }
       const triAll = Object.values(byMat).flat(), floorAtL = (x, z) => triAll.some(v => { const s0 = (v[1][0] - v[0][0]) * (z - v[0][1]) - (v[1][1] - v[0][1]) * (x - v[0][0]), s1 = (v[2][0] - v[1][0]) * (z - v[1][1]) - (v[2][1] - v[1][1]) * (x - v[1][0]), s2 = (v[0][0] - v[2][0]) * (z - v[2][1]) - (v[0][1] - v[2][1]) * (x - v[2][0]); return (s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0); });   // ligt hier (lokaal) vloer op deze laag?
       // --- hoeken: waar twee muren onder een hoek samenkomen, een ronde hoekpost van dezelfde dikte, zodat de muren
       // zonder kier of uitstekend hoekje op elkaar aansluiten (muren zijn rechte blokken van punt tot punt) ---
@@ -978,6 +1004,7 @@
       const f = {}, fk = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; f[nid] = L.f[id];
         if (L.fk && L.fk[id]) { const k = L.fk[id], mk = h => [h[0], -h[1], h[2]]; fk[nid] = Array.isArray(k[0]) ? k.map(mk) : mk(k); } }   // knip spiegelt mee (z → −z)
       L.f = f; if (L.fk) L.fk = fk;
+      if (L.v) { const v = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number); v[i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t] = L.v[id]; } L.v = v; }   // massief spiegelt als de vloer
       const w = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; if (d === 3) { const [a, b] = mp(i, j); w[a + ',' + b + ',3'] = L.w[id]; } else { const [a, b] = mp(i + D[0], j + D[1]); w[a + ',' + b + ',' + WMAP[d]] = L.w[id]; } } L.w = w;
       for (const S of L.s) {
         if (S.k === 'hexramp') { const q = S.q || 0, r = S.r || 0; S.q = q + r; S.r = -r; S.side = (6 - (S.side || 0)) % 6; continue; }
