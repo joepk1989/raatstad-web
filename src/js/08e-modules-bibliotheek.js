@@ -228,7 +228,7 @@
     { const b = libBuilder('Trap naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -5.846, 0, 0, 4, 2); b.ring(1, 0, 0, 9, 'fence'); add(b); }   // begint een rasterstap binnen de rand (eerst stak de eerste tree het buurvak in)
     { const b = libBuilder('Helling naar terras', 'Verbindingen'); b.cell(0, 0, 0, 'tile').cell(1, 0, 0, 'tile'); b.stairUp(0, -5.846, 0, 0, 4, 2, 'ramp'); b.ring(1, 0, 0, 9, 'fence'); add(b); }
     { const b = libBuilder('Trappenhuis 3 lagen', 'Verbindingen'); for (let f = 0; f < 3; f++) { b.cell(f, 0, 0, 'concrete'); if (f) b.hex(f, 0, 0, 2.25, null); b.cellRing(f, 0, 0, 'concrete', { open: f ? {} : { 0: 'door' }, win: 2 }); if (f < 2) b.stair(f, -3.897, 2.25, 5, 3, 1.5); } b.cell(3, 0, 0, 'concrete'); add(b); }
-    { const b = libBuilder('Tribune', 'Verbindingen'); b.cell(0, 0, 0, 'concrete'); for (const lat of [-3, 0, 3]) b.stair(0, -7.794, lat, 0, 5, 3, 'trib'); b.cell(1, 0, 0, null); add(b); }
+    { const b = libBuilder('Tribune', 'Verbindingen'); b.cell(0, 0, 0, 'concrete'); for (const lat of [-3, 0, 3]) b.stair(0, -7.794, lat, 6, 5, 3, 'trib');   /* richting 6 = recht het vak in (0°); richting 0 liep schuin (30°) en de eerste rij stak 0,75 m buiten de rand */ b.cell(1, 0, 0, null); add(b); }
     { const b = libBuilder('Terras op hoogte', 'Verbindingen'); b.cell(0, 0, 0, 'paver').cell(1, 0, 0, 'wood').ring(1, 0, 0, 9, 'fence').circle(0, 'pillar', 0, 0, 7, 6, Math.PI / 6).circle(1, 'table', 0, 0, 4, 3, Math.PI / 2); b.stairUp(0, -0.25, 3.375, 5, 3, 1.5); add(b); }   // de trap komt onder het terras vandaan en eindigt in het gat
     { const b = libBuilder('Uitkijktoren', 'Verbindingen'); for (let f = 0; f < 4; f++) { b.hex(f, 0, 0, 4.5, 'wood'); if (f) b.hex(f, 0, 0, 2.25, null); b.ring(f, 0, 0, 4.5, f < 3 ? 'wood' : 'fence', { open: f ? {} : { 0: 'door' }, win: f ? 1 : 0 }); if (f < 3) b.stair(f, -1.95, 1.125, 5, 2, 1.2); } b.cell(0, 0, 0, 'grass'); b.hex(0, 0, 0, 4.5, 'wood'); add(b); }
     { const b = libBuilder('Amfitheater', 'Verbindingen', 1); b.all(0, 'paver'); b.hex(0, 0, 0, 6.75, 'tile'); for (let d = 0; d < 6; d++) { const a = (30 + 60 * d) * Math.PI / 180; b.stair(0, Math.cos(a) * 6.75, Math.sin(a) * 6.75, d, 4, 4, 'trib'); } b.hex(1, 0, 0, 20, 'concrete'); b.hex(1, 0, 0, 15.75, null); b.obj(0, 'fountain', 0, 0); add(b); }
@@ -398,6 +398,15 @@
         st.id = modules[i].id; st.lib = 16; modules[i] = st; n++;
       }
       if (n) saveMods(); localStorage.setItem('raatstad-lib16', '1'); if (n) libRefreshed = true;
+    }
+    // lib17: de tribune loopt recht het vak in in plaats van schuin, en steekt niet meer uit (zelfde vervanging als lib16)
+    if (!localStorage.getItem('raatstad-lib17')) {
+      const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), nu = new Map(libStandard().map(m => [base(m.name), m])); let n = 0;
+      for (const naam of ['Tribune · groot']) {
+        const st = nu.get(naam), i = modules.findIndex(x => x.v === 2 && base(x.name) === naam); if (!st || i < 0 || modules[i]._sig) continue;
+        st.id = modules[i].id; st.lib = 17; modules[i] = st; n++;
+      }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib17', '1'); if (n) libRefreshed = true;
     }
     // lib13: nieuwe indeling (Horeca, Sport, Vervoer); ook voor aangepaste modules met dezelfde naam
     if (!localStorage.getItem('raatstad-lib13')) {
