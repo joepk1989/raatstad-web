@@ -308,35 +308,42 @@
     }
     function addWalls(a, d6, n) { const L = lvl(); let c = 0; for (const [i, j, d] of segsBetween(a, d6, n)) { const [p, q] = segOf(i, j, d); if (!mv2NearArea(E.m, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) continue; const k = wallKey(i, j, d); const had = L.w[k]; L.w[k] = { m: E.wmat, o: had ? had.o : '' }; c++; } return c; }
     function setOpening(x, z, o) { const w = nearestWall(x, z); if (!w) { say('Klik op een muur'); return false; } lvl().w[w.id].o = o; return true; }
-    // In 3D: raakt de straal vanuit de camera een wand van deze verdieping vóór hij de vloer raakt? Dan is dat de muur onder de muis
-    // (anders kijk je langs de wand naar de vloer erachter).
+    // In 3D: raakt de straal vanuit de camera een wand vóór hij de vloer raakt? Dan is dat de muur onder de muis.
+    // Ook muren en wanden van de verdiepingen eronder (die zie je in 3D gewoon): bij het bergfort staan de muren op de
+    // begane grond en de vloer op de 1e verdieping, en dan kon de gum er vanaf de 1e verdieping niet bij. De vloer van de
+    // huidige verdieping ligt ervóór, behalve waar die vloer een gat heeft. Geeft { id | si, li } (li = verdieping).
     function wallRay(sx, sy) {
       if (E.vm !== '3d' || !cam) return null;
-      const y0 = E.lv * MV2.LV_H, L = lvl(); nd3.set(sx / W * 2 - 1, -(sy / H) * 2 + 1); rc3.setFromCamera(nd3, cam);
-      const o = rc3.ray.origin, d = rc3.ray.direction, tFloor = Math.abs(d.y) > 1e-6 ? (y0 + 0.03 - o.y) / d.y : 1e9;
-      let best = null, bt = tFloor > 0 ? tFloor : 1e9;
-      for (const id in L.w) {
-        const [i, j, dd] = id.split(',').map(Number), [a, b] = segOf(i, j, dd), ex = b[0] - a[0], ez = b[1] - a[1], l = Math.hypot(ex, ez) || 1, nx = -ez / l, nz = ex / l;
-        const den = d.x * nx + d.z * nz; if (Math.abs(den) < 1e-6) continue;
-        const t = ((a[0] - o.x) * nx + (a[1] - o.z) * nz) / den; if (t <= 0 || t >= bt) continue;
-        const px = o.x + d.x * t, py = o.y + d.y * t, pz = o.z + d.z * t, u = ((px - a[0]) * ex + (pz - a[1]) * ez) / (l * l);
-        const h = L.w[id].m === 'hedge' ? 1.4 : L.w[id].m === 'fence' ? 1.1 : MV2.LV_H;
-        if (u < -0.02 || u > 1.02 || py < y0 - 0.05 || py > y0 + h + 0.05) continue;
-        bt = t; best = { id };
-      }
-      // vrije platen (schuine wanden, zuilen, hellingen uit SketchUp): elk vlak als veelhoek in 3D
-      for (let si = 0; si < L.s.length; si++) {
-        const S = L.s[si]; if (S.k !== 'plaat') continue;
-        for (const pl of S.p || []) {
-          if (pl.length < 3) continue;
-          const Q = pl.map(p => [p[0], y0 + p[2], p[1]]);
-          let nx = 0, ny = 0, nz = 0; for (let i = 0; i < Q.length; i++) { const A = Q[i], B = Q[(i + 1) % Q.length]; nx += (A[1] - B[1]) * (A[2] + B[2]); ny += (A[2] - B[2]) * (A[0] + B[0]); nz += (A[0] - B[0]) * (A[1] + B[1]); }
-          const den = d.x * nx + d.y * ny + d.z * nz; if (Math.abs(den) < 1e-9) continue;
-          const t = ((Q[0][0] - o.x) * nx + (Q[0][1] - o.y) * ny + (Q[0][2] - o.z) * nz) / den; if (t <= 0 || t >= bt) continue;
-          const H = [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t], ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
-          const [u, v] = ax >= ay && ax >= az ? [1, 2] : ay >= az ? [0, 2] : [0, 1];   // in het vlak met de grootste doorsnede testen
-          let inn = false; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const A = Q[i], B = Q[j]; if ((A[v] > H[v]) !== (B[v] > H[v]) && H[u] < (B[u] - A[u]) * (H[v] - A[v]) / (B[v] - A[v]) + A[u]) inn = !inn; }
-          if (inn) { bt = t; best = { si }; }
+      nd3.set(sx / W * 2 - 1, -(sy / H) * 2 + 1); rc3.setFromCamera(nd3, cam);
+      const o = rc3.ray.origin, d = rc3.ray.direction, yc = E.lv * MV2.LV_H, tFloor = Math.abs(d.y) > 1e-6 ? (yc + 0.03 - o.y) / d.y : 1e9;
+      const vloerDicht = tFloor > 0 && !!lvl().f[triAt(o.x + d.x * tFloor, o.z + d.z * tFloor).join(',')];
+      let best = null, bt = 1e9;
+      for (let li = E.lv; li >= 0; li--) {
+        const y0 = li * MV2.LV_H, L = E.m.lv[li]; if (!L) continue;
+        const lim = li === E.lv ? (tFloor > 0 ? tFloor : 1e9) : (vloerDicht ? tFloor : 1e9);
+        for (const id in L.w) {
+          const [i, j, dd] = id.split(',').map(Number), [a, b] = segOf(i, j, dd), ex = b[0] - a[0], ez = b[1] - a[1], l = Math.hypot(ex, ez) || 1, nx = -ez / l, nz = ex / l;
+          const den = d.x * nx + d.z * nz; if (Math.abs(den) < 1e-6) continue;
+          const t = ((a[0] - o.x) * nx + (a[1] - o.z) * nz) / den; if (t <= 0 || t >= Math.min(bt, lim)) continue;
+          const px = o.x + d.x * t, py = o.y + d.y * t, pz = o.z + d.z * t, u = ((px - a[0]) * ex + (pz - a[1]) * ez) / (l * l);
+          const h = L.w[id].m === 'hedge' ? 1.4 : L.w[id].m === 'fence' ? 1.1 : MV2.LV_H;
+          if (u < -0.02 || u > 1.02 || py < y0 - 0.05 || py > y0 + h + 0.05) continue;
+          bt = t; best = { id, li };
+        }
+        // vrije platen (schuine wanden, zuilen, hellingen uit SketchUp): elk vlak als veelhoek in 3D
+        for (let si = 0; si < L.s.length; si++) {
+          const S = L.s[si]; if (S.k !== 'plaat') continue;
+          for (const pl of S.p || []) {
+            if (pl.length < 3) continue;
+            const Q = pl.map(p => [p[0], y0 + p[2], p[1]]);
+            let nx = 0, ny = 0, nz = 0; for (let i = 0; i < Q.length; i++) { const A = Q[i], B = Q[(i + 1) % Q.length]; nx += (A[1] - B[1]) * (A[2] + B[2]); ny += (A[2] - B[2]) * (A[0] + B[0]); nz += (A[0] - B[0]) * (A[1] + B[1]); }
+            const den = d.x * nx + d.y * ny + d.z * nz; if (Math.abs(den) < 1e-9) continue;
+            const t = ((Q[0][0] - o.x) * nx + (Q[0][1] - o.y) * ny + (Q[0][2] - o.z) * nz) / den; if (t <= 0 || t >= Math.min(bt, lim)) continue;
+            const H = [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t], ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+            const [u, v] = ax >= ay && ax >= az ? [1, 2] : ay >= az ? [0, 2] : [0, 1];   // in het vlak met de grootste doorsnede testen
+            let inn = false; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const A = Q[i], B = Q[j]; if ((A[v] > H[v]) !== (B[v] > H[v]) && H[u] < (B[u] - A[u]) * (H[v] - A[v]) / (B[v] - A[v]) + A[u]) inn = !inn; }
+            if (inn) { bt = t; best = { si, li }; }
+          }
         }
       }
       return best;
@@ -346,17 +353,18 @@
     function eraseTarget(x, z, firstOnly) {
       const L = lvl(); const oi = objectAt(x, z, 0.8); if (oi >= 0) return { kind: 'voorwerp', oi };
       const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45);
-      if (w && w.si !== undefined) return { kind: L.s[w.si].muur ? 'wand' : 'helling', si: w.si };   // een vrije plaat in 3D aangewezen
-      if (w) return { kind: 'muur', id: w.id };
+      const ander = w && w.li !== undefined && w.li !== E.lv ? { li: w.li } : {};   // een muur van een verdieping eronder (3D)
+      if (w && w.si !== undefined) return Object.assign({ kind: E.m.lv[w.li !== undefined ? w.li : E.lv].s[w.si].muur ? 'wand' : 'helling', si: w.si }, ander);   // een vrije plaat in 3D aangewezen
+      if (w) return Object.assign({ kind: 'muur', id: w.id }, ander);
       const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'plaat' && L.s[si].muur ? 'wand' : L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
       const [q, r] = cellAt(x, z); if (L.r[q + ',' + r] && !firstOnly) return { kind: 'dak', rk: q + ',' + r, q, r };
       const tris = brushTris(x, z).filter(okTri).filter(id => L.f[id.join(',')]); if (tris.length) return { kind: 'vloer', tris };
       return null;
     }
     function eraseAt(x, z, firstOnly) {
-      const L = lvl(), T = eraseTarget(x, z, firstOnly); if (!T) return null;
+      const T = eraseTarget(x, z, firstOnly); if (!T) return null; const L = T.li !== undefined ? E.m.lv[T.li] : lvl();
       if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else paintFloor(x, z, true);
-      return T.kind;
+      return T.li !== undefined ? T.kind + ' (' + (T.li === 0 ? 'begane grond' : T.li + 'e verdieping') + ')' : T.kind;
     }
     E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
     // ---------- Kiezen (V): aanklikken of een rechthoek slepen, dan verplaatsen, draaien per 60°, kopiëren, plakken, weghalen ----------
@@ -437,7 +445,7 @@
     }
     // wat ligt er onder de muis (zelfde volgorde als de gum), als losse selectie
     function selHit(x, z) {
-      const T = eraseTarget(x, z, false), S = selEmpty(); if (!T) return null;
+      const T = eraseTarget(x, z, false), S = selEmpty(); if (!T || T.li !== undefined) return null;   // kiezen: alleen deze verdieping
       if (T.oi !== undefined) S.o.add(T.oi); else if (T.id) S.w.add(T.id); else if (T.si !== undefined) S.s.add(T.si); else if (T.rk) S.r.add(T.rk);
       else { const id = triAt(x, z).join(','); for (const f of (lvl().f[id] ? floorRegion(id) : (T.tris || []).map(t => t.join(',')))) S.f.add(f); }
       return S;
@@ -836,7 +844,7 @@
           const T = eraseTarget(x, z, !!(D && D.kind === 'erase')), RED = '#ff5a4d', fillR = 'rgba(255,90,77,0.35)'; E.lastT = T;
           if (T) {
             ctx.save(); ctx.strokeStyle = RED; ctx.fillStyle = fillR; ctx.lineWidth = 3;
-            const y0 = lvY(), poly3 = P3 => { ctx.beginPath(); P3.forEach((q, n) => { const S5 = toS(q[0], q[1], q[2]); n ? ctx.lineTo(S5[0], S5[1]) : ctx.moveTo(S5[0], S5[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); };
+            const y0 = T.li !== undefined ? T.li * MV2.LV_H : lvY(), LT = T.li !== undefined ? E.m.lv[T.li] : lvl(), poly3 = P3 => { ctx.beginPath(); P3.forEach((q, n) => { const S5 = toS(q[0], q[1], q[2]); n ? ctx.lineTo(S5[0], S5[1]) : ctx.moveTo(S5[0], S5[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); };
             if (T.kind === 'voorwerp') { const o = lvl().o[T.oi], S2 = toS(o.x, o.z, in3 ? y0 + 0.6 : undefined); ctx.beginPath(); ctx.arc(S2[0], S2[1], Math.max(11, 0.65 * s), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
             else if (T.kind === 'muur') {   // in 3D de hele wand, van onder tot boven
               const [i, j, d] = T.id.split(',').map(Number), [a, b] = segOf(i, j, d);
@@ -844,7 +852,7 @@
               else { const A = toS(a[0], a[1]), B = toS(b[0], b[1]); ctx.lineWidth = Math.max(6, 0.35 * s); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); }
             }
             else if (T.si !== undefined) {   // in 3D het schuine trapvlak (en het bordes), anders de omtrek
-              const S0 = lvl().s[T.si], g = stairGeom(S0), w = g.w, rise = MV2.LV_H;
+              const S0 = LT.s[T.si], g = stairGeom(S0), w = g.w, rise = MV2.LV_H;
               if (in3 && S0.k === 'plaat') { for (const pl of S0.p || []) poly3(pl.map(p => [p[0], p[1], y0 + p[2]])); }   // de echte vlakken (schuine wand, zuil, helling)
               else if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
               else if (in3 && S0.k !== 'hexramp' && S0.k !== 'spiral') { poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len, -w / 2), y0 + rise]]); if (S0.k === 'stair') poly3([[...g.at(g.len, -w / 2), y0 + rise], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len + w * SQ3 / 2, 0), y0 + rise]]); }
