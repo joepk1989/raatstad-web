@@ -8,10 +8,10 @@ const { open, OUT } = require('./helper');
   const laad = nm => p.evaluate(nm => { window.__MME.load(window.__mods.find(m => m.name === nm), null); window.__MME.lv = 0; }, nm);
   const tel = () => p.evaluate(() => { const L = window.__MME.m.lv[0]; return Object.keys(L.w).length + L.s.filter(s => s.muur).length; });
   const muurPunt = (soort) => p.evaluate(soort => { const E = window.__MME, S0 = window.__SC(), t = S0.mv2Ts(E.m), L = E.m.lv[0], DW = window.__mv2.MV2.DIRW;
-    if (soort === 'wand') { const S = L.s.find(s => s.muur && Math.hypot(s.p[0][1][0] - s.p[0][0][0], s.p[0][1][1] - s.p[0][0][1]) > 5); const a = S.p[0][0], c = S.p[0][1]; return E.toS((a[0] + c[0]) / 2, (a[1] + c[1]) / 2); }
-    const id = Object.keys(L.w)[5], [i, j, d] = id.split(',').map(Number), a = S0.mv2P(i, j, t), c = S0.mv2P(i + DW[d][0], j + DW[d][1], t); return E.toS((a[0] + c[0]) / 2, (a[1] + c[1]) / 2); }, soort);
-  await p.keyboard.press('Digit2'); await p.waitForTimeout(300);
+    if (soort === 'wand') { const S = L.s.find(s => s.muur && Math.hypot(s.p[0][1][0] - s.p[0][0][0], s.p[0][1][1] - s.p[0][0][1]) > 5); const a = S.p[0][0], c = S.p[0][1]; return E.toS((a[0] + c[0]) / 2, (a[1] + c[1]) / 2, E.vm === '3d' ? 1.5 : undefined); }
+    const id = Object.keys(L.w)[5], [i, j, d] = id.split(',').map(Number), a = S0.mv2P(i, j, t), c = S0.mv2P(i + DW[d][0], j + DW[d][1], t); return E.toS((a[0] + c[0]) / 2, (a[1] + c[1]) / 2, E.vm === '3d' ? 1.5 : undefined); }, soort);
   const uit = [];
+  for (const weergave of ['Digit2', 'Digit3']) { await p.keyboard.press(weergave); await p.waitForTimeout(400); console.log('== ' + (weergave === 'Digit2' ? '2D' : '3D'));
   // zonder Shift: één muur
   await laad('Plateau · 3 m'); await p.keyboard.press('KeyX'); const n0 = await tel();
   let pt = await muurPunt('muur'); await p.mouse.click(pt[0], pt[1]); await p.waitForTimeout(200); const n1 = await tel();
@@ -28,6 +28,7 @@ const { open, OUT } = require('./helper');
   await p.keyboard.down('Shift'); await p.mouse.move(pt[0], pt[1]); await p.waitForTimeout(200); await p.mouse.down(); await p.mouse.up(); await p.keyboard.up('Shift'); await p.waitForTimeout(200);
   const m1 = await tel(), wandenOver = await p.evaluate(() => window.__MME.m.lv[0].s.filter(s => s.muur).length);
   console.log('Shift op een schuine wand (Pad · twee wanden):', m0, '→', m1, 'muren · schuine wanden over:', wandenOver, '·', await p.evaluate(() => document.getElementById('mm_msg').textContent)); uit.push(m1 < m0 - 1);
+  }
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();
