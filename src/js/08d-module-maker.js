@@ -58,7 +58,7 @@
       ['door', 'Deur (D): klik op een muur', 'D'], ['window', 'Raam (R): klik op een muur', 'R'], ['gate', 'Poort (P): klik op een muur', 'P'], ['open', 'Open doorgang (O): klik op een muur', 'O'], ['close', 'Dicht (C): klik op een muur om de opening weg te halen', 'C'],
       ['stair', 'Trap (T): sleep van onderaan omhoog, in een van zes richtingen', 'T'], ['ustair', 'Bordestrap (U): sleep de eerste steek; op het bordes keer je en loopt de tweede steek ernaast terug omhoog', 'U'], ['spiral', 'Wenteltrap (J): klik op een rasterpunt (het midden van de trap); sleep naar de kant waar je onderaan instapt', 'J'], ['ramp', 'Helling (L): sleep van onderaan omhoog', 'L'], ['hexramp', 'Schans (S): het hele vak wordt een helling naar de verdieping erboven; klik bij de zijde waar je onderaan instapt', 'S'],
       ['roof', 'Dak (K): klik op een vak; nog eens voor een plat dak, nog eens om weg te halen', 'K'], ['object', 'Voorwerp (B): klik om neer te zetten; klik erop om te draaien', 'B'],
-      ['erase', 'Gum (X): haalt weg wat eronder ligt', 'X'],
+      ['erase', 'Gum (X): haalt weg wat eronder ligt; Shift+klik op een muur: de hele reeks verbonden muren', 'X'],
     ];
     { const vw = $('view'), st = $('stage'); if (vw && st) { vw.classList.add('mm-viewtools'); st.appendChild(vw); } }
     const toolBtns = {};
@@ -272,7 +272,7 @@
       else if (E.tool === 'roof') { title.textContent = 'Dak'; mk(ROOF_NAME, E.rkind || 'hip', k => { E.rkind = k; }); hint.textContent = 'Klik op een vak: het dak ligt bovenop deze verdieping en volgt de muren van dat vak (een gebouw van ¾ krijgt een dak van ¾, met overstek). Zadeldak: de nok wijst naar de hoek bij de muis. Nog eens klikken met hetzelfde dak, of rechtermuisknop: weg.'; }
       else if (E.tool === 'object') { title.textContent = 'Voorwerp'; mk(MV2.objects, E.obj, k => { E.obj = k; }, OBJ_GLYPH); mk({ l: '↺ 30°', n: degOf(E.orot || 0) + '° · terug naar 0°', r: '↻ 30°' }, '', k => { if (k === 'n') { E.orot = 0; draw(); } else rotStep(k === 'l' ? -1 : 1); });
         hint.textContent = 'Kasten, banken, bedden, bureaus en keukens gaan vanzelf met hun rug tegen de dichtstbijzijnde muur staan (Ctrl: los). Je ziet het voorwerp al staan voor je klikt. Klik om neer te zetten, of houd ingedrukt en sleep om het te richten (per 30°, met Ctrl vrij). Draaien: Q en E, Shift+scroll of de knoppen; op een voorwerp: klik draait 30° (Shift-klik terug), slepen richt het, rechtermuisknop haalt het weg. Het pijltje is de voorkant.'; }
-      else if (E.tool === 'erase') { title.textContent = 'Gum'; mk(BRUSH_LAB, E.brush, k => { E.brush = k; }); hint.textContent = 'Klik of sleep: voorwerp, muur, trap, dak of vloer onder de muis wordt weggehaald. Bij vloer bepaalt het penseel hoeveel (wisselen met N).'; }
+      else if (E.tool === 'erase') { title.textContent = 'Gum'; mk(BRUSH_LAB, E.brush, k => { E.brush = k; }); hint.textContent = 'Klik of sleep: voorwerp, muur, trap, dak of vloer onder de muis wordt weggehaald. Bij vloer bepaalt het penseel hoeveel (wisselen met N). Shift+klik op een muur: de hele reeks muren die eraan vastzit (ook om de hoek en schuine wanden) gaat in één keer weg.'; }
       else if (E.tool === 'select') { title.textContent = 'Kiezen'; const S = sel(), n = selCount(S);
         mk({ l: '↺ 60°', r: '↻ 60°', h: 'Spiegel ↔', g: 'Spiegel ↕', c: 'Kopiëren', v: 'Plakken', x: 'Weghalen', u: 'Keuze ↑ verdieping', d: 'Keuze ↓ verdieping', a: 'Alles' }, '', k => ({ l: () => selRotate(-1), r: () => selRotate(1), h: () => selMirror('x'), g: () => selMirror('z'), c: () => selCopy(false), v: () => selPaste(false), x: () => selDelete(), u: () => selToLevel(1), d: () => selToLevel(-1), a: () => selAll() })[k]());
         { const L = lvl(), same = (ids, get) => { const v = new Set(ids.map(get).filter(Boolean)); return v.size === 1 ? [...v][0] : ''; }, sub = txt => { const d = document.createElement('div'); d.className = 'mm-sub'; d.textContent = txt; sw.appendChild(d); };
@@ -396,14 +396,27 @@
       return best;
     }
     E.wallRay = wallRay;   // voor tests
+    // Een hele reeks verbonden muren (Shift + gum): de muur onder de muis en alles wat er via de uiteinden aan vastzit, ook om de
+    // hoek; rastermuren en schuine wanden (vrije platen met muur) samen. Uiteinden binnen 0,4 m tellen als verbonden.
+    function wallChain(L, start) {
+      const el = [];
+      for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), [a, b] = segOf(i, j, d); el.push({ id, a, b }); }
+      (L.s || []).forEach((S, si) => { if (S.k === 'plaat' && S.muur && S.p && S.p[0]) el.push({ si, a: S.p[0][0], b: S.p[0][1] }); });
+      const i0 = el.findIndex(e => (start.id !== undefined && e.id === start.id) || (start.si !== undefined && e.si === start.si)); if (i0 < 0) return null;
+      const dicht = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.4, raak = (e, f) => dicht(e.a, f.a) || dicht(e.a, f.b) || dicht(e.b, f.a) || dicht(e.b, f.b);
+      const in_ = new Set([i0]), q = [i0];
+      while (q.length) { const e = el[q.pop()]; el.forEach((f, k) => { if (!in_.has(k) && raak(e, f)) { in_.add(k); q.push(k); } }); }
+      const lijst = [...in_].map(k => el[k]); return { ids: lijst.filter(e => e.id !== undefined).map(e => e.id), sis: lijst.filter(e => e.si !== undefined).map(e => e.si) };
+    }
     // Wat de gum hier zou weghalen (zelfde volgorde als eraseAt): voor het oplichten vóór je klikt
     function eraseTarget(x, z, firstOnly) {
       const L = lvl(); const oi = objectAt(x, z, 0.8); if (oi >= 0) return { kind: 'voorwerp', oi };
       const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45);
       const ander = w && w.li !== undefined && w.li !== E.lv ? { li: w.li } : {};   // een muur van een verdieping eronder (3D)
-      if (w && w.si !== undefined) return Object.assign({ kind: E.m.lv[w.li !== undefined ? w.li : E.lv].s[w.si].muur ? 'wand' : 'helling', si: w.si }, ander);   // een vrije plaat in 3D aangewezen
-      if (w) return Object.assign({ kind: 'muur', id: w.id }, ander);
-      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'plaat' && L.s[si].muur ? 'wand' : L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
+      const reeks = (T) => { if (!E.shift) return T; const LL = E.m.lv[T.li !== undefined ? T.li : E.lv], c = wallChain(LL, T); return c && c.ids.length + c.sis.length > 1 ? Object.assign(T, { kind: 'reeks van ' + (c.ids.length + c.sis.length) + ' muren', chain: c }) : T; };   // Shift: de hele reeks verbonden muren
+      if (w && w.si !== undefined) { const LW = E.m.lv[w.li !== undefined ? w.li : E.lv]; return reeks(Object.assign({ kind: LW.s[w.si].muur ? 'wand' : 'helling', si: w.si }, ander), LW.s[w.si].muur); }   // een vrije plaat in 3D aangewezen
+      if (w) return reeks(Object.assign({ kind: 'muur', id: w.id }, ander));
+      const si = stairAt(x, z); if (si >= 0) { const T = { kind: L.s[si].k === 'plaat' && L.s[si].muur ? 'wand' : L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si }; if (E.shift && T.kind === 'wand') { const c = wallChain(L, T); if (c && c.ids.length + c.sis.length > 1) Object.assign(T, { kind: 'reeks van ' + (c.ids.length + c.sis.length) + ' muren', chain: c }); } return T; }
       const [q, r] = cellAt(x, z); if (L.r[q + ',' + r] && !firstOnly) return { kind: 'dak', rk: q + ',' + r, q, r };
       if (L.v) { const vt = brushTris(x, z).filter(okTri).filter(id => L.v[id.join(',')]); if (vt.length) return { kind: 'massief', tris: vt, massief: true }; }   // massief gaat voor de vloer eronder
       const tris = brushTris(x, z).filter(okTri).filter(id => L.f[id.join(',')]); if (tris.length) return { kind: 'vloer', tris };
@@ -411,7 +424,7 @@
     }
     function eraseAt(x, z, firstOnly) {
       const T = eraseTarget(x, z, firstOnly); if (!T) return null; const L = T.li !== undefined ? E.m.lv[T.li] : lvl();
-      if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else if (T.massief) { for (const id of T.tris) { delete L.v[id.join(',')]; if (L.vk) delete L.vk[id.join(',')]; } } else paintFloor(x, z, true);
+      if (T.chain) { for (const id of T.chain.ids) delete L.w[id]; L.s = L.s.filter((_, i) => !T.chain.sis.includes(i)); } else if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else if (T.massief) { for (const id of T.tris) { delete L.v[id.join(',')]; if (L.vk) delete L.vk[id.join(',')]; } } else paintFloor(x, z, true);
       return T.li !== undefined ? T.kind + ' (' + (T.li === 0 ? 'begane grond' : T.li + 'e verdieping') + ')' : T.kind;
     }
     E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
@@ -630,7 +643,7 @@
     const ptr = new Map();
     let spaceDown = false;
     cv.addEventListener('contextmenu', e => e.preventDefault());
-    cv.addEventListener('pointerdown', e => {
+    cv.addEventListener('pointerdown', e => { E.shift = e.shiftKey;
       cv.setPointerCapture(e.pointerId); ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const rect = cv.getBoundingClientRect(), sx = e.clientX - rect.left, sy = e.clientY - rect.top, [x, z] = toW(sx, sy); E.hoverS = [sx, sy];
       if (E.vm === '3d' && (e.button === 1 || e.altKey || spaceDown || E.tool === 'hand' || (ptr.size > 1))) { E.pan = { kind: 'orbit', sx: e.clientX, sy: e.clientY, th: E.th, ph: E.ph }; return; }   // draaien
@@ -667,7 +680,9 @@
         E.ctrl = e.ctrlKey || e.metaKey; { const Q = objPose(E.obj, x, z); E.drag = { kind: 'obj', oi: -1, x: Q.x, z: Q.z, rot: Q.rot, wall: Q.wall, moved: false }; } draw(); return; }
       if (E.tool === 'erase') { snap(); const what = eraseAt(x, z); E.drag = { kind: 'erase' }; changed(); if (what) say(what + ' weggehaald', 700); return; }
     });
-    cv.addEventListener('pointermove', e => {
+    const shiftZet = v => { if (E.shift === v) return; E.shift = v; if (E.tool === 'erase') draw(); };
+    document.addEventListener('keydown', e => { if (e.key === 'Shift') shiftZet(true); }); document.addEventListener('keyup', e => { if (e.key === 'Shift') shiftZet(false); }); window.addEventListener('blur', () => shiftZet(false));
+    cv.addEventListener('pointermove', e => { E.shift = e.shiftKey;
       E.ctrl = e.ctrlKey || e.metaKey;
       const rect = cv.getBoundingClientRect(), sx = e.clientX - rect.left, sy = e.clientY - rect.top, [x, z] = toW(sx, sy);
       if (ptr.has(e.pointerId)) ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -904,7 +919,9 @@
           if (T) {
             ctx.save(); ctx.strokeStyle = RED; ctx.fillStyle = fillR; ctx.lineWidth = 3;
             const y0 = T.li !== undefined ? T.li * MV2.LV_H : lvY(), LT = T.li !== undefined ? E.m.lv[T.li] : lvl(), poly3 = P3 => { ctx.beginPath(); P3.forEach((q, n) => { const S5 = toS(q[0], q[1], q[2]); n ? ctx.lineTo(S5[0], S5[1]) : ctx.moveTo(S5[0], S5[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); };
-            if (T.kind === 'voorwerp') { const o = lvl().o[T.oi], S2 = toS(o.x, o.z, in3 ? y0 + 0.6 : undefined); ctx.beginPath(); ctx.arc(S2[0], S2[1], Math.max(11, 0.65 * s), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+            if (T.chain) { for (const id of T.chain.ids) { const [i, j, d] = id.split(',').map(Number), [a, b] = segOf(i, j, d); if (in3) poly3([[a[0], a[1], y0], [b[0], b[1], y0], [b[0], b[1], y0 + MV2.LV_H], [a[0], a[1], y0 + MV2.LV_H]]); else { const A = toS(a[0], a[1]), B = toS(b[0], b[1]); ctx.save(); ctx.lineWidth = Math.max(6, 0.35 * s); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); ctx.restore(); } }
+              for (const si of T.chain.sis) { const S0 = LT.s[si]; if (in3) for (const pl of S0.p || []) poly3(pl.map(p => [p[0], p[1], y0 + p[2]])); else { const A = toS(S0.p[0][0][0], S0.p[0][0][1]), B = toS(S0.p[0][1][0], S0.p[0][1][1]); ctx.save(); ctx.lineWidth = Math.max(6, 0.35 * s); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); ctx.restore(); } } }
+            else if (T.kind === 'voorwerp') { const o = lvl().o[T.oi], S2 = toS(o.x, o.z, in3 ? y0 + 0.6 : undefined); ctx.beginPath(); ctx.arc(S2[0], S2[1], Math.max(11, 0.65 * s), 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
             else if (T.kind === 'muur') {   // in 3D de hele wand, van onder tot boven
               const [i, j, d] = T.id.split(',').map(Number), [a, b] = segOf(i, j, d);
               if (in3) poly3([[a[0], a[1], y0], [b[0], b[1], y0], [b[0], b[1], y0 + MV2.LV_H], [a[0], a[1], y0 + MV2.LV_H]]);
