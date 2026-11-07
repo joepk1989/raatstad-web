@@ -70,9 +70,18 @@ const { open, OUT } = require('./helper');
   pt = await scherm(nRand[0] * (A - 0.6) + nRand[1] * 0.4, -(nRand[1] * (A - 0.6)) + nRand[0] * 0.4);
   await p.mouse.move(pt[0], pt[1]); await p.waitForTimeout(200); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(400);
   const S4 = await p.evaluate(() => window.__MME.m.lv[0].s[0]); await p.waitForTimeout(600); const chk4 = await p.evaluate(() => window.__MME.checkState); console.log('4. raster 2,25 m:', JSON.stringify(S4), '· controle', JSON.stringify(chk4)); uit.push(S4.rij && S4.n === 2 && chk4 && chk4.ok);
+  // leuning op de 1e verdieping rond het gat: stukken muur (botsing) op 3 m tot 4 m hoog, niet aan de bovenkant van het gat
+  const leuning = await p.evaluate(() => { const E = window.__MME, V = window.__mv2, res = V.mv2Build(JSON.parse(JSON.stringify(E.m)), V.mv2Tf(0, 0, 0)), S = E.m.lv[0].s[0], t = window.__SC().mv2Ts(E.m);
+    const D = V.MV2.DIR6[S.d], a = V.mv2P(S.a[0], S.a[1], t), b2 = V.mv2P(S.a[0] + D[0] * S.n, S.a[1] + D[1] * S.n, t), ux = (b2[0] - a[0]) / (S.n * t), uz = (b2[1] - a[1]) / (S.n * t);
+    const stukken = res.walls.filter(W => Math.abs(W.y0 - 3) < 0.01 && Math.abs(W.y1 - 4) < 0.01).map(W => ({ al0: +(((W.ax - a[0]) * ux + (W.az - a[1]) * uz)).toFixed(2), al1: +(((W.bx - a[0]) * ux + (W.bz - a[1]) * uz)).toFixed(2) }));
+    return { n: stukken.length, stukken, len: S.n * t }; });
+  const bovenOpen = leuning.stukken.every(W => !(Math.abs(W.al0 - leuning.len) < 0.1 && Math.abs(W.al1 - leuning.len) < 0.1));
+  console.log('leuning op de 1e verdieping:', leuning.n, 'stukken', JSON.stringify(leuning.stukken), '· bovenkant open:', bovenOpen); uit.push(leuning.n === 3 && bovenOpen);
   await p.mouse.move(10, 10); await p.screenshot({ path: OUT + '/trap_rij_tekening_2d.png' });
   await p.keyboard.press('Digit3'); await p.waitForTimeout(1500); await p.mouse.move(10, 10); await p.waitForTimeout(300); await p.screenshot({ path: OUT + '/trap_rij_tekening_3d.png' });
   await p.evaluate(() => { document.getElementById('mm_lvUp').click(); }); await p.waitForTimeout(1500); await p.mouse.move(10, 10); await p.waitForTimeout(300); await p.screenshot({ path: OUT + '/trap_rij_tekening_3d_boven.png' });
+  { const c = await p.evaluate(() => { const E = window.__MME, S = E.m.lv[0].s[0], t = window.__SC().mv2Ts(E.m), a = window.__SC().mv2P(S.a[0], S.a[1], t); return E.toS(a[0], a[1], 3); });
+    await p.mouse.move(c[0], c[1]); for (let k = 0; k < 6; k++) { await p.mouse.wheel(0, -240); await p.waitForTimeout(150); } await p.waitForTimeout(800); await p.mouse.move(10, 10); await p.waitForTimeout(300); await p.screenshot({ path: OUT + '/trap_rij_leuning_3d.png' }); }
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();

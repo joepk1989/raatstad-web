@@ -621,6 +621,19 @@
           landing(len, yt); landing(-1, y0 + 0.02);
           // leuning aan beide kanten: schuine stang op palen, tot de verdieping erboven
           for (const sg of [-1, 1]) { const e = sg * (w / 2 - 0.05); railBar(Mt.metal, at(0, e), y0 + 0.95, at(len, e), yt + 0.95); for (const f of [0, 0.5, 1]) railPost(Mt.metal, at(f * len, e), y0 + f * rise, y0 + f * rise + 0.95); addWall(at(0.6, e), at(len, e), y0 + 0.3, yt + 0.95, 0.05); }
+          // rechte trap in een rij: op de verdieping erboven een leuning rond het gat (valgevaar), langs de lange zijden en aan de
+          // onderkant; bovenaan blijft het open, daar stap je van de trap. Alleen waar naast het gat vloer ligt; per stuk van
+          // een driehoekzijde, met palen, en ook echt tegenhouden (addWall). Op de rand van het gat, 5 cm naar binnen.
+          if (S.rij && m.lv[li + 1]) {
+            const U = m.lv[li + 1], vloer = (x, z) => { const fi = x / (ts * SQ3 / 2), fj = z / ts - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return !!U.f[i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1)]; };
+            const rand = (A, B, buiten) => { const st = Math.max(1, Math.round(Math.hypot(B[0] - A[0], B[1] - A[1]) / ts));
+              for (let k = 0; k < st; k++) { const P0 = [A[0] + (B[0] - A[0]) * k / st, A[1] + (B[1] - A[1]) * k / st], P1 = [A[0] + (B[0] - A[0]) * (k + 1) / st, A[1] + (B[1] - A[1]) * (k + 1) / st], mx = (P0[0] + P1[0]) / 2, mz = (P0[1] + P1[1]) / 2;
+                if (!vloer(mx + buiten[0] * 0.35, mz + buiten[1] * 0.35)) continue;
+                railBar(Mt.metal, P0, yt + 1.0, P1, yt + 1.0); railBar(Mt.metal, P0, yt + 0.5, P1, yt + 0.5, 0.03); railPost(Mt.metal, P0, yt, yt + 1.0); railPost(Mt.metal, P1, yt, yt + 1.0); addWall(P0, P1, yt, yt + 1.0, 0.05); } };
+            const nx2 = -uz, nz2 = ux, in5 = w / 2 - 0.05;
+            rand(at(0.05, -in5), at(len, -in5), [-nx2, -nz2]); rand(at(0.05, in5), at(len, in5), [nx2, nz2]);   // lange zijden
+            rand(at(0.05, -in5), at(0.05, in5), [-ux, -uz]);   // onderkant: daar is het gat het diepst
+          }
         }
       }
       // --- daken per vak ---
