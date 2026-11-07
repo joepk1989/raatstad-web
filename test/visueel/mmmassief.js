@@ -29,7 +29,8 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(800); await p.screenshot({ path: OUT + '/massief_opening.png' });
   // 2b. tot precies aan schuine wanden: in 'Pad · twee wanden' moet alles tussen de twee wanden dicht zijn (geen zaagtand),
   // afgeknipt op de wandlijn, en niets mag aan de andere kant van een wand uitsteken
-  await laad('Pad · twee wanden'); await p.keyboard.press('KeyY'); await klik(6.5, 0);
+  await laad('Pad · twee wanden'); await p.evaluate(() => { const L = window.__MME.m.lv[0]; L.v = {}; delete L.vk; });   // de module is standaard al gevuld achter de wand: leeg beginnen
+  await p.keyboard.press('KeyY'); await klik(6.5, 0);
   const zaag = await p.evaluate(() => { const E = window.__MME, S0 = window.__SC(), t = S0.mv2Ts(E.m), L = E.m.lv[0], Z = 2.07; let mist = 0, steekt = 0, n = 0;
     for (let i = -16; i <= 16; i++) for (let j = -16; j <= 16; j++) for (const tt of [0, 1]) {
       const id = i + ',' + j + ',' + tt, A = S0.mv2P(i, j, t), B = S0.mv2P(i + 1, j, t), C = S0.mv2P(i, j + 1, t), D = S0.mv2P(i + 1, j + 1, t), v = tt ? [B, D, C] : [A, B, C];
