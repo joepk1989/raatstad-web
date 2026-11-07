@@ -338,6 +338,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>/* three.js niet geladen (CDN geblokkeerd of traag netwerk): tweede bron proberen */ window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
 
 <div id="mmApp" hidden>
   <header id="mm_top">
@@ -350,6 +351,10 @@
     <canvas id="mm_cv3" aria-hidden="true"></canvas>
     <canvas id="mm_cv" aria-label="Tekenvlak van de Raatmaker"></canvas>
     <div id="mm_levels"><button id="mm_lvUp" type="button" title="Verdieping omhoog (Page Up)">▲</button><div id="mm_lvName">Begane grond</div><button id="mm_lvDn" type="button" title="Verdieping omlaag (Page Down)">▼</button></div>
+    <div id="mm_maat" role="group" aria-label="Grootte en raster van de module">
+      <div class="mm-maatrij"><span>Vakken</span><div class="mm-seg" id="mm_segArea" title="Hoeveel zeshoekige vakken de module beslaat"></div></div>
+      <div class="mm-maatrij"><span>Raster</span><div class="mm-seg" id="mm_segGrid" title="Maat van de driehoeken waarop je tekent: fijner kan altijd, grover alleen bij een lege module"></div></div>
+    </div>
     <div id="mm_readout"></div>
     <div id="mm_msg" role="status"></div><div id="mm_toast" role="status" aria-live="polite" hidden></div>
   </div>
@@ -362,8 +367,9 @@
       <input id="mm_name" type="text" placeholder="Soort · variant (lagen en maat komen er vanzelf achter)" title="Bijvoorbeeld: Rijhuis · baksteen. Het aantal lagen (2L) en de maat (7v) worden er bij bewaren automatisch achter gezet." maxlength="48">
       <div class="row" style="margin-top:6px">
         <select id="mm_cat" aria-label="Categorie"></select>
-        <select id="mm_area" aria-label="Grootte"><option value="0">1 vak</option><option value="1">7 vakken</option><option value="2">19 vakken</option><option value="3">37 vakken</option></select>
-        <select id="mm_grid" aria-label="Raster"><option value="2">raster 4,5 m</option><option value="4">raster 2,25 m</option></select>
+        <!-- grootte en raster: als knoppen linksonder in het tekenvlak (mm_maat); de lijsten blijven voor de code -->
+        <select id="mm_area" aria-label="Grootte" hidden><option value="0">1 vak</option><option value="1">7 vakken</option><option value="2">19 vakken</option><option value="3">37 vakken</option></select>
+        <select id="mm_grid" aria-label="Raster" hidden><option value="2">raster 4,5 m</option><option value="4">raster 2,25 m</option><option value="8">raster 1,125 m</option></select>
       </div>
       <div class="row" style="margin-top:6px">
         <button id="mm_bSave" class="primary" type="button">Bewaar</button>
@@ -371,9 +377,9 @@
         <button id="mm_bDup" type="button" title="Bewaar als kopie onder een nieuwe naam">Kopie</button>
       </div>
     </section>
-    <section>
-      <h2>Bibliotheek <small id="mm_libN"></small></h2>
-      <input id="mm_filter" type="text" placeholder="Zoek of filter op categorie" maxlength="30">
+    <section id="mm_libSec">
+      <h2 class="mm-libkop">Bibliotheek <small id="mm_libN"></small><button id="mm_libBig" type="button" class="mm-libbig" aria-pressed="false" title="Bibliotheek groter: breder paneel, grotere plaatjes">⤢ Groter</button></h2>
+      <div class="mm-filterrij"><input id="mm_filter" type="text" placeholder="Zoek of filter op categorie" maxlength="30"><button id="mm_fBerg" type="button" aria-pressed="false" title="Alleen de modules uit het bergfort (typ ook: bergfort)">Bergfort</button></div>
       <div id="mm_lib"></div>
     </section>
     <section>
@@ -388,6 +394,10 @@
   </aside>
 </div>
 
+<script>
+/* zonder three.js kan het spel niet starten: een leesbare melding in plaats van een leeg scherm */
+if (!window.THREE) document.addEventListener('DOMContentLoaded', () => { const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:24px;background:#f4f1ea;color:#1d2125;font:18px/1.5 system-ui,sans-serif;text-align:center'; d.innerHTML = '<div><b>Raatstad kon niet starten.</b><br>Het 3D-onderdeel (three.js) kon niet worden geladen. Controleer je internetverbinding en laad de pagina opnieuw.<br><button onclick="location.reload()" style="margin-top:14px;padding:10px 18px;font:inherit;border:0;border-radius:10px;background:#1d2125;color:#fff">Opnieuw laden</button></div>'; document.body.appendChild(d); });
+</script>
 <script>
 (() => {
 /*__JS__*/

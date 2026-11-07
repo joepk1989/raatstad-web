@@ -212,7 +212,7 @@
     if (modCellOccupied(q, r)) return 'Hier staat een module';
     if ((t === 'kuil' || t === 'water') && gH(q, r) > 0.3) return (t === 'kuil' ? 'Een uitgraving' : 'Water') + ' kan alleen op vlakke grond (hoogte 0)';
     if (!allowedOn(t, top, st[st.length - 2])) return whyNot(t, top);
-    if (columnTop(q, r) + TY(t).h > MAX_H + 0.01) return 'Maximaal 60 meter hoog';
+    if (columnTop(q, r) + TY(t).h > MAX_H + 0.01) return 'Maximaal ' + MAX_H + ' meter hoog';
     if (mode === 'walk') {   // niet bouwen op de plek waar je zelf staat
       const c = cellToWorld(q, r), dx = player.x - c.x, dz = player.z - c.z;
       if (FRAMES.every(f => dx * f.nx + dz * f.nz <= INNER + 0.6)) return 'Je staat zelf op dit vak; richt verder weg';
@@ -273,7 +273,7 @@
     }
     // Woning op een huis met dak: er komt een verdieping onder het dak bij
     if (T === 'woning' && top0 && baseOf(top0) === 'dak' && st0.length >= 2 && isBuilding(baseOf(st0[st0.length - 2]))) {
-      if (columnTop(q, r) + TY('woning').h > MAX_H + 0.01) return toast('Maximaal 60 meter hoog');
+      if (columnTop(q, r) + TY('woning').h > MAX_H + 0.01) return toast('Maximaal ' + MAX_H + ' meter hoog');
       if (mode === 'walk' && canPlace(q, r, 'dak') === 'Je staat zelf op dit vak; richt verder weg') return toast('Je staat zelf op dit vak; richt verder weg');
       const y0 = columnTop(q, r);
       st0.splice(st0.length - 1, 0, 'woning');

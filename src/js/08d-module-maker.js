@@ -127,6 +127,8 @@
     const distSeg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); return Math.hypot(a[0] + t * dx - x, a[1] + t * dz - z); };
     function stairAt(x, z) {
       const L = lvl();
+      // eerst staande wanden (smalle strook): die liggen vaak langs de rand van een helling, en dan pakte de gum de helling
+      for (let s = L.s.length - 1; s >= 0; s--) { const S = L.s[s]; if (S.k === 'plaat' && S.muur && inPoly(x, z, stairGeom(S).poly)) return s; }
       for (let s = L.s.length - 1; s >= 0; s--) { const S = L.s[s], g = stairGeom(S); if (inPoly(x, z, g.poly)) return s; }
       return -1;
     }
@@ -144,7 +146,16 @@
         for (const p of pts) { while (lw.length > 1 && cr(lw[lw.length - 2], lw[lw.length - 1], p) <= 0) lw.pop(); lw.push(p); }
         for (const p of pts.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
         const lo = [G0.lo[0], G0.lo[1]], hi = [G0.hi[0], G0.hi[1]], ex = hi[0] - lo[0], ez = hi[1] - lo[1], el = Math.hypot(ex, ez) || 1;
-        return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly: [...lw.slice(0, -1), ...up.slice(0, -1)], plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
+        let poly = [...lw.slice(0, -1), ...up.slice(0, -1)];
+        // een staande wand (muur, schuine wand) is van boven gezien een lijn zonder oppervlak: dan kon je er nooit op klikken
+        // (gum, kiezen). Geef hem een smalle strook van 0,35 m aan weerszijden van de lijn tussen de verste punten.
+        let opp = 0; for (let i = 0; i < poly.length; i++) { const A = poly[i], B = poly[(i + 1) % poly.length]; opp += A[0] * B[1] - B[0] * A[1]; }
+        if (Math.abs(opp / 2) < 0.4 && pts.length > 1) {
+          let A = pts[0], B = pts[pts.length - 1], dm = -1; for (const p of pts) for (const q of pts) { const d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (d > dm) { dm = d; A = p; B = q; } }
+          const l = Math.sqrt(dm) || 1, h = Math.max(0.35, (S.w || 0) / 2), nx = -(B[1] - A[1]) / l * h, nz = (B[0] - A[0]) / l * h, ux = (B[0] - A[0]) / l * 0.15, uz = (B[1] - A[1]) / l * 0.15;
+          poly = [[A[0] - ux + nx, A[1] - uz + nz], [B[0] + ux + nx, B[1] + uz + nz], [B[0] + ux - nx, B[1] + uz - nz], [A[0] - ux - nx, A[1] - uz - nz]];
+        }
+        return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly, plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
       if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2, cut = 2 * w / SQ3; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)] }; }   // twee steken + schuin bordes
@@ -222,7 +233,8 @@
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
     const undo = () => { if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
     const redo = () => { if (!E.redo.length) return; E.sel = null; E.undo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.redo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); };
-    function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; renderLevels(); rebuild3(); draw(); liveCheck(); }
+    function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; if (E.m) { $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); }   // ook na ongedaan maken
+      renderLevels(); rebuild3(); draw(); liveCheck(); }
     // na elke wijziging (iets later) stil controleren: een groen of rood bolletje op de knop, de uitleg pas bij klikken
     let lcT = 0;
     function liveCheck() { clearTimeout(lcT); lcT = setTimeout(() => { if (!E.m || app.hidden) return; let r; try { r = checkModule(); } catch (err) { return; }
@@ -237,7 +249,7 @@
     function copyUp() { snap(); const L = lvl(); while (E.m.lv.length <= E.lv + 1) E.m.lv.push(mv2Level()); const U = E.m.lv[E.lv + 1]; U.f = Object.assign({}, L.f, U.f); U.w = Object.assign({}, JSON.parse(JSON.stringify(L.w)), U.w); E.lv++; changed(); say('Verdieping gekopieerd naar boven'); }
     // ---------- zijpaneel: materiaal of keuze bij het gereedschap ----------
     const COL = { paver: '#8a5141', tile: '#cbc8bd', wood: '#a97c52', carpet: '#8b9397', concrete: '#c4c6c2', grass: '#6fa356', water: '#2d5a66', asphalt: '#3c4045', roof: '#5a5d59',
-      brick: '#9a5b45', plaster: '#ece8e0', glass: '#a8cbd8', stone: '#bdb5a5', breuksteen: '#a08e74', oker: '#d99a3a', hedge: '#5a9440', fence: '#3b4248',
+      brick: '#9a5b45', plaster: '#ece8e0', stone: '#bdb5a5', breuksteen: '#a08e74', oker: '#d99a3a', hedge: '#5a9440', fence: '#3b4248',
       glass: '#bfe0f0', darkbrick: '#3d3a36', panel: '#4b5157', slats: '#a8743f', corten: '#97512e', curtain: '#6d8ea6', parquet: '#9a6a3e', polished: '#c9c8c3', stonetile: '#d9d0bf', hexbeton: '#b6b4ae', hexgroot: '#c3c0b8', hexdonker: '#3f4245', hexsteen: '#c8b89c', hexraat: '#a9a69e', hexgras: '#8fae6a', hexkei: '#6b6250', pannen: '#a5502e' };
     const OBJ_GLYPH = { tree: '🌳', bush: '🌿', bench: '🪑', lamp: '💡', pillar: '🏛', table: '☕', planter: '🌷', fountain: '⛲', bin: '🗑', bike: '🚲', shelf: '🗄', counter: '🛒', sign: '🪧', bed: '🛏', sofa: '🛋', desk: '🖥', kitchen: '🍳', screen: '🎬', car: '🚗', pump: '⛽', charger: '🔌', solar: '🔆', turbine: '🌬', chimney: '🏭', container: '♻', goal: '🥅', grave: '🪦', boat: '🛥', shelter: '🚏', slide: '🛝', swing: '🎡', sheep: '🐑' };
     function renderCtx() {
@@ -312,14 +324,31 @@
         if (u < -0.02 || u > 1.02 || py < y0 - 0.05 || py > y0 + h + 0.05) continue;
         bt = t; best = { id };
       }
+      // vrije platen (schuine wanden, zuilen, hellingen uit SketchUp): elk vlak als veelhoek in 3D
+      for (let si = 0; si < L.s.length; si++) {
+        const S = L.s[si]; if (S.k !== 'plaat') continue;
+        for (const pl of S.p || []) {
+          if (pl.length < 3) continue;
+          const Q = pl.map(p => [p[0], y0 + p[2], p[1]]);
+          let nx = 0, ny = 0, nz = 0; for (let i = 0; i < Q.length; i++) { const A = Q[i], B = Q[(i + 1) % Q.length]; nx += (A[1] - B[1]) * (A[2] + B[2]); ny += (A[2] - B[2]) * (A[0] + B[0]); nz += (A[0] - B[0]) * (A[1] + B[1]); }
+          const den = d.x * nx + d.y * ny + d.z * nz; if (Math.abs(den) < 1e-9) continue;
+          const t = ((Q[0][0] - o.x) * nx + (Q[0][1] - o.y) * ny + (Q[0][2] - o.z) * nz) / den; if (t <= 0 || t >= bt) continue;
+          const H = [o.x + d.x * t, o.y + d.y * t, o.z + d.z * t], ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+          const [u, v] = ax >= ay && ax >= az ? [1, 2] : ay >= az ? [0, 2] : [0, 1];   // in het vlak met de grootste doorsnede testen
+          let inn = false; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const A = Q[i], B = Q[j]; if ((A[v] > H[v]) !== (B[v] > H[v]) && H[u] < (B[u] - A[u]) * (H[v] - A[v]) / (B[v] - A[v]) + A[u]) inn = !inn; }
+          if (inn) { bt = t; best = { si }; }
+        }
+      }
       return best;
     }
     E.wallRay = wallRay;   // voor tests
     // Wat de gum hier zou weghalen (zelfde volgorde als eraseAt): voor het oplichten vóór je klikt
     function eraseTarget(x, z, firstOnly) {
       const L = lvl(); const oi = objectAt(x, z, 0.8); if (oi >= 0) return { kind: 'voorwerp', oi };
-      const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45); if (w) return { kind: 'muur', id: w.id };
-      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
+      const w = (E.hoverS && wallRay(E.hoverS[0], E.hoverS[1])) || nearestWall(x, z, 0.45);
+      if (w && w.si !== undefined) return { kind: L.s[w.si].muur ? 'wand' : 'helling', si: w.si };   // een vrije plaat in 3D aangewezen
+      if (w) return { kind: 'muur', id: w.id };
+      const si = stairAt(x, z); if (si >= 0) return { kind: L.s[si].k === 'plaat' && L.s[si].muur ? 'wand' : L.s[si].k === 'ramp' || L.s[si].k === 'hexramp' || L.s[si].k === 'plaat' ? 'helling' : 'trap', si };
       const [q, r] = cellAt(x, z); if (L.r[q + ',' + r] && !firstOnly) return { kind: 'dak', rk: q + ',' + r, q, r };
       const tris = brushTris(x, z).filter(okTri).filter(id => L.f[id.join(',')]); if (tris.length) return { kind: 'vloer', tris };
       return null;
@@ -329,6 +358,7 @@
       if (T.oi !== undefined) L.o.splice(T.oi, 1); else if (T.id) delete L.w[T.id]; else if (T.si !== undefined) L.s.splice(T.si, 1); else if (T.rk) delete L.r[T.rk]; else paintFloor(x, z, true);
       return T.kind;
     }
+    E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
     // ---------- Kiezen (V): aanklikken of een rechthoek slepen, dan verplaatsen, draaien per 60°, kopiëren, plakken, weghalen ----------
     // Een selectie hoort bij één verdieping: vloerdriehoeken, muren, trappen, voorwerpen en daken. Verplaatsen en draaien gaan langs het
     // raster (stappen van een driehoekzijde, draaien om een rasterpunt), zodat alles op de driehoeken blijft liggen. Daken en schansen
@@ -426,13 +456,33 @@
     }
     function selSay(pre) { const S = sel(), parts = []; if (S.f.size) parts.push(S.f.size + ' vloerdriehoek' + (S.f.size === 1 ? '' : 'en')); if (S.w.size) parts.push(S.w.size + (S.w.size === 1 ? ' muur' : ' muren')); if (S.s.size) parts.push(S.s.size + (S.s.size === 1 ? ' trap' : ' trappen')); if (S.o.size) parts.push(S.o.size + (S.o.size === 1 ? ' voorwerp' : ' voorwerpen')); if (S.r.size) parts.push(S.r.size + (S.r.size === 1 ? ' dak' : ' daken')); return (pre ? pre + ': ' : '') + (parts.join(', ') || 'niets gekozen'); }
     // bewerkingen
-    function selApply(fn, msg) { const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return; } snap(); const c = selClip(S); selRemove(S); const { out, stay } = fn(c); clipInsert(stay, S.lv); E.sel = clipInsert(out, S.lv); changed(); renderCtx(); const left = clipSize(stay); say(msg + (left ? ' · ' + left + ' dak/schans bleef staan (die horen bij een heel vak)' : ''), 1400); }
+    // Valt er na de bewerking iets buiten het gebied van de module (en zou het dus verdwijnen), dan gebeurt er niets en zegt hij waarom.
+    function selApply(fn, msg) {
+      const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return false; }
+      const oud = JSON.stringify(E.m.lv[S.lv]), redo0 = E.redo, dirty0 = E.dirty;
+      snap(); const c = selClip(S); selRemove(S); const { out, stay } = fn(c); const S1 = clipInsert(stay, S.lv); E.sel = clipInsert(out, S.lv);
+      const weg = clipSize(c) - selCount(E.sel) - selCount(S1);
+      if (weg > 0) {   // terugzetten: niets kwijtraken
+        E.m.lv[S.lv] = JSON.parse(oud); E.undo.pop(); E.redo = redo0; E.dirty = dirty0; E.sel = S; changed(); renderCtx();
+        say('Kan niet: ' + weg + ' onderde' + (weg === 1 ? 'el' : 'len') + ' zou' + (weg === 1 ? '' : 'den') + ' buiten het gebied van de module vallen', 2200); return false;
+      }
+      changed(); renderCtx(); const left = clipSize(stay); say(msg + (left ? ' · ' + left + ' dak/schans bleef staan (die horen bij een heel vak)' : ''), 1400); return true;
+    }
+    // Draaipunt voor draaien en spiegelen: de hele laag om het midden van de module; anders het midden van de keuze, en bij
+    // nog eens draaien of spiegelen van dezelfde keuze hetzelfde punt (anders schuift hij op en komt 6× 60° niet terug).
+    function selPivot(c) {
+      const S = sel(), L = E.m.lv[S.lv], tot = Object.keys(L.f).length + Object.keys(L.w).length + L.s.length + L.o.length + Object.keys(L.r).length;
+      if (selCount(S) === tot) return [0, 0];
+      if (E.selPv && E.selPv.sel === S) return E.selPv.pv;
+      return clipPivot(c);
+    }
+    function selTurn(fn, msg) { const S = sel(); if (!selCount(S)) { say('Niets gekozen', 900); return; } const pv = selPivot(selClip(S)); if (selApply(c => fn(c, pv), msg)) E.selPv = { sel: E.sel, pv }; }   // draaipunt vóór het weghalen bepalen
     const selMove = (di, dj) => selApply(c => clipShift(c, di, dj), 'Verplaatst');
     // een los gekozen voorwerp (geen vloer/muur/trap/dak erbij) vrij verplaatsen, zonder aan het raster vast te zitten
     const clipShiftObjFree = (c, ox, oz) => ({ f: c.f, w: c.w, s: c.s, r: c.r, o: c.o.map(o => Object.assign({}, o, { x: Math.round((o.x + ox) * 1000) / 1000, z: Math.round((o.z + oz) * 1000) / 1000 })) });
     const selMoveFree = (dx, dz) => selApply(c => ({ out: clipShiftObjFree(c, dx, dz), stay: { f: [], w: [], s: [], o: [], r: [] } }), 'Verplaatst');
-    const selRotate = k => selApply(c => clipRot(c, k, clipPivot(c)), k > 0 ? 'Gedraaid 60° rechtsom' : 'Gedraaid 60° linksom');
-    const selMirror = axis => selApply(c => clipMirror(c, axis, clipPivot(c)), axis === 'x' ? 'Gespiegeld (links ↔ rechts)' : 'Gespiegeld (boven ↕ onder)');
+    const selRotate = k => selTurn((c, pv) => clipRot(c, k, pv), k > 0 ? 'Gedraaid 60° rechtsom' : 'Gedraaid 60° linksom');
+    const selMirror = axis => selTurn((c, pv) => clipMirror(c, axis, pv), axis === 'x' ? 'Gespiegeld (links ↔ rechts)' : 'Gespiegeld (boven ↕ onder)');
     // materiaal van de gekozen muren of vloeren in één keer wisselen
     function selMat(kind, mat) { const S = sel(), L = E.m.lv[S.lv], ids = [...S[kind]].filter(id => kind === 'w' ? L.w[id] : L.f[id]); if (!ids.length) return; snap(); for (const id of ids) { if (kind === 'w') L.w[id] = Object.assign({}, L.w[id], { m: mat }); else L.f[id] = mat; } changed(); say(ids.length + (kind === 'w' ? (ids.length === 1 ? ' muur' : ' muren') + ': ' + MV2.walls[mat] : ' vloerdriehoek' + (ids.length === 1 ? '' : 'en') + ': ' + MV2.floors[mat]), 1400); }
     function selDelete() { const S = sel(); if (!selCount(S)) return; snap(); selRemove(S); E.sel = selEmpty(); changed(); renderCtx(); say('Weggehaald', 900); }
@@ -631,8 +681,12 @@
     });
     document.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
     // ---------- tekenen (bovenaanzicht) ----------
-    function resize() { const r = stage.getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height)); cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); if (rnd) { rnd.setSize(W, H, false); cv3.width = W * dpr; cv3.height = H * dpr; rnd.setPixelRatio(dpr); dirty3(); } draw(); }
+    function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.max(1, stage.clientWidth); H = Math.max(1, stage.clientHeight);   // de echte maat: getBoundingClientRect telt de inzoom-animatie bij het openen mee, dan bleef het canvas te groot en wees de muis ernaast
+      cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); if (rnd) { rnd.setSize(W, H, false); cv3.width = W * dpr; cv3.height = H * dpr; rnd.setPixelRatio(dpr); dirty3(); } draw(); }
     window.addEventListener('resize', () => { if (!app.hidden) resize(); });
+    // ook als alleen het tekenvlak van maat verandert (zijpaneel breder of smaller, lettertype geladen): anders blijft het canvas
+    // op de oude maat, wordt de tekening in elkaar gedrukt en wijst de muis een andere plek aan dan je ziet
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { if (app.hidden) return; if (stage.clientWidth !== W || stage.clientHeight !== H) resize(); }).observe(stage);
     const css = n => getComputedStyle(app).getPropertyValue(n).trim();
     function draw() { if (drawReq) return; drawReq = true; requestAnimationFrame(() => { drawReq = false; if (!app.hidden) paint(); }); }
     function hexPath(cx, cz, rad) { ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = (30 + 60 * i) * Math.PI / 180, [sx, sz] = toS(cx + rad * Math.cos(a), cz + rad * Math.sin(a)); i ? ctx.lineTo(sx, sz) : ctx.moveTo(sx, sz); } ctx.closePath(); }
@@ -791,7 +845,8 @@
             }
             else if (T.si !== undefined) {   // in 3D het schuine trapvlak (en het bordes), anders de omtrek
               const S0 = lvl().s[T.si], g = stairGeom(S0), w = g.w, rise = MV2.LV_H;
-              if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
+              if (in3 && S0.k === 'plaat') { for (const pl of S0.p || []) poly3(pl.map(p => [p[0], p[1], y0 + p[2]])); }   // de echte vlakken (schuine wand, zuil, helling)
+              else if (in3 && S0.k === 'u') { const c2 = g.sd * w; poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise / 2], [...g.at(g.len, -w / 2), y0 + rise / 2]]); poly3([[...g.at(g.len, c2 - w / 2), y0 + rise / 2], [...g.at(g.len, c2 + w / 2), y0 + rise / 2], [...g.at(0, c2 + w / 2), y0 + rise], [...g.at(0, c2 - w / 2), y0 + rise]]); }
               else if (in3 && S0.k !== 'hexramp' && S0.k !== 'spiral') { poly3([[...g.at(0, -w / 2), y0], [...g.at(0, w / 2), y0], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len, -w / 2), y0 + rise]]); if (S0.k === 'stair') poly3([[...g.at(g.len, -w / 2), y0 + rise], [...g.at(g.len, w / 2), y0 + rise], [...g.at(g.len + w * SQ3 / 2, 0), y0 + rise]]); }
               else { const pts = g.poly.map(p => toS(p[0], p[1])); ctx.beginPath(); pts.forEach((p, n) => n ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             }
@@ -840,6 +895,7 @@
     }
     // ---------- 3D-weergave ----------
     let rnd = null, scn = null, grp = null, t3 = 0, cam = null, sun = null, base = null;
+    E.proj3 = (x, y, z) => { if (!cam) return null; camSync(); const v = new THREE.Vector3(x, y, z).project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; };   // voor tests: wereld → canvas
     let ghost = null, ghostKey = '', ghostWant = null;
     function objGhost(o) {   // het voorwerp dat je gaat neerzetten, half doorzichtig in de 3D-weergave
       if (!scn) return; const key = o && E.vm === '3d' ? o.t + '|' + o.rot.toFixed(3) : ''; let ch = false;
@@ -960,7 +1016,7 @@
     stage.addEventListener('wheel', e => { if (E.walk) { e.stopPropagation(); e.preventDefault(); } }, { capture: true, passive: false });
     // ---------- module: laden, bewaren, bibliotheek ----------
     const catSel = $('cat'); for (const c of MV2.cats) { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); }
-    function loadModule(m, idx) { E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); fit(); changed(); renderLib(); }
+    function loadModule(m, idx) { E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
     function newModule() { loadModule(mv2New('Nieuwe module'), -1); $('name').value = ''; say('Nieuwe module: begin met vloer of muren', 2500); }
     // duidelijke melding bovenin (niet alleen het kleine regeltje rechtsonder) en de knop kleurt even groen
     let toastT = 0;
@@ -983,32 +1039,55 @@
     $('grid').addEventListener('change', () => {
       const n = +$('grid').value, old = E.m.n || 4; if (n === old) return;
       if (n < old) { const empty = E.m.lv.every(isEmptyLevel); if (!empty) { $('grid').value = String(old); say('Grover raster kan alleen bij een lege module', 2500); return; } snap(); E.m.n = n; changed(); return; }
-      snap(); refineModule(E.m, n / old); changed(); say('Raster verfijnd naar ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 2 }) + ' m');
+      snap(); for (let f = n / old; f > 1; f /= 2) refineModule(E.m, 2); changed(); say('Raster verfijnd naar ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 2 }) + ' m');
     });
+    // Vakken en raster als knoppen linksonder in het tekenvlak; ze zetten de (verborgen) keuzelijsten en volgen ze
+    function maatKnoppen() {
+      for (const [sel, box, kort] of [['area', 'segArea', o => ['1', '7', '19', '37'][+o.value]], ['grid', 'segGrid', o => (R / +o.value).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m']]) {
+        const S = $(sel), B = $(box); if (!S || !B) continue; B.innerHTML = '';
+        for (const o of S.options) { const b = document.createElement('button'); b.type = 'button'; b.textContent = kort(o); b.dataset.v = o.value; b.title = o.textContent; b.addEventListener('click', () => { if (S.value === o.value) return; S.value = o.value; S.dispatchEvent(new Event('change')); maatSync(); }); B.appendChild(b); }
+      }
+      maatSync();
+    }
+    function maatSync() { for (const [sel, box] of [['area', 'segArea'], ['grid', 'segGrid']]) { const S = $(sel), B = $(box); if (S && B) for (const b of B.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.value)); } }
+    E.maatSync = maatSync;
     function refineModule(m, f) {   // f = 2: elk rasterpunt (i,j) wordt (2i,2j); driehoeken en ribben splitsen
       for (const L of m.lv) {
         const nf = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), mat = L.f[id]; const I2 = i * f, J = j * f; if (f === 2) { if (!t) [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]].forEach(k => { nf[k.join(',')] = mat; }); else [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]].forEach(k => { nf[k.join(',')] = mat; }); } else nf[id] = mat; } L.f = nf;
+        if (L.fk && f === 2) { const nk = {}; for (const id in L.fk) { const [i, j, t] = id.split(',').map(Number), v = L.fk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = v; }); } L.fk = nk; }   // vloersoort per driehoek mee splitsen
         const nw = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; for (let s = 0; s < f; s++) nw[wallKey(i * f + D[0] * s, j * f + D[1] * s, d)] = Object.assign({}, L.w[id]); } L.w = nw;
         for (const S of L.s) { S.a = [S.a[0] * f, S.a[1] * f]; S.n = S.n * f; }
       }
       m.n = (m.n || 4) * f;
     }
+    maatKnoppen();
+    // bibliotheek groter: breder paneel en grotere plaatjes (onthouden)
+    { const knop = $('libBig'), zet = aan => { app.classList.toggle('mm-libgroot', aan); if (knop) { knop.setAttribute('aria-pressed', String(aan)); knop.textContent = aan ? '⤡ Kleiner' : '⤢ Groter'; } try { localStorage.setItem('raatmaker-bib-groot', aan ? '1' : ''); } catch (e) { } if (E.m) renderLib(); };
+      let groot = false; try { groot = localStorage.getItem('raatmaker-bib-groot') === '1'; } catch (e) { }
+      zet(groot); if (knop) knop.addEventListener('click', e => { e.stopPropagation(); zet(!app.classList.contains('mm-libgroot')); }); }
     function renderLib() {
       const el = $('lib'), q = ($('filter').value || '').trim().toLowerCase(); el.innerHTML = '';
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
-      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
+      // bergfort-modules (en kopieën ervan) vind je ook met 'bergfort'; bij elk staat hoe vaak hij in het fort voorkomt
+      const berg = m => m.bron === 'bergfort' || String(m.id || '').startsWith('bergfort:');
+      const inFort = new Map(); if (typeof SKP_RAAT !== 'undefined') for (const p of SKP_RAAT.fort) { const id = 'bergfort:' + SKP_RAAT.mods[p[0]].name; inFort.set(id, (inFort.get(id) || 0) + 1); }
+      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '') + (berg(m) ? ' bergfort' : '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
       $('libN').textContent = list.length + (list.length === modules.length ? '' : ' van ' + modules.length);
       for (const [m, i] of list) {
         const d = document.createElement('div'); d.className = 'mod'; d.setAttribute('aria-current', String(i === E.editing));
-        const c = m.v === 2 ? mv2Thumb(m, 0, 18) : modThumb(m, 0, 18); d.appendChild(c);
-        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') : 'oude schets'}</small>`; d.appendChild(sp);
+        const px = app.classList.contains('mm-libgroot') ? 96 : 18;   // grote bibliotheek: scherpe plaatjes
+        const c = m.v === 2 ? mv2Thumb(m, 0, px) : modThumb(m, 0, px); d.appendChild(c);
+        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') + (berg(m) ? ' · bergfort' + (inFort.get(m.id) ? ' ' + inFort.get(m.id) + '×' : ' (kopie)') : '') : 'oude schets'}</small>`; d.appendChild(sp);
         const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Verwijderen'; del.addEventListener('click', ev => { ev.stopPropagation(); if (!sure('del' + m.id, '"' + m.name + '" verwijderen? Geplaatste exemplaren gaan ook weg')) { del.textContent = 'Zeker?'; del.classList.add('warn'); return; } say('"' + m.name + '" verwijderd'); dropModule(m); modules.splice(i, 1); if (E.editing === i) { E.editing = -1; } else if (E.editing > i) E.editing--; saveMods(); renderStrip(); renderLib(); });
         d.appendChild(del);
         d.addEventListener('click', () => { if (m.v !== 2) { say('Een oude schets-module kun je hier niet bewerken; wel plaatsen of verwijderen', 3000); return; } if (E.dirty && !sure('load' + m.id, 'Niet-bewaarde wijzigingen weggooien?')) return; loadModule(m, i); });
         el.appendChild(d);
       }
     }
-    $('filter').addEventListener('input', renderLib);
+    // knop Bergfort: zet het filter op 'bergfort' (nog eens: weer alles); de knop licht op zolang dat filter staat
+    const fBerg = $('fBerg'), bergSync = () => { if (fBerg) fBerg.setAttribute('aria-pressed', String(($('filter').value || '').trim().toLowerCase() === 'bergfort')); };
+    $('filter').addEventListener('input', () => { bergSync(); renderLib(); });
+    if (fBerg) fBerg.addEventListener('click', e => { e.stopPropagation(); const f = $('filter'); f.value = fBerg.getAttribute('aria-pressed') === 'true' ? '' : 'bergfort'; bergSync(); renderLib(); });
     // delen
     async function download(name, text) {
       try { const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null; if (dl) { try { await dl.save({ filename: name, data: text }); say('Bestand bewaard'); } catch (e) { say(e && e.code === 'declined' ? 'Niet bewaard' : 'Bewaren lukt hier niet'); } return; } } catch (e) { /* geen artifact-omgeving */ }

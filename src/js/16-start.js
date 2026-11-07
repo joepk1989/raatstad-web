@@ -91,7 +91,10 @@
     DN.place(camera.position);
     renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = (shadowN++ & 1) === 0;   // schaduwkaart om het andere beeld: scheelt een hele renderronde
     cityTick(Math.min(dt, 0.1));   // stadsgrens en wijzer naar het centrum (15e)
-    hudRender(); chatter.update(dt); perfTick(); autoResTick(now, frameMs);   // gewoon, of in twee keer met de laagkiezer (15d)
+    // scherpte aanpassen vóór het tekenen: een andere pixelverhouding maakt het canvas leeg, en ná het tekenen zag je dan
+    // één beeld lang een leeg scherm (knipperen tijdens het bouwen, als een bouwactie een paar trage beelden gaf)
+    autoResTick(now, frameMs);
+    hudRender(); chatter.update(dt); perfTick();   // gewoon, of in twee keer met de laagkiezer (15d)
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

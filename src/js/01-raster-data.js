@@ -12,7 +12,7 @@
   const SQ3 = Math.sqrt(3);
   const INNER = R * SQ3 / 2;     // midden tot vlakke kant
   const GRID_RINGS = 30;         // de bouwgrond is oneindig; zoveel ringen rasterlijnen tonen we rond waar je kijkt
-  const MAX_H = 60;              // maximale hoogte in meter (20 verdiepingen)
+  const MAX_H = 150;             // maximale hoogte in meter (50 verdiepingen van 3 m, gelijk aan MV2.STAD_LV)
   const NEIGH = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   const FLAT = 0.15;             // stoeprand / maaiveldtegel
   const ROAD_W = 5;              // breedte rijbaan, meter
@@ -183,9 +183,14 @@
     try {
       localStorage.setItem(STORE, snap);
       localStorage.setItem(SLOT, JSON.stringify({ slot, slotName }));
-      if (slot === 'mijn') localStorage.setItem(MINE, serialize(cells));
-    } catch (e) {}
+      if (slot === 'mijn') localStorage.setItem(MINE, snap);
+      saveWarned = false;
+    } catch (e) {
+      // browseropslag vol of geblokkeerd (privévenster): één keer waarschuwen, anders raak je ongemerkt werk kwijt
+      if (!saveWarned) { saveWarned = true; setTimeout(() => { try { toast('Bewaren in de browser lukt niet (opslag vol of privévenster). Bewaar je stad als bestand via Menu.', 6000); } catch (e2) { } }, 60); }   // na de melding van de actie zelf
+    }
   }
+  let saveWarned = false;
   function load(key = STORE) {
     let raw = null; try { raw = localStorage.getItem(key); } catch (e) { return null; }
     return raw ? parseCity(raw) : null;

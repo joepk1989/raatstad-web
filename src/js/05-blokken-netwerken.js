@@ -240,7 +240,8 @@
       const pg = padGeoCache.get(pkey);
       if (pv.wide && !M.tileBeige) {
         const tile = (base, line, size) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 64, 64); g.fillStyle = line; g.fillRect(0, 0, 64, 2); g.fillRect(0, 0, 2, 64); const tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(1 / size, 1 / size); tx.anisotropy = aniso; return std({ map: tx, roughness: 0.95 }); };
-        M.tileBeige = std({ map: hexTegelTex(9 / 24, 4, 4, '#94897a', 0.014, (c, r) => `hsl(${36 + hexH01(c, r + 3) * 8}, 16%, ${(72 + (hexH01(c + 4, r) - 0.5) * 10).toFixed(1)}%)`), roughness: 0.95 });   // voetpad: natuursteen zeshoeken M.tileCycle = tile('#7c8a91', '#5f6c73', 1.5); M.tileLine = std({ color: '#23282c' });
+        M.tileBeige = std({ map: hexTegelTex(9 / 24, 4, 4, '#94897a', 0.014, (c, r) => `hsl(${36 + hexH01(c, r + 3) * 8}, 16%, ${(72 + (hexH01(c + 4, r) - 0.5) * 10).toFixed(1)}%)`), roughness: 0.95 });   // voetpad: natuursteen zeshoeken
+        M.tileCycle = tile('#7c8a91', '#5f6c73', 1.5); M.tileLine = std({ color: '#23282c' });   // fietsstrook en middenstreep
       }
       const m = new THREE.Mesh(pg.geo, [pv.wide ? M.tileBeige : M.paver, M.kerb]); m.receiveShadow = true; m.castShadow = true; o.add(m);
       if (pg.lane) { const ml = new THREE.Mesh(pg.lane, [M.tileCycle, M.tileCycle]); ml.receiveShadow = true; o.add(ml); }
