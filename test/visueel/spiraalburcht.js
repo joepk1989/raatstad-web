@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
   // looptest
   const r = await p.evaluate(() => {
     const S = window.__SC(), st = 0.75, start = S.cellToWorld(4, 0), seen = new Set(), q = [[start.x + 3, start.z, 0]], hoogste = { h: 0 }, bereikt = {};
-    const doelen = { brug: [2, 0, 15], top: [3, 0, 33], ring2_bordes: [-2, 2, 6], ring3_bordes: [-3, 0, 24], plein: [0, 1, 0] };
+    const doelen = { plein: [0, 1, 0], zuilenhal: [-1, 1, 0], ring2_bordes: [-2, 2, 3], brug: [2, 0, 15], dubbele_helling: [-2, 3, 24], wandelgang: [-3, 1, 24], ring3_bordes: [-3, 3, 24], top: [3, 0, 33] };
     const sleutel = (x, z, h) => Math.round(x / st) + ',' + Math.round(z / st) + ',' + Math.round(h * 2);
     let n = 0;
     while (q.length && n < 400000) {
@@ -33,7 +33,7 @@ const { open, OUT } = require('./helper');
     return { stappen: n, hoogste: +hoogste.h.toFixed(2), waar: [hq, hr], bereikt };
   });
   console.log('looptest:', r.stappen, 'plekken · hoogste punt', r.hoogste, 'm op vak', r.waar.join(','), '· bereikt:', JSON.stringify(r.bereikt));
-  const goed = r.bereikt.plein && r.bereikt.brug && r.bereikt.top && r.hoogste >= 32.9;
+  const goed = Object.keys({ plein: 1, zuilenhal: 1, ring2_bordes: 1, brug: 1, dubbele_helling: 1, wandelgang: 1, ring3_bordes: 1, top: 1 }).every(k => r.bereikt[k]) && r.hoogste >= 32.9;
   console.log(goed ? 'GOED: van de straat tot de top te lopen' : 'FOUT: niet alles bereikbaar'); console.log('fouten', errs);
   await b.close();
 })();

@@ -19,13 +19,14 @@ const DOEL = process.env.FOTOS || path.join(OUT, 'spiraalburcht_fotos'); fs.mkdi
   // op ooghoogte: de speler op het pad (hoogte uit de module die op dat vak het pad vormt), kijkend naar een volgend vak
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(1500);
   const plekken = [
-    ['oog_1_poort', 'Ooghoogte · voor de poort', [5, 0], [3, 0], 0],
-    ['oog_2_plein', 'Ooghoogte · op het binnenplein', [1, -1], [-1, 1], 0],
-    ['oog_3_helling', 'Ooghoogte · eerste helling (ring 2)', [0, 2], [-2, 2], null],
-    ['oog_4_bordes', 'Ooghoogte · bordes in de bocht', [-2, 2], [-2, 0], null],
-    ['oog_5_brug', 'Ooghoogte · de brug boven de ingang (15 m)', [2, -1], [2, 1], null],
-    ['oog_6_buitenmuur', 'Ooghoogte · over de buitenmuur', [-3, 2], [-3, 0], null],
-    ['oog_7_top', 'Ooghoogte · bovenop het poortgebouw (33 m)', [3, 0], [0, 0], 'top'],
+    ['oog_01_poort', 'Ooghoogte · voor de poort', [5, 0], [3, 0], 0],
+    ['oog_02_plein', 'Ooghoogte · binnenplein met zuilenhallen', [1, -1], [-1, 1], 0],
+    ['oog_03_klimbocht', 'Ooghoogte · bocht die klimt (ring 2)', [1, 1], [-1, 2], 0],
+    ['oog_04_bordes', 'Ooghoogte · bordes in de bocht', [-1, 2], [-2, 1], null],
+    ['oog_05_brug', 'Ooghoogte · de brug boven de ingang (15 m)', [2, -1], [2, 1], null],
+    ['oog_06_dubbele_helling', 'Ooghoogte · steile dubbele helling', [0, 3], [-3, 3], null],
+    ['oog_07_wandelgang', 'Ooghoogte · wandelgang over de muur (24 m)', [-3, 3], [-3, 0], null],
+    ['oog_08_top', 'Ooghoogte · loggia op het poortgebouw (33 m)', [3, -1], [3, 0], null],
   ];
   for (const [naam, titel, van, naar, hoogte] of plekken) {
     await p.evaluate(([van, naar, hoogte]) => {
