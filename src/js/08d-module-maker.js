@@ -9,7 +9,7 @@
     { const sb = document.getElementById('mm_sheet'), sd = document.getElementById('mm_side');   // op de telefoon: de zijbalk is een uitklapbaar paneel onderin
       if (sb && sd) sb.addEventListener('click', () => { const o = !sd.classList.contains('mm-open'); sd.classList.toggle('mm-open', o); sb.setAttribute('aria-expanded', String(o)); window.dispatchEvent(new Event('resize')); }); }
     const cv = $('cv'), ctx = cv.getContext('2d'), cv3 = $('cv3'), stage = $('stage');
-    const E = window.__MME = { m: null, lv: 0, tool: 'wall', wmat: 'brick', fmat: 'paver', vmat: 'concrete', vmode: 'ruimte', open: 'door', obj: 'tree', skind: 'stair', brush: 'hex', view: { x: 0, z: 0, s: 14 }, vm: '3d', th: 0.6, ph: 0.85, upto: true, undo: [], redo: [], hover: null, drag: null, editing: -1, dirty: false, pan: null };
+    const E = window.__MME = { m: null, lv: 0, tool: 'wall', wmat: 'brick', fmat: 'paver', vmat: 'concrete', vmode: 'ruimte', open: 'door', obj: 'tree', skind: 'stair', brush: 'hex', view: { x: 0, z: 0, s: 14 }, vm: '3d', th: 0.6, ph: 0.85, lagen: 'boven', undo: [], redo: [], hover: null, drag: null, editing: -1, dirty: false, pan: null };
     let W = 0, H = 0, dpr = 1, drawReq = false, msgT = 0;
     // Bevestigen met een tweede klik (een venster als confirm() werkt niet overal, bijvoorbeeld in een ingesloten pagina)
     let sureKey = null, sureT = 0;
@@ -89,7 +89,11 @@
     { const lv = $('levels'), b = document.createElement('button'); b.type = 'button'; b.id = 'mm_lvCopy'; b.className = 'mm-lvcopy'; b.title = 'Deze verdieping kopiëren naar de verdieping erboven'; b.textContent = 'Kopie ↑'; b.addEventListener('click', () => { if (E.m) copyUp(); }); lv.appendChild(b); }
     const bCheck = mkBtn('edit', 'check', 'Controleren: kun je overal komen, komen trappen uit, staan voorwerpen goed? (Shift+C)', () => runCheck()); bCheck.classList.add('mm-check');
     const b2d = mkBtn('view', 'v2d', 'Bovenaanzicht (2)', () => setView('2d')), b3d = mkBtn('view', 'v3d', '3D (3): teken op de verdieping waar je bent; draaien met de middelste muisknop, Alt of het handje, schuiven met Shift', () => setView('3d'));
-    const bUpto = mkBtn('view', 'upto', 'In 3D alleen tot en met de huidige verdieping tonen', () => { E.upto = !E.upto; bUpto.setAttribute('aria-pressed', String(E.upto)); dirty3(); });
+    // Verdiepingen in 3D: de knop wisselt tussen vier standen (E.lagen): erboven doorzichtig, alle andere doorzichtig,
+    // erboven verborgen, alles gewoon. Zo zie je de verdieping waarop je tekent en toch wat erboven en eronder ligt.
+    const LAGEN = { boven: 'Verdiepingen erboven doorzichtig', anders: 'Andere verdiepingen doorzichtig', verberg: 'Verdiepingen erboven verborgen', alles: 'Alle verdiepingen gewoon' }, LAGEN_V = Object.keys(LAGEN);
+    const bUpto = mkBtn('view', 'upto', 'Verdiepingen in 3D: erboven doorzichtig → andere doorzichtig → erboven verborgen → alles gewoon', () => { E.lagen = LAGEN_V[(LAGEN_V.indexOf(E.lagen || 'boven') + 1) % LAGEN_V.length]; lagenKnop(); rebuild3(); say(LAGEN[E.lagen], 1600); });
+    const lagenKnop = () => { bUpto.setAttribute('aria-pressed', String((E.lagen || 'boven') !== 'alles')); bUpto.title = 'Verdiepingen in 3D: ' + LAGEN[E.lagen || 'boven'].toLowerCase() + ' (klik voor de volgende stand)'; };
     const bWalk = mkBtn('view', 'walk', 'Rondlopen (4): loop zelf door de module, met WASD of de pijltjes; Esc gaat terug', () => (E.walk ? walkStop() : walkStart()));
     mkBtn('view', 'zoomIn', 'Inzoomen', () => zoom(1.25)); mkBtn('view', 'zoomOut', 'Uitzoomen', () => zoom(0.8)); mkBtn('view', 'fit', 'Passend maken', () => fit());
     function setTool(k) { if (E.walk) walkStop(); if (k !== 'select') { E.sel = null; E.paste = false; } E.tool = k; for (const t in toolBtns) toolBtns[t].setAttribute('aria-pressed', String(t === k)); E.drag = null; renderCtx(); cv.style.cursor = k === 'hand' ? 'grab' : k === 'select' ? 'default' : 'crosshair'; draw(); }
@@ -1112,13 +1116,24 @@
     // dirty3: het model is veranderd (opnieuw bouwen, iets later); camera bewogen: alleen opnieuw tekenen (volgende frame)
     let rq3 = false;
     function dirty3() { if (E.vm !== '3d') return; if (!rq3) { rq3 = true; requestAnimationFrame(() => { rq3 = false; render3(); draw(); }); } }
+    E.grp3 = () => grp;   // voor tests
     function rebuild3() { if (E.vm !== '3d') return; clearTimeout(t3); t3 = setTimeout(() => { buildGrp(); render3(); }, 40); }
     function render3() { if (app.hidden || E.vm !== '3d') return; ensure3(); if (!grp) buildGrp(); camSync(); rnd.render(scn, cam); }
     function buildGrp() {
       if (app.hidden || E.vm !== '3d') return; ensure3();
       if (grp) { grp.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); }); scn.remove(grp); grp = null; }
-      const mm = E.upto ? Object.assign({}, E.m, { lv: E.m.lv.slice(0, E.lv + 1) }) : E.m;
-      try { grp = mv2Build(mm, (x, z) => [x, z]).group; scn.add(grp); } catch (e) { say('3D kan niet: ' + e.message, 3000); }
+      // per verdieping gewoon, doorzichtig of verborgen: de losse stukken (pieces) per verdieping indelen (hoogte van het midden)
+      const stand = E.lagen || 'boven', mm = stand === 'verberg' ? Object.assign({}, E.m, { lv: E.m.lv.slice(0, E.lv + 1) }) : E.m;
+      const zicht = li => li === E.lv || stand === 'alles' || stand === 'verberg' ? 1 : li > E.lv ? 0.16 : stand === 'anders' ? 0.3 : 1;
+      try {
+        const b = mv2Build(mm, (x, z) => [x, z], [0, 0], { pieces: true }); grp = b.group; const zak = new Map(), bb = new THREE.Box3();
+        for (const { mat, g } of b.pieces || []) { g.computeBoundingBox(); bb.copy(g.boundingBox); const li = Math.max(0, Math.min(mm.lv.length - 1, Math.floor(((bb.min.y + bb.max.y) / 2 + 0.05) / MV2.LV_H))), a = zicht(li), kk = a < 1 ? a : 1;
+          let Z = zak.get(mat); if (!Z) zak.set(mat, Z = new Map()); let L2 = Z.get(kk); if (!L2) Z.set(kk, L2 = []); L2.push(g); }
+        for (const [mat, Z] of zak) for (const [a, list] of Z) {
+          let M = mat; if (a < 1) { E._doorzicht = E._doorzicht || new Map(); const sl = mat.uuid + a; M = E._doorzicht.get(sl); if (!M) { M = mat.clone(); M.transparent = true; M.opacity = a; M.depthWrite = false; E._doorzicht.set(sl, M); } }
+          const mesh = new THREE.Mesh(mergeGeos(list), M); mesh.userData.own = true; if (a < 1) mesh.renderOrder = 2; grp.add(mesh); for (const g of list) g.dispose(); }
+        scn.add(grp);
+      } catch (e) { say('3D kan niet: ' + e.message, 3000); }
       // gebied als zeshoeken op de grond
       const k = E.m.k || 0; const area = new THREE.Group(); for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) if (mv2HexDist(q, r) <= k) { const c = mv2CellXZ(q, r), h = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.15, R - 0.15, 0.06, 6), new THREE.MeshStandardMaterial({ color: '#4d5a3e' })); h.position.set(c[0], 0.0, c[1]); h.receiveShadow = true; h.userData.own = true; area.add(h); } if (grp) grp.add(area); else scn.add(area);
     }
@@ -1328,5 +1343,5 @@
       if (reduced() || typeof mode === 'undefined' || mode !== 'build') { E.fromDist = 0; return openNow(m); }
       E.fromDist = orbit.dist; flyDist(Math.max(16, orbit.dist * 0.5), 380, () => openNow(m));
     };
-    bUpto.setAttribute('aria-pressed', String(E.upto));
+    lagenKnop();
   })();
