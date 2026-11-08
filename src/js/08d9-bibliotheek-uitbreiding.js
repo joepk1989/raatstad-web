@@ -330,3 +330,29 @@
     };
     if (D[key]) D[key]();
   }
+  // ---------- Dorpshuizen (heuveldorp): Italiaanse huizen met verschillende kleuren, ramen en daken ----------
+  // Stucwerk in oker, zalm, terracotta, geel, wit en natuursteen; raampatronen (opts.ramen van ring, 08e): hoekramen,
+  // paren, één in het midden, om en om, of asymmetrisch; beneden minder ramen dan boven. Daken: schild-, lessenaars- en
+  // zadeldak, en een dakterras met lage muurtjes en plantenbakken. De deur zit op zijde 0, de trap langs de achterwand.
+  const DORP = [
+    ['Dorpshuis · oker · hoekramen', 'oker', 2, 'hip', 'enkel', 'hoek'],
+    ['Dorpshuis · zalm · paren', 'zalm', 2, 'hip', 'enkel', 'paar'],
+    ['Dorpshuis · terracotta · hoog', 'terra', 3, 'hip', 'paar', 'hoek'],
+    ['Dorpshuis · geel · dakterras', 'geel', 2, 'terras', 'enkel', 'om'],
+    ['Dorpshuis · wit · lessenaar', 'plaster', 2, 'shed3', 'buiten', 'hoek'],
+    ['Dorpshuis · natuursteen · hoekramen', 'stone', 2, 'hip', 'paar', 'hoek'],
+    ['Dorpshuis · zalm · dakterras', 'zalm', 3, 'terras', 'enkel', 'paar'],
+    ['Dorpshuis · terracotta · zadeldak', 'terra', 2, 'gable1', 'buiten', 'buiten'],
+  ];
+  function libDorp(add) {
+    for (const [nm, mat, lagen, dak, beneden, boven] of DORP) {
+      const b = libBuilder(nm, 'Wonen');
+      for (let f = 0; f < lagen; f++) { b.cell(f, 0, 0, f ? 'wood' : 'tile'); b.cellRing(f, 0, 0, mat, { open: f ? {} : { 0: 'door' }, ramen: f ? boven : beneden }); }
+      if (dak === 'terras') {   // dakterras: tegelvloer met lage muurtjes langs de rand (geen hekken), plantenbakken en een tafel
+        b.cell(lagen, 0, 0, 'stonetile'); b.m.rand = 'muurtje';
+        for (const [x, z] of [[4.5, 4.5], [-4.5, 4.5], [5.5, -2.5], [-5.5, -2.5]]) b.obj(lagen, 'planter', x, z); b.obj(lagen, 'table', 0, 1.5);
+      } else b.roof(lagen - 1, 0, 0, dak);
+      if (lagen > 1) b.stairwell(lagen + (dak === 'terras' ? 1 : 0), 0, 6.75, 3, 3, 1.2);   // langs de achterwand, tegenover de deur (ook naar het dakterras)
+      add(b);
+    }
+  }

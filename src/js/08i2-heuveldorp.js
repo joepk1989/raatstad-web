@@ -94,14 +94,16 @@
     spot('Winkel · bakkerij', 4, 3); spot('Apotheek · wit', 4, 4); spot('Winkel · boetiek', 7, 1); spot('Horeca · café met terras', 7, 2, 0.6);
     spot('Park · vijver', 11, 0); spot('Park · speeltuin', 11, 4, 0.3);
     // huizen dicht langs de straat, groen ertussen, bos aan de voet
-    const HUIS = ['Rijhuis · natuursteen', 'Rijhuis · wit', 'Stadswoning · wit', 'Rijhuis · natuursteen', 'Villa · natuursteen · plein', 'Rijhuis · wit', 'Herenhuis · natuursteen', 'Rijhuis · natuursteen'];
+    // de huizen: de dorpshuizen in verschillende kleuren, ramen en daken (08d9), met hier en daar een rijhuis, villa of herenhuis
+    const HUIS = ['Dorpshuis · oker · hoekramen', 'Dorpshuis · zalm · paren', 'Rijhuis · natuursteen', 'Dorpshuis · terracotta · hoog', 'Dorpshuis · geel · dakterras', 'Dorpshuis · wit · lessenaar', 'Villa · natuursteen · plein', 'Dorpshuis · natuursteen · hoekramen',
+      'Dorpshuis · zalm · dakterras', 'Rijhuis · wit', 'Dorpshuis · terracotta · zadeldak', 'Dorpshuis · oker · hoekramen', 'Herenhuis · natuursteen', 'Dorpshuis · geel · dakterras', 'Dorpshuis · zalm · paren', 'Dorpshuis · terracotta · hoog'];
     const GROEN = ['Park · plantsoen', 'Tuin · moestuin', 'Park · bankjes', 'Tuin · rozentuin'];
     // langs de straat staan de huizen dicht op elkaar (met hier en daar een tuintje); verder van de straat olijfgaarden,
     // een stukje bos en open gras, zodat je de terrassen van de heuvel ziet
     for (let q = -12; q <= 12; q++) for (let r = -12; r <= 12; r++) {
       const n = ring(q, r); if (n > 12 || !free(q, r) || onRoad(q, r)) continue;
       const w = cellToWorld(q, r), d = roadDist(w.x, w.z), h = ((q * 7 + r * 13 + q * r * 3) & 15), street = d < 14;
-      if (n < FOOT) { if (street) { if (h < 13) mod(HUIS[h % HUIS.length], q, r); else mod(GROEN[h % GROEN.length], q, r); } else if (h < 6) mod('Tuin · boomgaard', q, r); else if (h < 8) mod('Bos · bomen', q, r); else if (h < 9) mod(GROEN[h % GROEN.length], q, r); }
+      if (n < FOOT) { if (street) { if (h < 13) mod(HUIS[(q * 5 + r * 11 + ((q * r) & 7)) & 15], q, r); else mod(GROEN[h % GROEN.length], q, r); } else if (h < 6) mod('Tuin · boomgaard', q, r); else if (h < 8) mod('Bos · bomen', q, r); else if (h < 9) mod(GROEN[h % GROEN.length], q, r); }
       else if (n > FOOT && n <= FOOT + 2 && h < 6) mod(h < 4 ? 'Bos · bomen' : 'Tuin · boomgaard', q, r);   // buiten de ringweg: een rand bos en olijfgaard, niet meer (prestaties)
     }
     // randvulling langs de wegen: alleen op het vlakke land (op een terras ligt het stukje park hoger dan de weg)
