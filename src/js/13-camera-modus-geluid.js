@@ -11,6 +11,7 @@
     flyCam.on = true; flyCam.x = camera.position.x; flyCam.y = camera.position.y; flyCam.z = camera.position.z;
     flyCam.yaw = Math.atan2(-d.x, -d.z); flyCam.pitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
     flyCam.fov = camera.fov; flyCam.near = camera.near; flyCam.fovT = 65; flyCam.vx = flyCam.vy = flyCam.vz = 0; camera.fov = 65; camera.near = 0.3; camera.rotation.order = 'YXZ'; camera.updateProjectionMatrix();
+    if (window.__skpBouw && window.__skpBouw.on) window.__skpBouw.stop();   // cameramodus: niets meer klaar om neer te zetten
     document.body.classList.add('fly'); gridLines.visible = false; ghost.visible = false; ghostArrow.visible = false; ghostEdges.visible = false;
     try { const pr = canvas.requestPointerLock && canvas.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch (_) {}
     if (!flyCam.badge) { flyCam.badge = document.createElement('div'); flyCam.badge.className = 'flybadge'; document.body.appendChild(flyCam.badge); }
@@ -175,6 +176,7 @@
 
   function setMode(m) {
     if (flyCam.on) flyStop();
+    if (m !== 'build' && window.__skpBouw && window.__skpBouw.on) window.__skpBouw.stop();   // een bergfort-/SketchUp-module die klaarstond: niet meenemen naar het lopen
     if (typeof vecChainEnd === 'function') vecChainEnd(true);
     if (mode !== m && typeof sound !== 'undefined') sound.fx('whoosh');
     mode = m;
