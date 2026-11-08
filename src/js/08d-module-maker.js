@@ -320,6 +320,7 @@
     const cellAt = (x, z) => mv2CellOf(x, z);
     const lvl = () => E.m.lv[E.lv];
     // ---------- geschiedenis ----------
+    const randenNu = () => { const sl = E.undo.length + '|' + E.redo.length + '|' + (E.m && E.m.id); if (!E._randen || E._randen.sl !== sl) E._randen = { sl, R: E.m ? mv2Randen(E.m) : [] }; return E._randen.R; };   // aansluiten aan de rand (08c)
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
     const undo = () => { if (E.rLaag) { hellingAf(); return; } if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
     const redo = () => { if (!E.redo.length) return; E.sel = null; E.undo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.redo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); };
@@ -750,8 +751,9 @@
     function runCheck() {
       const r = checkModule(), lvName = li => li === 0 ? 'begane grond' : li + 'e verdieping'; E.check = r;
       const nBad = [...r.bad.values()].reduce((s2, S2) => s2 + S2.size, 0), where = [...new Set([...r.bad.keys(), ...r.marks.map(k => k.li)])].sort((a, b) => a - b);
-      if (!nBad && !r.marks.length) say('Controle: alles in orde · overal te bereiken, trappen komen uit, voorwerpen staan goed', 3500);
-      else say('Controle: ' + [nBad ? nBad + ' vloerdriehoek' + (nBad === 1 ? '' : 'en') + ' niet te bereiken' : '', r.marks.length ? r.marks.length + ' opmerking' + (r.marks.length === 1 ? '' : 'en') + ' (' + [...new Set(r.marks.map(k => k.msg))].slice(0, 3).join('; ') + ')' : ''].filter(Boolean).join(' · ') + ' · op ' + where.map(lvName).join(', ') + ' · rood in de tekening', 6500);
+      const rd = randenNu(), tel = s0 => rd.filter(x => x.soort === s0).length, randTekst = ' · randen: ' + [['pad', 'pad (groen)'], ['heel', 'hele zijde (blauw)'], ['deur', 'deur (oranje)'], ['anders', 'afwijkend (rood)']].filter(([k2]) => tel(k2)).map(([k2, t2]) => tel(k2) + ' ' + t2).join(', ');
+      if (!nBad && !r.marks.length) say('Controle: alles in orde · overal te bereiken, trappen komen uit, voorwerpen staan goed' + (rd.length ? randTekst : ''), 5000);
+      else say('Controle: ' + [nBad ? nBad + ' vloerdriehoek' + (nBad === 1 ? '' : 'en') + ' niet te bereiken' : '', r.marks.length ? r.marks.length + ' opmerking' + (r.marks.length === 1 ? '' : 'en') + ' (' + [...new Set(r.marks.map(k => k.msg))].slice(0, 3).join('; ') + ')' : '', rd.length ? randTekst.slice(3) : ''].filter(Boolean).join(' · ') + ' · op ' + where.map(lvName).join(', ') + ' · rood in de tekening', 6500);
       draw(); if (E.vm === '3d') dirty3();
     }
     // ---------- muisinvoer ----------
@@ -1032,11 +1034,21 @@
         ctx.stroke();
       }
       function checkPaint() {
-        const r = E.check; if (!r) return; const bad = r.bad.get(E.lv); ctx.save();
+        const r = E.check; if (!r) return; randenPaint(); const bad = r.bad.get(E.lv); ctx.save();
         if (bad) { ctx.fillStyle = 'rgba(255,72,56,0.42)'; ctx.strokeStyle = 'rgba(255,72,56,0.9)'; ctx.lineWidth = 1; for (const id of bad) { const v = mv2TriVerts(...id.split(',').map(Number), ts()); ctx.beginPath(); v.forEach((p, n) => { const S5 = toS(p[0], p[1]); n ? ctx.lineTo(S5[0], S5[1]) : ctx.moveTo(S5[0], S5[1]); }); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
         ctx.font = '600 12px system-ui, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
         for (const k of r.marks) { if (k.li !== E.lv) continue; const S5 = toS(k.x, k.z); ctx.fillStyle = '#ff4838'; ctx.beginPath(); ctx.arc(S5[0], S5[1], 7, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); const tw = ctx.measureText(k.msg).width; ctx.fillStyle = 'rgba(23,27,20,0.88)'; ctx.fillRect(S5[0] + 11, S5[1] - 10, tw + 12, 20); ctx.fillStyle = '#ff8a7d'; ctx.fillText(k.msg, S5[0] + 17, S5[1]); }
         const other = [...new Set([...r.bad.keys(), ...r.marks.map(k => k.li)])].filter(li => li !== E.lv); if (other.length) { const txt = 'Ook rood op: ' + other.map(li => li === 0 ? 'BG' : li + 'e').join(', ') + ' (Page Up/Down)'; ctx.font = '600 12px system-ui, sans-serif'; const tw = ctx.measureText(txt).width; ctx.fillStyle = 'rgba(23,27,20,0.88)'; ctx.fillRect(W / 2 - tw / 2 - 8, 12, tw + 16, 24); ctx.fillStyle = '#ff8a7d'; ctx.textAlign = 'center'; ctx.fillText(txt, W / 2, 24); }
+        ctx.restore();
+      }
+      // Randen (aansluiten, mv2Randen in 08c): langs elke buitenzijde van deze verdieping een strook net buiten het vak waar
+      // je de module in of uit loopt. Groen = pad (4,5 m in het midden), blauw = hele zijde, oranje = deur, rood = afwijkend.
+      function randenPaint() {
+        const KL = { pad: '#3fcf6a', heel: '#4aa3ff', deur: '#ff9d2e', anders: '#ff4838' }, y = E.vm === '3d' ? E.lv * MV2.LV_H + 0.05 : undefined;
+        ctx.save(); ctx.lineCap = 'butt';
+        for (const x of randenNu()) { if (x.li !== E.lv) continue; const N = x.seg.length, ex = x.p1[0] - x.p0[0], ez = x.p1[1] - x.p0[1], l = Math.hypot(ex, ez), ox = ez / l, oz = -ex / l, cx = (x.p0[0] + x.p1[0]) / 2, cz = (x.p0[1] + x.p1[1]) / 2, mc = mv2CellXZ(x.q, x.r), sg = ((cx - mc[0]) * ox + (cz - mc[1]) * oz) > 0 ? 1 : -1;
+          ctx.strokeStyle = KL[x.soort] || '#ff4838'; ctx.lineWidth = Math.max(4, 0.45 * E.view.s);
+          for (let s2 = 0; s2 < N; s2++) { if (x.seg[s2] !== '1') continue; const t0 = (s2 + 0.08) / N, t1 = (s2 + 0.92) / N, o = 0.4 * sg, A = toS(x.p0[0] + ex * t0 + ox * o, x.p0[1] + ez * t0 + oz * o, y), B = toS(x.p0[0] + ex * t1 + ox * o, x.p0[1] + ez * t1 + oz * o, y); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); } }
         ctx.restore();
       }
       // Voorbeeld bij Vullen en Massief (ruimte): welke ruimte er gevuld wordt (licht ingekleurd) en waar die ophoudt: muren

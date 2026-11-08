@@ -273,6 +273,49 @@
     for (const id in (L && L.w) || {}) { const W = L.w[id]; if (!W || W.m === 'fence' || W.m === 'hedge') continue; const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts); if (Math.hypot((a[0] + b[0]) / 2 - c[0], (a[1] + b[1]) / 2 - c[1]) > R) continue; ap = Math.max(ap, hn(a[0], a[1]), hn(b[0], b[1])); }
     if (!ap) return R; return Math.min(R, Math.max(ts, Math.ceil(ap / (SQ3 / 2) / ts - 0.05) * ts));
   }
+  // ---------- Aansluiten: hoe komt een module aan de rand van zijn vakken uit? ----------
+  // Afspraak (Joep, november 2026): een pad komt aan het MIDDEN van een zijde uit, 4,5 m breed (de halve zijde), of de hele
+  // zijde (9 m) is open (plein, plateau). Alleen op de vloer van een verdieping (0, 3, 6 m …). Zo sluiten modules op
+  // elkaar aan, ook gedraaid en gespiegeld. mv2Randen(m) kijkt per verdieping en per buitenzijde welk stuk van de zijde
+  // beloopbaar is: verharde vloer (op de begane grond telt gras of terrein niet als pad: daar loop je overal), op een
+  // verdieping elke vloer behalve water, of de bovenkant van massief, geen dichte muur erop (deur, poort en open doorgang mogen),
+  // niet in een trapgat; een vrije helling telt alleen als hij daar precies op een verdiepingshoogte uitkomt.
+  // Soort per zijde: 'leeg', 'pad' (4,5 m in het midden), 'heel' (9 m), 'deur' (alleen openingen in een muur), 'anders'.
+  const RAND_OPEN = new Set(['door', 'gate', 'open']), GROEN = new Set(['grass', 'hexgras']);   // gras op de begane grond: beloopbaar, maar geen pad of plein (net als het terrein)
+  function mv2Randen(m) {
+    const ts = mv2Ts(m), N = Math.round(R / ts), k = m.k || 0, A = R * SQ3 / 2, uit = [], LH = MV2.LV_H;
+    const ij = (x, z) => { const i = Math.round(x / (ts * SQ3 / 2)); return [i, Math.round(z / ts - i / 2)]; };
+    const triAt = (x, z) => { const fi = x / (ts * SQ3 / 2), fj = z / ts - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return [i, j, (fi - i) + (fj - j) < 1 ? 0 : 1]; };
+    const muurOp = (L, a, b) => { for (let d = 0; d < 3; d++) { const D = MV2.DIRW[d]; let w = null; if (b[0] - a[0] === D[0] && b[1] - a[1] === D[1]) w = L.w[a[0] + ',' + a[1] + ',' + d]; else if (a[0] - b[0] === D[0] && a[1] - b[1] === D[1]) w = L.w[b[0] + ',' + b[1] + ',' + d]; if (w) return w; } return null; };
+    const lagen = m.lv || [], gaten = lagen.map((L, li) => li > 0 ? ((lagen[li - 1] || {}).s || []).map(S => mv2StairHole(S, ts)) : []);
+    const platen = lagen.map(L => (L.s || []).filter(S => S.k === 'plaat' && !S.muur && S.p).map(S => mv2Plaat(S)));
+    const cellen = []; for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) if (mv2HexDist(q, r) <= k) cellen.push([q, r]);
+    for (const [q, r] of cellen) FRAMES.forEach((f, kz) => {
+      const c = mv2CellXZ(q, r);
+      // buur van zijde kz: het vak aan de kant van de normaal
+      const bx = c[0] + f.nx * 2 * A, bz = c[1] + f.nz * 2 * A, [bq, br] = mv2CellOf(bx, bz); if (mv2HexDist(bq, br) <= k) return;   // binnenzijde
+      const p0 = [c[0] + f.nx * A - f.tx * R / 2, c[1] + f.nz * A - f.tz * R / 2], p1 = [c[0] + f.nx * A + f.tx * R / 2, c[1] + f.nz * A + f.tz * R / 2];
+      for (let li = 0; li <= lagen.length; li++) {
+        const L = lagen[li], Lo = lagen[li - 1], seg = [], deur = [], schuin = [];
+        for (let s = 0; s < N; s++) {
+          const a = [p0[0] + (p1[0] - p0[0]) * s / N, p0[1] + (p1[1] - p0[1]) * s / N], b = [p0[0] + (p1[0] - p0[0]) * (s + 1) / N, p0[1] + (p1[1] - p0[1]) * (s + 1) / N];
+          const mx = (a[0] + b[0]) / 2 - f.nx * 0.15, mz = (a[1] + b[1]) / 2 - f.nz * 0.15, id = triAt(mx, mz), key = id.join(',');
+          let vloer = false;
+          if (L && L.f[key] && L.f[key] !== 'water' && !(li === 0 && GROEN.has(L.f[key]))) { const gat = (gaten[li] || []).some(h => { const g = h(mv2TriVerts(id[0], id[1], id[2], ts)); return g && (!g.keep || mx * g.keep[0] + mz * g.keep[1] < g.keep[2]); }); if (!gat) vloer = true; }
+          if (!vloer && Lo && Lo.v && Lo.v[key] && !(L && L.f[key])) vloer = true;   // bovenkant van massief op de verdieping eronder
+          if (!vloer && li > 0) for (const G of platen[li - 1] || []) { const h = G.at(mx, mz); if (h && Math.abs(h.y - LH) < 0.15) vloer = true; }   // helling van eronder komt hier boven uit
+          for (const G of (L ? platen[li] : []) || []) { const h = G.at(mx, mz); if (!h) continue; if (Math.abs(h.y) < 0.15) vloer = true; else if (h.y < LH - 0.15) schuin.push(s); }
+          const w = L ? muurOp(L, ij(...a), ij(...b)) : null, dicht = w && !RAND_OPEN.has(w.o || '') && !(w.h && w.h < 0.6);
+          seg.push(vloer && !dicht); deur.push(vloer && !!w && !dicht);
+        }
+        const n = seg.filter(Boolean).length; if (!n && !schuin.length) continue;
+        const pad = seg.every((v, s) => v === (s >= N / 4 && s < 3 * N / 4));
+        const soort = schuin.length ? 'anders' : n === N ? 'heel' : pad ? 'pad' : seg.every((v, s) => !v || deur[s]) ? 'deur' : 'anders';
+        uit.push({ q, r, z: kz, li, y: li * LH, seg: seg.map(v => v ? 1 : 0).join(''), soort, schuin: schuin.length ? schuin : undefined, p0, p1 });
+      }
+    });
+    return uit;
+  }
   function mv2Build(m, tf, origin = [0, 0], opts = {}) {
     mv2Fix(m);
     const Mt = mv2Mats(), ts = mv2Ts(m), LH = MV2.LV_H, bags = new Map(), group = new THREE.Group(), surfaces = [], walls = [];
