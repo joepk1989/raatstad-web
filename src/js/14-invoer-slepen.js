@@ -500,6 +500,21 @@
     const a = [c.x - (d.x - c.x) / L * h, c.z - (d.z - c.z) / L * h], b = [c.x + (d.x - c.x) / L * h, c.z + (d.z - c.z) / L * h];
     return [a, [c.x, c.z], b].map(p => [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100]);
   }
+  // Het eerste stukje van een geplotte weg: naast een andere weg (van welke soort ook, ook midden op die weg) begint het al
+  // óp die weg, zodat een aftakking meteen aansluit, net als bij slepen (een uiteinde naast een weg schuift ernaar toe).
+  // Anders een rondje op het midden van het vak. Geeft { p, tipS, tipE, aan }.
+  // ligt het midden van dit vak op een getekende weg (ergens langs de hartlijn, niet alleen bij een hoekpunt)?
+  function vecOpWeg(Wc) {
+    for (const q of pathsOf()) { if (q === vecPre.tmp || !q.p || q.p.length < 2 || !PATH_DEF[q.t]) continue; const pts = smoothPts(q.p);
+      for (let j = 0; j < pts.length - 1; j++) { const a = pts[j], b = pts[j + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, f = Math.max(0, Math.min(1, ((Wc[0] - a[0]) * dx + (Wc[1] - a[1]) * dz) / l2)); if (Math.hypot(a[0] + dx * f - Wc[0], a[1] + dz * f - Wc[1]) < 3) return true; } }
+    return false;
+  }
+  function vecStartPts(cell) {
+    const c = cellToWorld(cell[0], cell[1]), Wc = [r2(c.x), r2(c.z)], S0 = vecSnap(Wc, null);
+    if (S0[0] === Wc[0] && S0[1] === Wc[1]) return { p: vecStubPts(cell), tipS: true, tipE: true, aan: false };
+    const dx = Wc[0] - S0[0], dz = Wc[1] - S0[1], L = Math.hypot(dx, dz) || 1;
+    return { p: [S0, Wc, [r2(Wc[0] + dx / L * HALF), r2(Wc[1] + dz / L * HALF)]], tipS: false, tipE: true, aan: true };
+  }
   const vecPre = { tmp: null, key: '', orig: null };
   function vecPreClear() {
     if (!vecPre.tmp) return; const i = pathsOf().indexOf(vecPre.tmp);
@@ -515,7 +530,8 @@
       const i = pathsOf().indexOf(o); if (i < 0) return;
       pathsOf()[i] = cl; vecPre.tmp = cl; vecPre.orig = o;
       const res = vecExtendPath(cl, plan.best.end, plan.W); if (res.same) { pathsOf()[i] = o; vecPre.tmp = null; vecPre.orig = null; return; }
-    } else { vecPre.tmp = { t, l: 0, r: 0, p: vecStubPts(cell) }; pathsOf().push(vecPre.tmp); }
+    } else { { const c0 = cellToWorld(cell[0], cell[1]); if (vecOpWeg([r2(c0.x), r2(c0.z)])) return; }   // op een weg: geen voorbeeld (een klik zet hier niets neer)
+      const st = vecStartPts(cell); vecPre.tmp = { t, l: 0, r: 0, p: st.p, tipS: st.tipS, tipE: st.tipE }; pathsOf().push(vecPre.tmp); }
     vecPre.key = kk; buildPathNet(true);
   }
   function vecChainEnd(quiet) {
@@ -567,7 +583,7 @@
     if (Math.hypot(inner[0] - Wc[0], inner[1] - Wc[1]) < 3) return { same: true };
     let W = vecSnap(Wc, path); if (W[0] !== Wc[0] || W[1] !== Wc[1]) W = vecSnapAngle(inner, Wc, W, path); const snapped = W[0] !== Wc[0] || W[1] !== Wc[1];
     if (tipOn) { if (atStart) P.shift(); else P.pop(); if (path.y) { if (atStart) path.y.shift(); else path.y.pop(); } }
-    if (P.length === 2 && tipOn) {   // het beginstukje (één vak): het andere staartje draait mee richting de nieuwe klik
+    if (P.length === 2 && tipOn && (atStart ? path.tipE : path.tipS)) {   // het beginstukje (één vak, aan beide kanten een staartje): het andere staartje draait mee richting de nieuwe klik (een aftakking die op een andere weg begint, heeft daar geen staartje: dat punt blijft)
       const cc = atStart ? P[0] : P[1], dx = W[0] - cc[0], dz = W[1] - cc[1], L = Math.hypot(dx, dz) || 1, o = [r2(cc[0] - dx / L * HALF), r2(cc[1] - dz / L * HALF)];
       if (atStart) P[1] = o; else P[0] = o;
     }
@@ -593,11 +609,11 @@
     const t = VEC_T[tool]; if (!cell) return;
     vecChainEnd(true); vecPreClear();
     const c = cellToWorld(cell[0], cell[1]), Wc = [r2(c.x), r2(c.z)];
-    for (const q of pathsOf()) if (q.t === t && q.p && q.p.some(pt => Math.hypot(pt[0] - Wc[0], pt[1] - Wc[1]) < 3)) { toast('Hier ligt al weg', 900); return; }
+    if (vecOpWeg(Wc)) { toast('Hier ligt al weg · klik het vak ernaast om door te gaan of af te takken', 1800); return; }   // ook midden op een weg: geen los stukje erbovenop
     const plan = vecClickPlan(cell, t);
     let path, gone = 0, snapped = false;
     if (!plan.best) {
-      path = { t, l: 0, r: 0, p: vecStubPts(cell) }; path.tipS = path.tipE = true; pathsOf().push(path);
+      const st = vecStartPts(cell); path = { t, l: 0, r: 0, p: st.p }; path.tipS = st.tipS; path.tipE = st.tipE; snapped = st.aan; pathsOf().push(path);   // naast een weg: een aftakking die meteen aansluit
     } else {
       path = plan.best.p; const r = vecExtendPath(path, plan.best.end, Wc); if (r.same) { toast('Hier ligt al weg', 900); return; } snapped = r.snapped;
     }
