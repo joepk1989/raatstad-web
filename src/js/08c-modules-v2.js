@@ -206,7 +206,7 @@
     const cen = v => loc((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3);
     const keepAl = (al0, sign) => [ux * sign, uz * sign, sign * (a[0] * ux + a[1] * uz + al0)];   // houd al >= al0 (sign 1) of al <= al0 (sign −1)
     if (S.k === 'plaat' && S.muur) return () => null;
-    if (S.k === 'plaat') { const G0 = mv2Plaat(S); return v => { const h = G0.at((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3); return h && MV2.LV_H - h.y < 2.0 ? { keep: null } : null; }; }   // gat waar je je hoofd zou stoten
+    if (S.k === 'plaat') { const G0 = mv2Plaat(S), op = G0.hi && G0.lo && G0.hi[2] - G0.lo[2] > MV2.LV_H - 0.4; return v => { const h = G0.at((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3); return h && (op || MV2.LV_H - h.y < 2.0) ? { keep: null } : null; }; }   // een helling naar de verdieping erboven: open boven de hele helling, al vanaf het begin (anders stoot je je hoofd tegen de vloerrand); anders alleen waar je je hoofd zou stoten
     if (S.k === 'spiral') {
       const dx0 = D[0] * ts * SQ3 / 2, dz0 = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz0, dx0), sd = S.side || 1;
       return v => { const cx = (v[0][0] + v[1][0] + v[2][0]) / 3 - a[0], cz = (v[0][1] + v[1][1] + v[2][1]) / 3 - a[1]; if (Math.hypot(cx, cz) > 2.15) return null; const ph = ((sd * (Math.atan2(cz, cx) - a0)) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
