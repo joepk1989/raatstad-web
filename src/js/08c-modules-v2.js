@@ -247,7 +247,7 @@
   }
   // Afgeknipte vloerdriehoeken (L.fk, optioneel): fk[id] = [nx, nz, c] of een lijst daarvan; van driehoek id blijft het
   // deel waar x·nx + z·nz >= c (lokale coördinaten). Zo kan een vloerrand recht lopen in elke richting, ook dwars door de
-  // driehoeken van het raster (bijv. de omgezette SketchUp-onderdelen van het bergfort). Geeft de veelhoek of null.
+  // driehoeken van het raster (bijv. vrije platen). Geeft de veelhoek of null.
   function mv2Knip(L, id, v) {
     const k = L.fk && L.fk[id]; if (!k) return null;
     let pl = v; for (const h of (Array.isArray(k[0]) ? k : [k])) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) return []; }
@@ -688,7 +688,7 @@
             prisma(Mt.wl.plaster || Mt.slab, 0.55, yb + hk - 0.1, yb + hk + 0.5); punt(Mt.wl.oker || Mt.roof, 0.7, yb + hk + 0.5, 0.9);
           } else if (kind === 'spits') {   // spits: hoge, steile zeshoekige torenspits
             const T = [W0[0], yb + 1.6 * ro, W0[1]], B = ring(ro, yb); for (let k = 0; k < 6; k++) tri3(T, B[k], B[(k + 1) % 6]);
-          } else {   // lantaarndak: schilddak met bovenop een glazen lantaarn en een spitsje (zoals de lichtkoepels van het bergfort)
+          } else {   // lantaarndak: schilddak met bovenop een glazen lantaarn en een spitsje
             const f = 0.26, yl = yb + h * (1 - f); band(ring(ro, yb), ring(ro * f, yl)); const rl = ro * f * 0.9;
             prisma(Mt.wl.glass || Mt.frame, rl, yl - 0.05, yl + 1.1); punt(Mt.roof, ro * f * 1.15, yl + 1.1, 1.3);
           }
@@ -951,7 +951,7 @@
   function railsMesh() {
     for (const c of railGroup.children) c.geometry.dispose(); railGroup.clear();
     // per stuk stad (6 × 6 vakken, als de bundels): ver weg gaan ze uit (batchLod, net als kozijnen); geen schaduw (dunne latjes)
-    // een module met rand 'muurtje' (bergfort) krijgt geen hek maar een lage, licht schuine muur van breuksteen (met schaduw)
+    // een module met rand 'muurtje' (bergdorp) krijgt geen hek maar een lage, licht schuine muur van breuksteen (met schaduw)
     const by = new Map(); for (const [I, R0] of railData) { if (railHidden.has(I)) continue; const k = Math.floor(I.q / 6) + ',' + Math.floor(I.r / 6) + (R0.muur ? ',m' : ''); let L = by.get(k); if (!L) by.set(k, L = []); L.push(...R0.parts); }
     for (const [k, list] of by) { if (!list.length) continue; const muur = k.endsWith(',m'), mesh = new THREE.Mesh(mergeGeos(list), muur ? muurMat() : mv2Mats().metal), [bq, br] = k.split(',').map(Number), c = cellToWorld(bq * 6 + 3, br * 6 + 3); mesh.castShadow = muur; mesh.receiveShadow = muur; mesh.userData.lod = muur ? null : 'frame'; mesh.userData.lodC = [c.x, c.z]; railGroup.add(mesh); }
     try { batchLod(); } catch (e) { }

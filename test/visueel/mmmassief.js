@@ -1,4 +1,4 @@
-// Raatmaker, Massief (Y): een holle ruimte opvullen (bergfort-plateau, ook met een opening: alleen onder de vloer erboven),
+// Raatmaker, Massief (Y): een holle ruimte opvullen (plateau, ook met een opening: alleen onder de vloer erboven),
 // een betonnen pijler schilderen, gummen, draaien/spiegelen en raster verfijnen, en de module in de stad.
 // Screenshots: massief_plateau.png, massief_opening.png, massief_pijler.png, massief_stad.png
 const { open, OUT } = require('./helper');

@@ -5,7 +5,7 @@
   const kiesHL = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#f2b233', transparent: true, opacity: 0.95, depthTest: false }));
   kiesHL.renderOrder = 7; kiesHL.frustumCulled = false; kiesHL.visible = false; kiesHL.userData.noOcc = true; scene.add(kiesHL);
   const kiesMod = I => modules.find(m => m.id === I.mid) || null;
-  // een SketchUp-module (bergfort e.d., 15j3) telt als die dichterbij is dan wat de gewone keuze raakt
+  // een SketchUp-module (15j3) telt als die dichterbij is dan wat de gewone keuze raakt
   function kiesSkp(cx, cy, res) {
     const h = skpBouw.raak(cx, cy); if (!h) return null;
     if (res && res.point && camera.position.distanceTo(res.point) < h.d - 0.05) return null;
