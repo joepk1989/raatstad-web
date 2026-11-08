@@ -372,8 +372,9 @@
         for (const id in L.v) {
           const [i, j, t] = id.split(',').map(Number), v0 = mv2TriVerts(i, j, t, ts);
           // afgeknipt op een schuine wand (L.vk, zoals L.fk bij de vloer): alleen het deel aan de kant van de ruimte
-          const kn = L.vk && L.vk[id] ? (() => { let pl = v0; for (const h of (Array.isArray(L.vk[id][0]) ? L.vk[id] : [L.vk[id]])) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) return []; } return pl; })() : null;
-          for (const v of kn ? mv2Fan(kn) : [v0]) { (perMat[L.v[id]] || (perMat[L.v[id]] = [])).push([id, v]); for (let e = 0; e < 3; e++) { const k = ek(v[e], v[(e + 1) % 3]); cnt.set(k, (cnt.get(k) || 0) + 1); } }
+          const kn = L.vk && L.vk[id] ? (() => { let pl = v0; for (const h of (Array.isArray(L.vk[id][0]) ? L.vk[id] : [L.vk[id]])) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) return []; } return pl.filter((p, k) => { const q = pl[(k + 1) % pl.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-3; }); })() : null;   // bijna-dubbele punten eruit
+          const plat = v => Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) < 1e-5;   // een snijlijn door een hoekpunt geeft platte driehoekjes: die tellen niet mee (anders leek de rand binnenin en verdween de zijkant)
+          for (const v of kn ? mv2Fan(kn).filter(v => !plat(v)) : [v0]) { (perMat[L.v[id]] || (perMat[L.v[id]] = [])).push([id, v]); for (let e = 0; e < 3; e++) { const k = ek(v[e], v[(e + 1) % 3]); cnt.set(k, (cnt.get(k) || 0) + 1); } }
         }
         for (const mat in perMat) {
           const pos = [], uv = [], P = (W, y, u, w) => { pos.push(W[0], y, W[1]); uv.push(u, w); };
@@ -592,9 +593,9 @@
           side(0, 3, yb, yt); side(2, 1, yt, yb); side(3, 2, yt, yt);
           { const ny = (pos[4] - pos[1]) * 0 + ((pos[5] - pos[2]) * (pos[6] - pos[0]) - (pos[3] - pos[0]) * (pos[8] - pos[2])); if (ny < 0) for (let t = 0; t < pos.length; t += 9) for (let c = 0; c < 3; c++) { const q = pos[t + 3 + c]; pos[t + 3 + c] = pos[t + 6 + c]; pos[t + 6 + c] = q; } }   // bovenvlak naar boven (anders zag je de helling van onderen: donker)
           for (let t = 18, n0 = pos.length; t < n0; t += 9) pos.push(pos[t], pos[t + 1], pos[t + 2], pos[t + 6], pos[t + 7], pos[t + 8], pos[t + 3], pos[t + 4], pos[t + 5]);   // zijkanten van de wig van beide kanten zichtbaar (anders was één zijkant doorzichtig)
-          g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); put(Mt.rampTop, g);
+          g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(pos.map((_, i2) => i2 % 3 === 1 ? null : pos[i2] / 2).filter(x => x !== null), 2)); g.computeVertexNormals(); put((S.m && Mt.fl[S.m]) || Mt.rampTop, g);   // eigen materiaal (bergfort: hexkei), textuur in meters
           pushWalk(at(0, -w / 2), at(len, w / 2), at(0, w / 2), yb, yt, yb); pushWalk(at(0, -w / 2), at(len, -w / 2), at(len, w / 2), yb, yt, yt);
-          landing(len, yt); endFill(yt, Mt.rampTop); landing(-1, y0 + 0.02);
+          landing(len, yt); endFill(yt, (S.m && Mt.fl[S.m]) || Mt.rampTop); landing(-1, y0 + 0.02);
           addWall(at(0, -w / 2), at(len, -w / 2), y0, yt, 0.05); addWall(at(0, w / 2), at(len, w / 2), y0, yt, 0.05);
         } else if (S.k === 'esc') {   // roltrap: metalen treden in een schuine bak, glazen zijkanten met een zwarte leuning erop
           const N = Math.max(2, Math.round(rise / 0.2)), run = len / N, rs = rise / N, yt = y0 + rise, hw = w / 2 - 0.15;

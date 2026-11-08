@@ -27,20 +27,21 @@ const { open, OUT } = require('./helper');
   const lek = await p.evaluate(() => { const E = window.__MME; return Object.keys(E.m.lv[0].v || {}).filter(id => !E.m.lv[1].f[id]).length; });
   console.log('module met opening opgevuld:', n2, 'driehoeken · daarvan zonder vloer erboven (gelekt):', lek); uit.push(n2 > 0 && lek === 0);
   await p.waitForTimeout(800); await p.screenshot({ path: OUT + '/massief_opening.png' });
-  // 2b. tot precies aan schuine wanden: in 'Pad · twee wanden' moet alles tussen de twee wanden dicht zijn (geen zaagtand),
+  // 2b. tot precies aan wanden die dwars door driehoeken lopen (haakse rastermuren): in 'Pad · twee wanden' moet alles tussen de twee wanden dicht zijn (geen zaagtand),
   // afgeknipt op de wandlijn, en niets mag aan de andere kant van een wand uitsteken
   await laad('Pad · twee wanden'); await p.evaluate(() => { const L = window.__MME.m.lv[0]; L.v = {}; delete L.vk; });   // de module is standaard al gevuld achter de wand: leeg beginnen
   await p.keyboard.press('KeyY'); await klik(6.5, 0);
-  const zaag = await p.evaluate(() => { const E = window.__MME, S0 = window.__SC(), t = S0.mv2Ts(E.m), L = E.m.lv[0], Z = 2.07; let mist = 0, steekt = 0, n = 0;
+  const zaag = await p.evaluate(() => { const E = window.__MME, S0 = window.__SC(), t = S0.mv2Ts(E.m), L = E.m.lv[0], Z = 2.25;   /* de wanden van het pad liggen sinds de omzetting op de rasterlijn z = ±2,25 */ let mist = 0, steekt = 0, n = 0;
     for (let i = -16; i <= 16; i++) for (let j = -16; j <= 16; j++) for (const tt of [0, 1]) {
       const id = i + ',' + j + ',' + tt, A = S0.mv2P(i, j, t), B = S0.mv2P(i + 1, j, t), C = S0.mv2P(i, j + 1, t), D = S0.mv2P(i + 1, j + 1, t), v = tt ? [B, D, C] : [A, B, C];
       if (!v.every(p => Math.hypot(p[0], p[1]) < 7.7)) continue;   // binnen het gebied (ruim)
       const zs = v.map(p => p[1]), deelsTussen = Math.min(...zs) < Z - 0.01 && Math.max(...zs) > -Z + 0.01;
-      if (deelsTussen) { n++; if (!(L.v || {})[id]) mist++; }
+      if (deelsTussen) { n++; if (!(L.v || {})[id]) { mist++; (window.__mist = window.__mist || []).push(v.map(p => p.map(x => +x.toFixed(2)))); } }
       if ((L.v || {})[id]) { // het deel dat overblijft na afknippen mag niet voorbij de wandlijn
         let pl = v; const k = L.vk && L.vk[id]; if (k) for (const h of (Array.isArray(k[0]) ? k : [k])) { const out = []; for (let q = 0; q < pl.length; q++) { const P = pl[q], Q = pl[(q + 1) % pl.length], fa = P[0] * h[0] + P[1] * h[1] - h[2], fb = Q[0] * h[0] + Q[1] * h[1] - h[2]; if (fa >= 0) out.push(P); if ((fa >= 0) !== (fb >= 0)) { const s = fa / (fa - fb); out.push([P[0] + (Q[0] - P[0]) * s, P[1] + (Q[1] - P[1]) * s]); } } pl = out; }
         if (pl.some(p => Math.abs(p[1]) > Z + 0.2)) steekt++; } }
     return { tussen: n, mist, steekt, afgeknipt: Object.keys(L.vk || {}).length }; });
+  if (zaag.mist) console.log('   ontbreekt:', JSON.stringify(await p.evaluate(() => (window.__mist || []).slice(0, 6))));
   console.log('tot aan schuine wanden:', zaag.tussen, 'driehoeken (deels) tussen de wanden · ontbreekt', zaag.mist, '· steekt door de wand', zaag.steekt, '· afgeknipt', zaag.afgeknipt);
   uit.push(zaag.mist === 0 && zaag.steekt === 0 && zaag.afgeknipt > 0);
   await p.waitForTimeout(800); await p.screenshot({ path: OUT + '/massief_schuine_wanden.png' });

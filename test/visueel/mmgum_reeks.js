@@ -24,7 +24,14 @@ const { open, OUT } = require('./helper');
   console.log('met Shift op de rand van het plateau:', n0, '→', n2, '· aangewezen:', label, '·', await p.evaluate(() => document.getElementById('mm_msg').textContent)); uit.push(n2 === 0 && /reeks/.test(label));
   await p.keyboard.press('Control+z'); await p.waitForTimeout(200); const n3 = await tel(); console.log('één keer ongedaan maken:', n3); uit.push(n3 === n0);
   // schuine wand met Shift: de wand en wat eraan vastzit
-  await laad('Pad · twee wanden'); const m0 = await tel(); pt = await muurPunt('wand');
+  // (de bergfort-modules hebben sinds de omzetting naar het raster geen schuine wanden meer: zet de drie wanden uit SketchUp
+  // terug, een lange en twee korte stompjes die op elkaar aansluiten)
+  await laad('Pad · twee wanden'); await p.evaluate(() => { window.__MME.m.lv[0].s.push(
+    { k: 'plaat', muur: 1, a: [0, 2], d: 0, n: 1, w: 0.3, m: 'breuksteen', p: [[[6.8, 2.07, 0], [-6.79, 2.07, 0], [-6.79, 2.07, 3], [6.8, 2.07, 3]]] },
+    { k: 'plaat', muur: 1, a: [-7, 6], d: 0, n: 1, w: 0.3, m: 'breuksteen', p: [[[-6.79, 2.07, 0], [-7.794, 2.25, 0], [-7.794, 2.25, 3], [-6.79, 2.07, 3]]] },
+    { k: 'plaat', muur: 1, a: [7, -2], d: 0, n: 1, w: 0.3, m: 'breuksteen', p: [[[7.794, 2.25, 0], [6.8, 2.07, 0], [6.8, 2.07, 3], [7.794, 2.25, 3]]] }); window.__MME.lv = 0; });
+  await p.keyboard.press('Digit' + (weergave === 'Digit2' ? '3' : '2')); await p.waitForTimeout(300); await p.keyboard.press(weergave); await p.waitForTimeout(400);
+  const m0 = await tel(); pt = await muurPunt('wand');
   await p.keyboard.down('Shift'); await p.mouse.move(pt[0], pt[1]); await p.waitForTimeout(200); await p.mouse.down(); await p.mouse.up(); await p.keyboard.up('Shift'); await p.waitForTimeout(200);
   const m1 = await tel(), wandenOver = await p.evaluate(() => window.__MME.m.lv[0].s.filter(s => s.muur).length);
   console.log('Shift op een schuine wand (Pad · twee wanden):', m0, '→', m1, 'muren · schuine wanden over:', wandenOver, '·', await p.evaluate(() => document.getElementById('mm_msg').textContent)); uit.push(m1 < m0 - 1);

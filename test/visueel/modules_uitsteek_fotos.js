@@ -48,11 +48,11 @@ const HOORT = /bomen|tuin|park|haag|boomgaard|fontein|windmolen|fabriek|kade|hav
     }
     ren.dispose(); return uit;
   }, [GRENS, HOORT.source, process.argv.slice(2)]);
-  const na = process.argv.length > 2;
+  const na = process.argv.length > 2;   // TITEL en BLAD (omgeving): eigen titel en bestandsnaam van het blad
   // overzichtsblad: een kaart per module met naam, hoe ver het uitsteekt en de twee foto's
   const dag = new Date().toISOString().slice(0, 10), esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const html = `<html><body style="margin:0;padding:18px;background:#f4f6f8;color:#1b2430;font:15px system-ui,sans-serif">
-  <h2 style="margin:0 0 4px">${na ? 'Na de reparatie' : 'Modules die nog uitsteken'} (${r.length})</h2>
+  <h2 style="margin:0 0 4px">${process.env.TITEL || (na ? 'Na de reparatie' : 'Modules die nog uitsteken')} (${r.length})</h2>
   <div style="margin-bottom:14px;color:#3a4654">Groen: het gebied van de module. Rood: stukken die meer dan ${GRENS * 100} cm buiten dat gebied liggen. Links van boven, rechts schuin vanaf de kant waar het uitsteekt.</div>
   ${r.map(x => `<div style="background:#fff;border:1px solid #cfd6de;border-radius:8px;padding:10px;margin-bottom:12px">
     <div style="font-weight:600">${esc(x.naam)}</div>
@@ -60,7 +60,7 @@ const HOORT = /bomen|tuin|park|haag|boomgaard|fontein|windmolen|fabriek|kade|hav
     <div style="display:flex;gap:8px"><img src="${x.fotos[0]}" width="460"><img src="${x.fotos[1]}" width="460"></div></div>`).join('')}</body></html>`;
   const blad = path.join(OUT, 'modules_uitsteek.html'); fs.writeFileSync(blad, html);
   await b.close(); const b2 = await require('playwright').chromium.launch(); const q = await b2.newPage({ viewport: { width: 1000, height: 800 } }); await q.goto('file://' + blad); await q.waitForTimeout(300);
-  const png = path.join(__dirname, '../../docs/ontwikkeling', dag + '-modules-uitsteek' + (na ? '-na' : '') + '.png'); await q.screenshot({ path: png, fullPage: true });
+  const png = path.join(__dirname, '../../docs/ontwikkeling', dag + '-' + (process.env.BLAD || ('modules-uitsteek' + (na ? '-na' : ''))) + '.png'); await q.screenshot({ path: png, fullPage: true });
   for (const x of r) console.log(x.naam, '· tot', x.maxUit, 'm ·', x.n, 'punten');
   console.log('blad:', png);
   await b2.close();

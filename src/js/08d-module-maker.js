@@ -339,7 +339,11 @@
       return n;
     }
     // de schuine wanden (vrije platen met muur) van deze verdieping als lijnstukken: die begrenzen een ruimte ook
-    const plaatMuren = L => (L.s || []).filter(S => S.k === 'plaat' && S.muur && S.p && S.p[0]).map(S => [S.p[0][0], S.p[0][1]]);
+    // wanden die dwars door driehoeken lopen: schuine wanden (vrije platen met muur) en rastermuren haaks op de ribben (richting 3–5)
+    const plaatMuren = L => { const pm = (L.s || []).filter(S => S.k === 'plaat' && S.muur && S.p && S.p[0]).map(S => [S.p[0][0], S.p[0][1]]);
+      for (const wk in L.w) { const [i, j, d] = wk.split(',').map(Number); if (d >= 3) pm.push(segOf(i, j, d)); } return pm; };
+    // scheidt wand a–b de punten p en q? Ook als q precies op de wandlijn ligt (een haakse rastermuur gaat door de middens van een rij driehoeken)
+    const scheidt = (p, q, a, b) => { const kr = (u, v, w) => (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]), d1 = kr(a, b, p), d2 = kr(a, b, q), e = 1e-6; if (Math.abs(d1) < e && Math.abs(d2) < e) return false; if (d1 * d2 > e * e) return false; return kr(p, q, a) * kr(p, q, b) <= e * e; };
     const snijdt = (p, q, a, b) => { const d = (x1, y1, x2, y2, x3, y3) => (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1); const d1 = d(a[0], a[1], b[0], b[1], p[0], p[1]), d2 = d(a[0], a[1], b[0], b[1], q[0], q[1]), d3 = d(p[0], p[1], q[0], q[1], a[0], a[1]), d4 = d(p[0], p[1], q[0], q[1], b[0], b[1]); return d1 * d2 < 0 && d3 * d4 < 0; };
     function solidFill(x, z, erase) {
       const L = lvl(), start = triAt(x, z), sk = start.join(','); if (!okTri(start)) return 0; if (!L.v) L.v = {};
@@ -352,13 +356,13 @@
       const pm = plaatMuren(L), t = ts(), mid = ([i, j, tt]) => { const v = mv2TriVerts(i, j, tt, t); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };
       // Eerst de ruimte zoeken (driehoeken met hun midden binnen), dan elke driehoek die een schuine wand snijdt daarop afknippen
       // (L.vk, zoals L.fk bij de vloer): zo loopt het massief tot precies aan de wand, zonder zaagtand en zonder erdoorheen te steken.
-      const seen = new Set([sk]), queue = [start], kant = new Map([[sk, mid(start)]]);   // kant: een punt aan de goede kant van de wand
+      const seen = new Set([sk]), queue = [start], kant = new Map([[sk, [x, z]]]);   // kant: een punt aan de goede kant van de wand (bij de klik: het klikpunt zelf, ook als het midden op een wand ligt)
       while (queue.length) {
-        const id = queue.pop(), k = id.join(','), c0 = mid(id);
+        const id = queue.pop(), k = id.join(','), c0 = kant.get(k) || mid(id);
         for (const [wk, nb] of triEdges(id)) {
           const nk = nb.join(','); if (seen.has(nk) || L.w[wk] || !okTri(nb) || (onder && !onder[nk])) continue;
           const c1 = mid(nb);
-          if (pm.some(([a, b]) => snijdt(c0, c1, a, b))) { if (!kant.has(nk)) kant.set(nk, c0); continue; }   // achter de wand: alleen het stukje aan deze kant, niet verder
+          if (pm.some(([a, b]) => scheidt(c0, c1, a, b))) { if (!kant.has(nk)) kant.set(nk, c0); continue; }   // achter de wand: alleen het stukje aan deze kant, niet verder
           seen.add(nk); kant.set(nk, c1); queue.push(nb); if (seen.size > 20000) break;
         }
       }
@@ -368,7 +372,7 @@
       let n = 0; if (!L.vk) L.vk = {};
       for (const [k, P] of kant) {
         const [i, j, tt] = k.split(',').map(Number), v = mv2TriVerts(i, j, tt, t), knip = [];
-        for (const [a, b] of pm) { if (!raakt(a, b, v)) continue; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, c = nx * a[0] + nz * a[1]; if (nx * P[0] + nz * P[1] < c) { nx = -nx; nz = -nz; c = -c; } knip.push([+nx.toFixed(4), +nz.toFixed(4), +c.toFixed(4)]); }
+        for (const [a, b] of pm) { if (!raakt(a, b, v)) continue; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, c = nx * a[0] + nz * a[1]; if (nx * P[0] + nz * P[1] < c) { nx = -nx; nz = -nz; c = -c; } const h0 = [+nx.toFixed(4), +nz.toFixed(4), +c.toFixed(4)]; if (!knip.some(h => h[0] === h0[0] && h[1] === h0[1] && h[2] === h0[2])) knip.push(h0); }   // dezelfde wandlijn maar één keer
         let pl = v; for (const h of knip) pl = pl.length >= 3 ? mv2ClipKeep(pl, h) : pl; if (pl.length < 3) continue;   // niets over aan deze kant
         if (L.v[k] !== E.vmat || JSON.stringify(L.vk[k] || null) !== JSON.stringify(knip.length ? (knip.length === 1 ? knip[0] : knip) : null)) n++;
         L.v[k] = E.vmat; if (knip.length) L.vk[k] = knip.length === 1 ? knip[0] : knip; else delete L.vk[k];
