@@ -1,11 +1,11 @@
-// Bouwen met SketchUp-modules: het bergfort en een losse module vanuit de Modulekaart in de stad zetten, en bewaard.
+// Bouwen met SketchUp-modules: het winkelcentrum en een losse module vanuit de Modulekaart in de stad zetten, en bewaard.
 const { open, OUT } = require('./helper');
 const path = require('path');
 (async () => {
   const { b, p } = await open({ width: 1440, height: 900 });
   await p.evaluate(() => window.__SC().doAct('empty')); await p.waitForTimeout(800);
   await p.keyboard.press('KeyK'); await p.waitForTimeout(500);
-  await p.evaluate(() => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === 'Bergfort').click()); await p.waitForTimeout(1200);
+  await p.evaluate(() => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === 'Winkelcentrum').click()); await p.waitForTimeout(1200);
   await p.evaluate(() => document.querySelector('[data-zet]').click()); await p.waitForTimeout(500);
   await p.mouse.move(720, 450); await p.waitForTimeout(300); await p.mouse.move(722, 452); await p.waitForTimeout(300);
   await p.screenshot({ path: path.join(OUT, 'skp-spook.png') });

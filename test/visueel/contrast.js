@@ -20,7 +20,7 @@ const check = () => {
   console.log('stad', JSON.stringify(await p.evaluate(check)));
   await p.keyboard.press('KeyK'); await p.waitForTimeout(500);
   console.log('kaart', JSON.stringify(await p.evaluate(check)));
-  await p.evaluate(() => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === 'Bergfort').click()); await p.waitForTimeout(1200);
+  await p.evaluate(() => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === 'Winkelcentrum').click()); await p.waitForTimeout(1200);
   console.log('fort', JSON.stringify(await p.evaluate(check)));
   await b.close();
 })();

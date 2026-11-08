@@ -1,10 +1,10 @@
 // Opslag in de browser: geplaatste modules die gelijk zijn aan hun module in de lijst, gaan als verwijzing in de opslag;
-// na herladen staat alles er precies zo. De Spiraalburcht (202 modules, met massief) past zo in de opslag.
+// na herladen staat alles er precies zo. De gegenereerde stad (ruim 400 modules) past zo in de opslag.
 const { open } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 900, height: 600 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  const r = await p.evaluate(() => { const S = window.__SC(); S.doAct('bergspiraal'); const c = S.getCells(), vol = S.serialize(c).length, opgeslagen = localStorage.getItem('raatstad-v2') || '';
+  const r = await p.evaluate(() => { const S = window.__SC(); S.doAct('stad'); const c = S.getCells(), vol = S.serialize(c).length, opgeslagen = localStorage.getItem('raatstad-v2') || '';
     const terug = S.parseCity(opgeslagen), vast = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v), gelijk = terug.inst.length === c.inst.length && terug.inst.every((I, i) => vast(I) === vast(c.inst[i]));   // op inhoud (volgorde van de velden telt niet)
     return { vol, opgeslagen: opgeslagen.length, refs: (opgeslagen.match(/"mref":1/g) || []).length, modules: c.inst.length, gelijk, melding: document.getElementById('toast').textContent }; });
   console.log('volledig', (r.vol / 1e6).toFixed(2), 'MB · in de browser', (r.opgeslagen / 1e6).toFixed(2), 'MB ·', r.refs, 'van', r.modules, 'als verwijzing · na terugladen gelijk:', r.gelijk);

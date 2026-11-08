@@ -1,4 +1,4 @@
-  // ---------- Bouwen met SketchUp-modules: losse modules en hele voorbeelden (bergfort) in de stad zetten ----------
+  // ---------- Bouwen met SketchUp-modules: losse modules en hele voorbeelden (winkelcentrum) in de stad zetten ----------
   // De vormen komen uit SKP_FORTEN.mods (08n, met c = midden van het vak van de module in cm). Wat je neerzet staat in
   // cells.skp (bewaard als __k): { n: modulenaam, q, r: vak, y: hoogte van de voet (m), a: assen x, y, z van de module
   // in SketchUp-assen (9 getallen, z omhoog), o: [dx, dy] kleine afwijking van het midden van het vak (m) }.
@@ -94,24 +94,8 @@
         const d = rot([t.d[0], t.d[1], 0, 0, 0, 0, 0, 0, 0], st.k), [q, r] = worldToCell(ax + d[0], -(ay + d[1])), h0 = gH(q, r), h = st.base + st.dh + t.h;
         if (h > h0 + 0.01) { oud.push([q, r, h0]); nieuw.push([q, r, h]); }
       }
-      // Raatmaker-modules: het terrein van elk vak precies op de onderkant van de laagste module (daar staat de rots onder),
-      // dan per module een exemplaar op de goede laag en draaiing
-      const raat = [], laagste = new Map();
-      for (const it of st.raat) {
-        const d = rot([it.d[0], it.d[1], 0, 0, 0, 0, 0, 0, 0], st.k), [q, r] = worldToCell(ax + d[0], -(ay + d[1])), k = q + ',' + r;
-        raat.push({ it, q, r }); laagste.set(k, Math.min(laagste.has(k) ? laagste.get(k) : 1e9, it.z));
-      }
-      const zet = [];
-      for (const [k, z] of laagste) { const [q, r] = k.split(',').map(Number), h0 = gH(q, r), h = st.base + st.dh + z; if (Math.abs(h - h0) > 0.01) { if (!oud.some(o => o[0] === q && o[1] === r)) oud.push([q, r, h0]); zet.push([q, r, h]); } }
-      if (nieuw.length || zet.length) { terrSet([...nieuw, ...zet]); terrFlush(); }
-      const inst = [];
-      for (const { it, q, r } of raat) {
-        const P = bergRaat.plaats(it.i); if (!P) continue;   // de weg hoort niet meer bij het fort
-        const m = P.m, lv = Math.round((it.z - laagste.get(q + ',' + r)) / 3), I = { mid: m.id, m: instData(m, !!P.a), q, r, rot: (it.rot + st.k + P.k) % 6 }; if (P.a) I.mir = 1;   // dubbele variant: de hoofdmodule, gedraaid/gespiegeld
-        if (lv) I.lv = lv; cells.inst.push(I); inst.push(I);
-      }
-      if (inst.length) { buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); n += inst.length; }
-      st.batches.push({ n: n - inst.length, terr: oud, inst }); build(); changed(); toast(st.naam + ' neergezet' + (n > 1 ? ' (' + n + ' modules)' : '') + (nieuw.length ? ', terrein opgehoogd' : ''), 1400);
+      if (nieuw.length) { terrSet(nieuw); terrFlush(); }
+      st.batches.push({ n, terr: oud, inst: [] }); build(); changed(); toast(st.naam + ' neergezet' + (n > 1 ? ' (' + n + ' modules)' : '') + (nieuw.length ? ', terrein opgehoogd' : ''), 1400);
     }
     function remove(cx, cy) {
       const ndc = new THREE.Vector2(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1), ray = new THREE.Raycaster(); ray.setFromCamera(ndc, camera);
@@ -121,7 +105,7 @@
     function setHint() { hint.innerHTML = `<b>${st.naam}</b> neerzetten${st.k ? ' · ' + st.k * 60 + '° gedraaid' : ''}${st.cell ? ' · op ' + String(+(st.base + st.dh).toFixed(1)).replace('.', ',') + ' m' : ''}<div class="k"><span><kbd>klik</kbd>neerzetten (bovenop wat onder de muis staat)</span><span><kbd>R</kbd>draaien</span><span><kbd>Page Up/Down</kbd>hoger/lager</span><span><kbd>Shift</kbd>+klik weghalen</span><span><kbd>Backspace</kbd>terug</span><span><kbd>Esc</kbd>klaar</span></div>`; }
     function start(opt) {
       if (mode === 'walk') { document.getElementById('modeBtn').click(); }
-      st.items = []; st.terr = []; st.raat = []; st.k = 0; st.dh = 0;
+      st.items = []; st.terr = []; st.k = 0; st.dh = 0;
       if (opt.fort !== undefined) {
         // een heel voorbeeld: elke module met zijn plek ten opzichte van de module die het dichtst bij het midden staat
         const P = F.forten[opt.fort].p.map(p => { const mi = p[0], c = F.mods[mi].c, A = p.slice(1, 10), t = p.slice(10, 13).map(v => v / 100), cx = c[0] / 100, cy = c[1] / 100; return { mi, a: A, m: [t[0] + A[0] * cx + A[3] * cy, t[1] + A[1] * cx + A[4] * cy, t[2] + A[2] * cx + A[5] * cy] }; });
@@ -130,20 +114,18 @@
         { const [q, r] = worldToCell(mid[0], -mid[1]), [x, y] = suMid(q, r); mid[0] = x; mid[1] = y; }   // precies op het midden van een vak (ook het terrein)
         st.items = P.map(p => ({ mi: p.mi, a: p.a, d: [p.m[0] - mid[0], p.m[1] - mid[1]], h: p.m[2] })); st.naam = F.forten[opt.fort].naam;
         st.terr = (F.forten[opt.fort].t || []).map(([x, y, h]) => ({ d: [x - mid[0], y - mid[1]], h }));
-        // het bergfort zelf: de onderdelen als Raatmaker-modules (bewerkbaar), alleen de rots als SketchUp-vorm
-        if (F.forten[opt.fort].naam === 'Bergfort' && !F.forten[opt.fort].eigen && typeof SKP_RAAT !== 'undefined') {
-          st.items = st.items.filter(it => F.mods[it.mi].n.startsWith('Rots'));
-          st.raat = SKP_RAAT.fort.map(([i, q, r, z, rot]) => { const [x, y] = suMid(q, r); return { i, d: [x - mid[0], y - mid[1]], z, rot }; });
-        }
-        if (F.forten[opt.fort].raat) st.raat = F.forten[opt.fort].raat.map(([i, x, y, z, rot]) => ({ i, d: [x - mid[0], y - mid[1]], z, rot }));
       } else { st.items = [{ mi: idx.get(opt.naam), a: opt.a || ID, d: [0, 0], h: 0 }]; st.naam = opt.naam; }
       st.on = true; buildGhost(); setHint(); hint.hidden = false;
     }
-    // ---------- de SketchUp-modules in de stad bewaren als fort (eigen versie van het bergfort) ----------
+    // ---------- de SketchUp-modules in de stad bewaren als fort (eigen versie van een voorbeeld) ----------
     // Een eigen fort staat in localStorage (raat-eigen-forten) en verschijnt als pagina in de Modulekaart. Download geeft
     // hetzelfde als JSON voor de gereedschappen in tools/sketchup (looproute.py, pad_af.py): { plaatsen: [[naam, matrix]] }.
     const EIGEN = 'raat-eigen-forten';
     const eigen = (() => { try { return JSON.parse(localStorage.getItem(EIGEN) || '[]'); } catch (e) { return []; } })();
+    try {   // eenmalig: het bergfort is uit het spel (Joep bouwt het opnieuw op); ook de eigen versies ervan weg
+      if (localStorage.getItem('raatstad-bergfort-weg-forten') !== '1') { localStorage.setItem('raatstad-bergfort-weg-forten', '1'); const voor = eigen.length; for (let i = eigen.length - 1; i >= 0; i--) if (/^bergfort/i.test(String(eigen[i] && eigen[i].naam))) eigen.splice(i, 1); for (const f of eigen) delete f.raat;
+        if (eigen.length !== voor) localStorage.setItem(EIGEN, JSON.stringify(eigen)); }
+    } catch (e) { /* geen opslag */ }
     for (const f of eigen) F.forten.push(f);
     function alsFort(naam) {
       const L = (cells && cells.skp) || []; if (!L.length) return null;
@@ -158,21 +140,15 @@
       // het terrein onder en rond het fort (tot drie vakken eromheen) gaat mee
       const t = [], vk = new Set(L.map(r => r.q + ',' + r.r));
       if (cells.terr) for (const k in cells.terr) { const [q, r] = k.split(',').map(Number); let dicht = false; for (const v of vk) { const [a, b] = v.split(',').map(Number); if (Math.max(Math.abs(q - a), Math.abs(r - b), Math.abs(q + r - a - b)) <= 3) { dicht = true; break; } } if (dicht && cells.terr[k] - y0 > 0.2) { const [x, y] = suMid(q, r); t.push([+(x - sx).toFixed(3), +(y - sy).toFixed(3), +(cells.terr[k] - y0).toFixed(2)]); } }
-      // de Raatmaker-onderdelen van het bergfort (exemplaren van de bergfort-modules) gaan ook mee
-      const raat = [];
-      for (const I of cells.inst || []) {
-        const i = bergRaat.index(I.mid); if (i < 0) continue; const [x, y] = suMid(I.q, I.r);
-        raat.push([i, +(x - sx).toFixed(3), +(y - sy).toFixed(3), +(gH(I.q, I.r) + (I.lv || 0) * 3 - y0).toFixed(2), I.rot || 0]);
-      }
       let fi = F.forten.findIndex(f => f.naam === naam);
-      const f = { naam, p, t, raat, eigen: true };
+      const f = { naam, p, t, eigen: true };
       if (fi < 0) { F.forten.push(f); fi = F.forten.length - 1; } else F.forten[fi] = f;
       try { localStorage.setItem(EIGEN, JSON.stringify(F.forten.filter(x => x.eigen))); } catch (e) { }
       return fi;
     }
     function download(fi) {
       const f = F.forten[fi], plaatsen = f.p.map(p => [F.mods[p[0]].n, [p[1], p[2], p[3], 0, p[4], p[5], p[6], 0, p[7], p[8], p[9], 0, p[10], p[11], p[12], 1]]);
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ bestand: 'webversie: ' + f.naam, plaatsen, terrein: f.t || [], raatmaker: (f.raat || []).map(([i, x, y, z, rot]) => [SKP_RAAT.mods[i].name, x, y, z, rot]) })], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ bestand: 'webversie: ' + f.naam, plaatsen, terrein: f.t || [] })], { type: 'application/json' }));
       a.download = 'raatstad-' + f.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
     function stop() { st.on = false; ghost.visible = false; hint.hidden = true; }

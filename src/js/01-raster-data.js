@@ -218,7 +218,6 @@
       if (Array.isArray(obj.__e)) m.edges = new Map(obj.__e.filter(e => Array.isArray(e) && typeof e[0] === 'string' && (e[1] === 'weg' || e[1] === 'brd' || e[1] === 'pad')));
       if (Array.isArray(obj.__p)) m.paths = obj.__p.filter(p => p && ['weg', 'brd', 'laan', 'pad', 'snel', 'klink', 'fiets', 'rot'].includes(p.t) && Array.isArray(p.p) && p.p.length > (p.t === 'rot' ? 0 : 1) && p.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])));
       if (Array.isArray(obj.__r)) m.rails = obj.__r.filter(r => r && Array.isArray(r.p) && r.p.length > 1 && r.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1]))).map(r => ({ p: r.p.map(a => [+a[0], +a[1]]) }));
-      if (Array.isArray(obj.__i)) for (const x of obj.__i) try { if (x) bergOmzetten(x); } catch (e) { /* bergfort nog niet geladen */ }   // dubbele bergfort-variant: de hoofdmodule, gedraaid (08o2)
       if (Array.isArray(obj.__i) && typeof modules !== 'undefined') for (const x of obj.__i) if (x && x.mref && !x.m) { const mod = modules.find(y => y.id === x.mid); if (mod && typeof instData === 'function') x.m = instData(mod, !!x.mir); delete x.mref; }   // verwijzing (zie serializeOpslag): de kopie terug
       if (Array.isArray(obj.__i)) m.inst = obj.__i.filter(x => x && x.m && Array.isArray(x.m.edges) && isFinite(x.q) && isFinite(x.r) && isFinite(x.rot));
       if (m.inst) for (const I of m.inst) mv2Zeshoek(I.m);   // zeshoektegels in modules die al in de stad stonden (08c)

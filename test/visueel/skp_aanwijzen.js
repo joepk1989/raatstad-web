@@ -1,5 +1,5 @@
-// Het bergfort in de stad bewerken met de gewone gereedschappen: Aanwijzen (draaien, meer hiervan, weghalen) en de gum,
-// zowel op de Raatmaker-onderdelen als op de rots (SketchUp-vorm).
+// Een SketchUp-voorbeeld (het winkelcentrum) in de stad bewerken met de gewone gereedschappen: Aanwijzen (draaien, meer
+// hiervan, weghalen) en de gum.
 const { open, OUT } = require('./helper');
 const path = require('path');
 (async () => {

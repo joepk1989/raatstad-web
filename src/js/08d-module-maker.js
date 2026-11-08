@@ -1333,26 +1333,20 @@
     function renderLib() {
       const el = $('lib'), q = ($('filter').value || '').trim().toLowerCase(); el.innerHTML = '';
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
-      // bergfort-modules (en kopieën ervan) vind je ook met 'bergfort'; bij elk staat hoe vaak hij in het fort voorkomt
-      const berg = m => m.bron === 'bergfort' || String(m.id || '').startsWith('bergfort:');
-      const inFort = new Map(); if (typeof SKP_RAAT !== 'undefined') for (const p of SKP_RAAT.fort) { const pl = typeof bergRaat !== 'undefined' ? bergRaat.plaats(p[0]) : null; if (typeof bergRaat !== 'undefined' && !pl) continue; const id = pl ? pl.m.id : 'bergfort:' + SKP_RAAT.mods[p[0]].name;   /* dubbele varianten tellen bij hun hoofdmodule, de weg niet */ inFort.set(id, (inFort.get(id) || 0) + 1); }
-      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '') + (berg(m) ? ' bergfort' : '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
+      const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
       $('libN').textContent = list.length + (list.length === modules.length ? '' : ' van ' + modules.length);
       for (const [m, i] of list) {
         const d = document.createElement('div'); d.className = 'mod'; d.setAttribute('aria-current', String(i === E.editing));
         const px = app.classList.contains('mm-libgroot') ? 96 : 18;   // grote bibliotheek: scherpe plaatjes
         const c = m.v === 2 ? mv2Thumb(m, 0, px) : modThumb(m, 0, px); d.appendChild(c);
-        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') + (berg(m) ? ' · bergfort' + (inFort.get(m.id) ? ' ' + inFort.get(m.id) + '×' : ' (kopie)') : '') : 'oude schets'}</small>`; d.appendChild(sp);
-        const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Verwijderen'; del.addEventListener('click', ev => { ev.stopPropagation(); if (!sure('del' + m.id, '"' + m.name + '" verwijderen? Geplaatste exemplaren gaan ook weg')) { del.textContent = 'Zeker?'; del.classList.add('warn'); return; } say('"' + m.name + '" verwijderd'); if (typeof bergRaat !== 'undefined' && String(m.id || '').startsWith('bergfort:')) bergRaat.verwijder(m.id); dropModule(m); modules.splice(i, 1); if (E.editing === i) { E.editing = -1; } else if (E.editing > i) E.editing--; saveMods(); renderStrip(); renderLib(); });
+        const sp = document.createElement('span'); const M = modMeta(m); sp.innerHTML = `${m.name}<small>${m.v === 2 ? (m.cat || 'Overig') + ' · ' + (M.n === 7 ? '7 vakken' : '1 vak') + (M.bouw ? ' · ' + M.fl + (M.fl === 1 ? ' laag' : ' lagen') : '') + (M.stack ? ' · plat dak' : '') + '' : 'oude schets'}</small>`; d.appendChild(sp);
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.title = 'Verwijderen'; del.addEventListener('click', ev => { ev.stopPropagation(); if (!sure('del' + m.id, '"' + m.name + '" verwijderen? Geplaatste exemplaren gaan ook weg')) { del.textContent = 'Zeker?'; del.classList.add('warn'); return; } say('"' + m.name + '" verwijderd'); dropModule(m); modules.splice(i, 1); if (E.editing === i) { E.editing = -1; } else if (E.editing > i) E.editing--; saveMods(); renderStrip(); renderLib(); });
         d.appendChild(del);
         d.addEventListener('click', () => { if (m.v !== 2) { say('Een oude schets-module kun je hier niet bewerken; wel plaatsen of verwijderen', 3000); return; } if (E.dirty && !sure('load' + m.id, 'Niet-bewaarde wijzigingen weggooien?')) return; loadModule(m, i); });
         el.appendChild(d);
       }
     }
-    // knop Bergfort: zet het filter op 'bergfort' (nog eens: weer alles); de knop licht op zolang dat filter staat
-    const fBerg = $('fBerg'), bergSync = () => { if (fBerg) fBerg.setAttribute('aria-pressed', String(($('filter').value || '').trim().toLowerCase() === 'bergfort')); };
-    $('filter').addEventListener('input', () => { bergSync(); renderLib(); });
-    if (fBerg) fBerg.addEventListener('click', e => { e.stopPropagation(); const f = $('filter'); f.value = fBerg.getAttribute('aria-pressed') === 'true' ? '' : 'bergfort'; bergSync(); renderLib(); });
+    $('filter').addEventListener('input', () => renderLib());
     // delen
     async function download(name, text) {
       try { const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null; if (dl) { try { await dl.save({ filename: name, data: text }); say('Bestand bewaard'); } catch (e) { say(e && e.code === 'declined' ? 'Niet bewaard' : 'Bewaren lukt hier niet'); } return; } } catch (e) { /* geen artifact-omgeving */ }
@@ -1361,7 +1355,7 @@
     $('bExport').onclick = () => { const m = E.m; download((m.name || 'module').replace(/[^\w\-]+/g, '_') + '.json', JSON.stringify(m)); };
     $('bExportAll').onclick = () => download('raatstad-modules.json', JSON.stringify(modules));
     $('bFile').onchange = e => { const f = e.target.files && e.target.files[0]; if (!f) return; f.text().then(t => { try { const o = JSON.parse(t), list = Array.isArray(o) ? o : [o]; let n = 0; for (const m of list) { if (!m || typeof m !== 'object') continue; if (m.v === 2) mv2Fix(m); else if (!Array.isArray(m.edges)) continue; m.id = uid(); modules.push(m); n++; } saveMods(); renderStrip(); renderLib(); say(n + ' module(s) geladen'); } catch (err) { say('Geen geldig bestand'); } e.target.value = ''; }); };
-        $('bStd').onclick = () => { if (!sure('std', 'Standaardmodules terugzetten? Aangepaste standaardmodules worden overschreven; je eigen modules blijven staan')) return; if (typeof bergRaat !== 'undefined') bergRaat.herstel(); const n = libInstall(true); for (const m of modules) if (m.v === 2) syncModule(m); renderStrip(); renderLib(); say(n + ' standaardmodules teruggezet'); };
+        $('bStd').onclick = () => { if (!sure('std', 'Standaardmodules terugzetten? Aangepaste standaardmodules worden overschreven; je eigen modules blijven staan')) return; const n = libInstall(true); for (const m of modules) if (m.v === 2) syncModule(m); renderStrip(); renderLib(); say(n + ' standaardmodules teruggezet'); };
     // Vloeiend wisselen tussen stad en ontwerper: de camera vliegt eerst naar de plek (de stad blijft draaien), de ontwerper
     // schuift er dan zacht overheen; terug gaat andersom. Zolang de ontwerper open is staat de stad stil en kost hij niets.
     const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;

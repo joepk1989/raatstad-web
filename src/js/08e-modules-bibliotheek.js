@@ -402,6 +402,13 @@
       for (const m of libStandard()) if (/^Kantoor · groen dak/.test(m.name) && !have.has(base(m.name))) { m.lib = 19; modules.push(m); libNews++; n++; }
       if (n) saveMods(); localStorage.setItem('raatstad-lib19', '1'); if (n) libRefreshed = true;
     }
+    // eenmalig: het bergfort is uit het spel (Joep bouwt het opnieuw op). De bergfort-modules uit de bibliotheek; eigen kopieën
+    // blijven, en wat al in een stad staat blijft staan tot je het sloopt (een exemplaar heeft zijn eigen moduledata).
+    if (!localStorage.getItem('raatstad-bergfort-weg')) {
+      let n = 0; for (let i = modules.length - 1; i >= 0; i--) if (String(modules[i].id || '').startsWith('bergfort:')) { modules.splice(i, 1); n++; }
+      for (const k of Object.keys(localStorage)) if (/^raatstad-berg-/.test(k)) localStorage.removeItem(k);   // de vlaggen van de oude omzettingen
+      if (n) saveMods(); localStorage.setItem('raatstad-bergfort-weg', '1'); if (n) libRefreshed = true;
+    }
     // lib15: steegjes erbij (twee smalle huizen met een sluipsteeg ertussen, voor het heuveldorp)
     if (!localStorage.getItem('raatstad-lib15')) {
       const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), have = new Set(modules.map(m => base(m.name)));
