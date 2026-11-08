@@ -69,7 +69,7 @@
       const c = new Map(); c.inst = [];
       for (const P of plan().plaatsingen) {
         const i = SKP_RAAT.mods.findIndex(m => m.name === P.naam); if (i < 0) continue;
-        const m = bergRaat.mod(i), I = { mid: m.id, m: instData(m, false), q: P.q, r: P.r, rot: P.rot };
+        const m = bergRaat.mod(i); if (!m) continue;   /* in de Raatmaker verwijderd */ const I = { mid: m.id, m: instData(m, false), q: P.q, r: P.r, rot: P.rot };
         if (P.lv) I.lv = P.lv; c.inst.push(I);
       }
       return c;
