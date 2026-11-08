@@ -353,6 +353,38 @@
     // scheidt wand a–b de punten p en q? Ook als q precies op de wandlijn ligt (een haakse rastermuur gaat door de middens van een rij driehoeken)
     const scheidt = (p, q, a, b) => { const kr = (u, v, w) => (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]), d1 = kr(a, b, p), d2 = kr(a, b, q), e = 1e-6; if (Math.abs(d1) < e && Math.abs(d2) < e) return false; if (d1 * d2 > e * e) return false; return kr(p, q, a) * kr(p, q, b) <= e * e; };
     const snijdt = (p, q, a, b) => { const d = (x1, y1, x2, y2, x3, y3) => (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1); const d1 = d(a[0], a[1], b[0], b[1], p[0], p[1]), d2 = d(a[0], a[1], b[0], b[1], q[0], q[1]), d3 = d(p[0], p[1], q[0], q[1], a[0], a[1]), d4 = d(p[0], p[1], q[0], q[1], b[0], b[1]); return d1 * d2 < 0 && d3 * d4 < 0; };
+    // De ruimte rond (x, z) zoeken, voor Vullen (vloer) en Massief (ruimte vullen): driehoeken bereikbaar zonder een muur te
+    // kruisen (ook muren die dwars door driehoeken lopen: schuine wanden en haakse rastermuren). Massief blijft onder de vloer
+    // erboven (als die er bij de klik is). Per rand waarom de ruimte daar stopt: muur, de rand van het gebied, of open (bij
+    // Massief: daar houdt de vloer erboven op). kant: per driehoek een punt aan de goede kant van een wand die erdoor loopt.
+    function ruimteZoeken(x, z, massief) {
+      const L = lvl(), start = triAt(x, z), sk = start.join(','); if (!okTri(start)) return null;
+      const boven = E.m.lv[E.lv + 1], onder = massief && boven && boven.f && boven.f[sk] ? boven.f : null;
+      const pm = plaatMuren(L), t = ts(), mid = ([i, j, tt]) => { const v = mv2TriVerts(i, j, tt, t); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };
+      const seen = new Set([sk]), queue = [start], kant = new Map([[sk, [x, z]]]), randen = [], wandRand = new Set();
+      while (queue.length) {
+        const id = queue.pop(), k = id.join(','), c0 = kant.get(k) || mid(id);
+        for (const [wk, nb] of triEdges(id)) {
+          const nk = nb.join(','); if (seen.has(nk)) continue;
+          if (L.w[wk]) { randen.push([wk, 'muur']); continue; }
+          if (!okTri(nb)) { randen.push([wk, 'rand']); continue; }
+          if (onder && !onder[nk]) { randen.push([wk, 'open']); continue; }
+          const c1 = mid(nb), w = pm.findIndex(([a, b]) => scheidt(c0, c1, a, b));
+          if (w >= 0) { wandRand.add(w); if (!kant.has(nk)) kant.set(nk, c0); continue; }   // achter de wand: alleen het stukje aan deze kant, niet verder
+          seen.add(nk); kant.set(nk, c1); queue.push(nb); if (seen.size > 20000) break;
+        }
+      }
+      return { kant, seen, randen, pm, wanden: [...wandRand].map(w => pm[w]), onder: !!onder, open: randen.some(r => r[1] === 'open') };
+    }
+    // de afknip van driehoek k langs de wanden die erdoor lopen, aan de kant van punt P (zoals L.vk en L.fk)
+    function knipVoor(k, P, pm) {
+      const [i, j, tt] = k.split(',').map(Number), v = mv2TriVerts(i, j, tt, ts()), knip = [];
+      const inT = (p, w) => { const d = (a, b) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]), d1 = d(w[0], w[1]), d2 = d(w[1], w[2]), d3 = d(w[2], w[0]); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+      const raakt = (a, b) => inT(a, v) || inT(b, v) || [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]].some(([p, q]) => snijdt(a, b, p, q));
+      for (const [a, b] of pm) { if (!raakt(a, b)) continue; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, c = nx * a[0] + nz * a[1]; if (nx * P[0] + nz * P[1] < c) { nx = -nx; nz = -nz; c = -c; } const h0 = [+nx.toFixed(4), +nz.toFixed(4), +c.toFixed(4)]; if (!knip.some(h => h[0] === h0[0] && h[1] === h0[1] && h[2] === h0[2])) knip.push(h0); }
+      let pl = v; for (const h of knip) pl = pl.length >= 3 ? mv2ClipKeep(pl, h) : pl;
+      return { knip, leeg: pl.length < 3 };
+    }
     function solidFill(x, z, erase) {
       const L = lvl(), start = triAt(x, z), sk = start.join(','); if (!okTri(start)) return 0; if (!L.v) L.v = {};
       if (erase) {   // hol maken: het aaneengesloten massief rond de klik
@@ -360,28 +392,10 @@
         while (q.length) { const id = q.pop(), k = id.join(','); delete L.v[k]; if (L.vk) delete L.vk[k]; n++; for (const [, nb] of triEdges(id)) { const nk = nb.join(','); if (!seen.has(nk) && L.v[nk]) { seen.add(nk); q.push(nb); } } }
         return n;
       }
-      const boven = E.m.lv[E.lv + 1], onder = boven && boven.f && boven.f[sk] ? boven.f : null;   // onder een vloer: alleen zover die vloer reikt
-      const pm = plaatMuren(L), t = ts(), mid = ([i, j, tt]) => { const v = mv2TriVerts(i, j, tt, t); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };
-      // Eerst de ruimte zoeken (driehoeken met hun midden binnen), dan elke driehoek die een schuine wand snijdt daarop afknippen
-      // (L.vk, zoals L.fk bij de vloer): zo loopt het massief tot precies aan de wand, zonder zaagtand en zonder erdoorheen te steken.
-      const seen = new Set([sk]), queue = [start], kant = new Map([[sk, [x, z]]]);   // kant: een punt aan de goede kant van de wand (bij de klik: het klikpunt zelf, ook als het midden op een wand ligt)
-      while (queue.length) {
-        const id = queue.pop(), k = id.join(','), c0 = kant.get(k) || mid(id);
-        for (const [wk, nb] of triEdges(id)) {
-          const nk = nb.join(','); if (seen.has(nk) || L.w[wk] || !okTri(nb) || (onder && !onder[nk])) continue;
-          const c1 = mid(nb);
-          if (pm.some(([a, b]) => scheidt(c0, c1, a, b))) { if (!kant.has(nk)) kant.set(nk, c0); continue; }   // achter de wand: alleen het stukje aan deze kant, niet verder
-          seen.add(nk); kant.set(nk, c1); queue.push(nb); if (seen.size > 20000) break;
-        }
-      }
-      // snijdt lijnstuk ab driehoek v? (een hoekpunt erin, of een rand gekruist)
-      const inT = (p, v) => { const d = (a, b) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]), d1 = d(v[0], v[1]), d2 = d(v[1], v[2]), d3 = d(v[2], v[0]); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
-      const raakt = (a, b, v) => inT(a, v) || inT(b, v) || [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]].some(([p, q]) => snijdt(a, b, p, q));
+      const Rz = ruimteZoeken(x, z, true); if (!Rz) return 0;
       let n = 0; if (!L.vk) L.vk = {};
-      for (const [k, P] of kant) {
-        const [i, j, tt] = k.split(',').map(Number), v = mv2TriVerts(i, j, tt, t), knip = [];
-        for (const [a, b] of pm) { if (!raakt(a, b, v)) continue; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; let nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, c = nx * a[0] + nz * a[1]; if (nx * P[0] + nz * P[1] < c) { nx = -nx; nz = -nz; c = -c; } const h0 = [+nx.toFixed(4), +nz.toFixed(4), +c.toFixed(4)]; if (!knip.some(h => h[0] === h0[0] && h[1] === h0[1] && h[2] === h0[2])) knip.push(h0); }   // dezelfde wandlijn maar één keer
-        let pl = v; for (const h of knip) pl = pl.length >= 3 ? mv2ClipKeep(pl, h) : pl; if (pl.length < 3) continue;   // niets over aan deze kant
+      for (const [k, P] of Rz.kant) {
+        const { knip, leeg } = knipVoor(k, P, Rz.pm); if (leeg) continue;   // niets over aan deze kant
         if (L.v[k] !== E.vmat || JSON.stringify(L.vk[k] || null) !== JSON.stringify(knip.length ? (knip.length === 1 ? knip[0] : knip) : null)) n++;
         L.v[k] = E.vmat; if (knip.length) L.vk[k] = knip.length === 1 ? knip[0] : knip; else delete L.vk[k];
       }
@@ -390,13 +404,14 @@
     E.solidFill = solidFill; E.paintSolid = paintSolid;   // voor tests
     // vullen: driehoeken bereikbaar vanaf (x, z) zonder een muur te kruisen
     const triEdges = ([i, j, t]) => t ? [[wallKey(i + 1, j, 1), [i + 1, j, 0]], [wallKey(i, j + 1, 0), [i, j + 1, 0]], [wallKey(i + 1, j, 2), [i, j, 0]]] : [[wallKey(i, j, 0), [i, j - 1, 1]], [wallKey(i, j, 1), [i - 1, j, 1]], [wallKey(i + 1, j, 2), [i, j, 1]]];
-    function fillFrom(x, z, erase) {
-      const L = lvl(), start = triAt(x, z); if (!okTri(start)) return 0;
-      const seen = new Set([start.join(',')]), queue = [start]; let n = 0;
-      while (queue.length) {
-        const id = queue.pop(), k = id.join(',');
-        if (L.fk && L.fk[k]) { delete L.fk[k]; n++; } if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; }
-        for (const [wk, nb] of triEdges(id)) { const nk = nb.join(','); if (seen.has(nk) || L.w[wk] || !okTri(nb)) continue; seen.add(nk); queue.push(nb); if (seen.size > 20000) return n; }
+    function fillFrom(x, z, erase) {   // vloer: dezelfde ruimte als Massief (ook tot aan wanden die dwars door driehoeken lopen)
+      const L = lvl(), Rz = ruimteZoeken(x, z, false); if (!Rz) return 0; let n = 0;
+      for (const [k, P] of Rz.kant) {
+        if (erase) { if (Rz.seen.has(k) && L.f[k]) { delete L.f[k]; if (L.fk) delete L.fk[k]; n++; } continue; }
+        const { knip, leeg } = knipVoor(k, P, Rz.pm); if (leeg) continue;
+        if (knip.length && L.f[k]) { if (Rz.seen.has(k) && L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } continue; }   // doormidden gesneden en al vloer: de vloer aan de andere kant blijft
+        if (L.f[k] !== E.fmat || (knip.length && !(L.fk && L.fk[k]))) n++;
+        L.f[k] = E.fmat; if (knip.length) { if (!L.fk) L.fk = {}; L.fk[k] = knip.length === 1 ? knip[0] : knip; } else if (L.fk && L.fk[k]) { delete L.fk[k]; n++; }
       }
       return n;
     }
@@ -966,6 +981,27 @@
         const other = [...new Set([...r.bad.keys(), ...r.marks.map(k => k.li)])].filter(li => li !== E.lv); if (other.length) { const txt = 'Ook rood op: ' + other.map(li => li === 0 ? 'BG' : li + 'e').join(', ') + ' (Page Up/Down)'; ctx.font = '600 12px system-ui, sans-serif'; const tw = ctx.measureText(txt).width; ctx.fillStyle = 'rgba(23,27,20,0.88)'; ctx.fillRect(W / 2 - tw / 2 - 8, 12, tw + 16, 24); ctx.fillStyle = '#ff8a7d'; ctx.textAlign = 'center'; ctx.fillText(txt, W / 2, 24); }
         ctx.restore();
       }
+      // Voorbeeld bij Vullen en Massief (ruimte): welke ruimte er gevuld wordt (licht ingekleurd) en waar die ophoudt: muren
+      // groen, de rand van het gebied grijs, open (de vloer erboven houdt op: daar loopt de ruimte door) rood, met bij de muis
+      // het aantal driehoeken en of de ruimte dicht is.
+      function ruimteVoorbeeld(x, z) {
+        const massief = E.tool === 'solid', id = triAt(x, z), sleutel = [id.join(','), E.lv, massief, E.undo.length, E.redo.length, JSON.stringify(E.m.lv[E.lv].w).length].join('|');
+        if (!E._rz || E._rz.sleutel !== sleutel) E._rz = { sleutel, R: ruimteZoeken(x, z, massief) };
+        const Rz = E._rz.R; if (!Rz) return;
+        const lijn = (a, b) => { const A = toS(a[0], a[1]), B = toS(b[0], b[1]); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); };
+        ctx.save(); ctx.fillStyle = massief ? 'rgba(242,178,51,0.28)' : 'rgba(120,200,255,0.25)';
+        for (const [k, Pk] of Rz.kant) { const [i, j, tt] = k.split(',').map(Number); let v = mv2TriVerts(i, j, tt, ts()); if (!Rz.seen.has(k)) { const { knip } = knipVoor(k, Pk, Rz.pm); for (const h of knip) v = v.length >= 3 ? mv2ClipKeep(v, h) : v; if (v.length < 3) continue; }
+          ctx.beginPath(); v.forEach((p, n) => { const S3 = toS(p[0], p[1]); n ? ctx.lineTo(S3[0], S3[1]) : ctx.moveTo(S3[0], S3[1]); }); ctx.closePath(); ctx.fill(); }
+        const kleur = { muur: '#3fbf6a', rand: '#ff4d3d', open: '#ff9a2e' };   // groen dicht; rood: de rand van het vak zonder muur (open naar buiten); oranje: de vloer erboven houdt op
+        for (const soort of ['muur', 'rand', 'open']) { ctx.strokeStyle = kleur[soort]; ctx.lineWidth = soort === 'muur' ? 3 : 4; ctx.setLineDash(soort === 'rand' ? [7, 5] : []); ctx.beginPath();
+          for (const [wk, s2] of Rz.randen) if (s2 === soort) { const [i, j, d] = wk.split(',').map(Number); lijn(...segOf(i, j, d)); }
+          if (soort === 'muur') for (const [a, b] of Rz.wanden) lijn(a, b);   // wanden die dwars door driehoeken lopen
+          ctx.stroke(); }
+        ctx.setLineDash([]);
+        const n = Rz.seen.size, S0 = toS(x, z), naarBuiten = Rz.randen.some(r => r[1] === 'rand'), tekst = (massief ? 'Massief: ' : 'Vullen: ') + n + ' driehoeken · ' + (naarBuiten && Rz.open ? 'open aan de rand (rood) en waar de vloer erboven ophoudt (oranje)' : naarBuiten ? 'open aan de rand van het vak (rood)' : Rz.open ? 'open waar de vloer erboven ophoudt (oranje)' : 'dicht: helemaal tussen muren (groen)');
+        ctx.font = '12px system-ui'; const wB = ctx.measureText(tekst).width + 12; ctx.fillStyle = 'rgba(20,24,16,0.85)'; ctx.fillRect(S0[0] + 14, S0[1] + 12, wB, 22); ctx.fillStyle = Rz.open || naarBuiten ? '#ffb4ab' : '#bdf0c9'; ctx.textBaseline = 'middle'; ctx.fillText(tekst, S0[0] + 20, S0[1] + 23);
+        ctx.restore(); E.ruimteInfo = { n, open: Rz.open, onder: Rz.onder, muur: Rz.randen.filter(r => r[1] === 'muur').length + Rz.wanden.length, rand: Rz.randen.filter(r => r[1] === 'rand').length, openRanden: Rz.randen.filter(r => r[1] === 'open').length };
+      }
       function paintHover() {
       checkPaint();
       if (E.tool === 'select') selPaint();
@@ -978,7 +1014,8 @@
       else if (D && D.kind === 'obj') { const o = lvl().o[D.oi]; if (o) { ctx.lineWidth = 2.5; objShape(o, 'rgba(242,178,51,0.18)', '#f2b233', in3 ? lvY() + 0.05 : undefined); } }
       else if (hv && !E.pan) {
         const [x, z] = hv; ctx.strokeStyle = '#f2b233'; ctx.lineWidth = 2;
-        if (E.tool === 'floor' || (E.tool === 'solid' && E.vmode === 'penseel')) { for (const id of brushTris(x, z).filter(okTri)) { const v = mv2TriVerts(id[0], id[1], id[2], t); ctx.beginPath(); v.forEach((p, n) => { const S3 = toS(p[0], p[1]); n ? ctx.lineTo(S3[0], S3[1]) : ctx.moveTo(S3[0], S3[1]); }); ctx.closePath(); ctx.stroke(); } }
+        if (E.tool === 'fill' || (E.tool === 'solid' && E.vmode === 'ruimte')) ruimteVoorbeeld(x, z);
+        else if (E.tool === 'floor' || (E.tool === 'solid' && E.vmode === 'penseel')) { for (const id of brushTris(x, z).filter(okTri)) { const v = mv2TriVerts(id[0], id[1], id[2], t); ctx.beginPath(); v.forEach((p, n) => { const S3 = toS(p[0], p[1]); n ? ctx.lineTo(S3[0], S3[1]) : ctx.moveTo(S3[0], S3[1]); }); ctx.closePath(); ctx.stroke(); } }
         else if (E.tool === 'stair') stairPreviewCover(trapHover(x, z).S); else if (E.tool === 'ramp' || E.tool === 'ustair' || E.tool === 'spiral') stairPreviewCover(hoverStair(x, z));   // al vóór het klikken: de trap en de driehoeken die hij bezet
         else if (E.tool === 'wall') { const v = vertexAt(x, z), p = toS(...P(v[0], v[1])); ctx.beginPath(); ctx.arc(p[0], p[1], 5, 0, Math.PI * 2); ctx.stroke(); }
         else if (E.tool === 'erase') {   // gum: wat er onder de muis weggaat, rood oplichten (zelfde keus als bij het klikken)
