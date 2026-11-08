@@ -224,8 +224,12 @@
   }
   const bergRaat = (() => {
     const VERSIE = 'raatstad-berg-raat', ids = SKP_RAAT.mods.map(m => 'bergfort:' + m.name);
+    // bergfort-modules die je in de Raatmaker hebt verwijderd: niet vanzelf opnieuw maken (Standaard terugzetten haalt ze terug)
+    const WEG = 'raatstad-berg-verwijderd'; let weg0 = []; try { weg0 = JSON.parse(localStorage.getItem(WEG) || '[]'); } catch (e) { /* geen opslag */ }
+    const verwijderd = new Set(Array.isArray(weg0) ? weg0 : []), wegBewaar = () => { try { localStorage.setItem(WEG, JSON.stringify([...verwijderd])); } catch (e) { /* geen opslag */ } };
     function mod(i) {
       let m = modules.find(x => x.id === ids[i]);
+      if (!m && verwijderd.has(ids[i])) return null;
       if (!m) { m = JSON.parse(JSON.stringify(SKP_RAAT.mods[i])); m.id = ids[i]; mv2Fix(m); mv2BinnenVak(m); mv2NaarRaster(m); if (BERG_VUL(m)) mv2VulHol(m); modules.push(m); }
       return m;
     }
@@ -282,7 +286,8 @@
     } catch (e) { /* geen opslag */ }
     // plaatsing i van het fort: de module en de extra draaiing/spiegeling (dubbele varianten), of null (de weg)
     const plaats = i => { const naam = SKP_RAAT.mods[i] && SKP_RAAT.mods[i].name; if (BERG_WEG.has(naam)) return null; const D = BERG_DUBBEL[naam];
-      return D ? { m: mod(SKP_RAAT.mods.findIndex(m => m.name === D[0])), k: D[1], a: D[2] } : { m: mod(i), k: 0, a: 0 }; };
-    return { mod: i => plaats(i) ? plaats(i).m : mod(i), plaats, index: id => ids.indexOf(id), omzetten: bergOmzetten, dubbel: BERG_DUBBEL, weg: BERG_WEG };
+      const m = D ? mod(SKP_RAAT.mods.findIndex(x => x.name === D[0])) : mod(i); if (!m) return null;   // verwijderd
+      return D ? { m, k: D[1], a: D[2] } : { m, k: 0, a: 0 }; };
+    return { mod: i => plaats(i) ? plaats(i).m : mod(i), verwijder: id => { if (ids.includes(id)) { verwijderd.add(id); wegBewaar(); } }, herstel: () => { verwijderd.clear(); wegBewaar(); }, plaats, index: id => ids.indexOf(id), omzetten: bergOmzetten, dubbel: BERG_DUBBEL, weg: BERG_WEG };
   })();
   window.__bergRaat = bergRaat;   // voor tests
