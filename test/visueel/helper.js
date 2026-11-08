@@ -20,7 +20,7 @@ async function open(viewport, opts = {}) {
   await testModules(p);
   return { b, p };
 }
-// Vaste testmodules: 'Plateau · 3 m' en 'Plateau · met muurtjes' (een plateau van één vak, raster 1,125 m, twee lagen). Ze
+// Vaste testmodules: 'Plateau · 3 m', 'Plateau · met muurtjes', 'Pad · twee wanden' en 'Pad · helling tussen twee wanden' (één vak, raster 1,125 m, twee lagen). Ze
 // kwamen uit het bergfort; dat is uit het spel (Joep bouwt het opnieuw op), dus de tests zetten ze zelf in de bibliotheek
 // (niet bewaard). Na p.reload() opnieuw aanroepen als de test ze daarna nog nodig heeft.
 const PLATEAUS = JSON.parse(fs.readFileSync(path.join(__dirname, 'vast/plateaus.json'), 'utf8'));

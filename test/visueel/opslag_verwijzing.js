@@ -10,7 +10,7 @@ const { open } = require('./helper');
   console.log('volledig', (r.vol / 1e6).toFixed(2), 'MB · in de browser', (r.opgeslagen / 1e6).toFixed(2), 'MB ·', r.refs, 'van', r.modules, 'als verwijzing · na terugladen gelijk:', r.gelijk);
   console.log('melding:', r.melding);
   // herladen: de stad komt terug
-  await p.reload(); await p.waitForTimeout(3000); await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(500);
+  await p.reload({ timeout: 240000 }); await p.waitForTimeout(3000);   // een grote stad laden duurt in de testbrowser lang await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(500);
   const na = await p.evaluate(() => { const c = window.__SC().getCells(); return { modules: (c.inst || []).length, metGegevens: (c.inst || []).filter(I => I.m && I.m.lv).length, naam: document.getElementById('stats').textContent }; });
   console.log('na herladen:', JSON.stringify(na));
   const goed = r.gelijk && r.refs > 150 && r.opgeslagen < r.vol / 3 && na.modules === r.modules && na.metGegevens === r.modules && !/lukt niet/.test(r.melding);
