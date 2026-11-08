@@ -17,7 +17,13 @@ async function open(viewport, opts = {}) {
   await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(300);
   await p.evaluate(() => window.__SC().doAct('start'));   // het startstadje: rotonde met drie wegen
   await p.evaluate(() => { const S = window.__SC(); S.collapse.setOn(true); S.cars.setGore(true); });   // tests: instorten en bloed aan (in het spel standaard uit)
+  await testModules(p);
   return { b, p };
 }
+// Vaste testmodules: 'Plateau · 3 m', 'Plateau · met muurtjes', 'Pad · twee wanden' en 'Pad · helling tussen twee wanden' (één vak, raster 1,125 m, twee lagen). Ze
+// kwamen uit het bergfort; dat is uit het spel (Joep bouwt het opnieuw op), dus de tests zetten ze zelf in de bibliotheek
+// (niet bewaard). Na p.reload() opnieuw aanroepen als de test ze daarna nog nodig heeft.
+const PLATEAUS = JSON.parse(fs.readFileSync(path.join(__dirname, 'vast/plateaus.json'), 'utf8'));
+const testModules = p => p.evaluate(L => { for (const m of L) if (!window.__mods.some(x => x.id === m.id)) window.__mods.push(JSON.parse(JSON.stringify(m))); }, PLATEAUS);
 const click = (p, sel) => p.evaluate(s => document.querySelector(s).click(), sel);
-module.exports = { open, click, OUT };
+module.exports = { open, click, OUT, testModules };

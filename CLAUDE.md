@@ -20,7 +20,7 @@ Alles is in het Nederlands: code-commentaar, interface, commits en antwoorden aa
 ## Waar alles staat
 - `README.md` beschrijft per onderdeel hoe het werkt (maten, regels, formules). Lees het deel dat je gaat aanpassen.
 - Modules (Raatmaker, v2): `08c-modules-v2.js` (bouwen, trappen, `plaat` voor vrije hellingen/zuilen/wanden), `08d-module-maker.js` (de editor), `08f-modules-lopen.js` (loopnetwerk).
-- Bergfort uit SketchUp: `tools/sketchup/` (Python). `naar_raatmaker.py` zet de SketchUp-onderdelen om naar `src/js/08o-bergfort-raatmaker.js`; `rafelkaart.py` maakt een bovenaanzicht ter controle.
+- SketchUp-gereedschappen: `tools/sketchup/` (Python/Ruby). Het bergfort is uit het spel (Joep bouwt het opnieuw op in het spel); de losse SketchUp-stukken en het Winkelcentrum (`08m`, `08n`, Modulekaart `15j*`) blijven.
 - Beta: `15h-beta.js` (versie, Melden, foutbalk, credits, stad als bestand).
 
 ## Stand van zaken (6 november 2026)
@@ -34,4 +34,4 @@ Nog open:
 3. Herkomst en licentie vastleggen van `assets/vogels.mp3`, `klap.mp3`, `grunts.mp3`, `schreeuw.mp3`.
 4. itch.io-pagina: omslag 630 × 500, 3–5 screenshots, korte gif van de stadsgenerator.
 
-Bergfort (basismodules): staan op het raster. Bij het laden zet `mv2NaarRaster` (`08o2`) de vrije vormen uit SketchUp om: schuine wanden worden rastermuren (ook haaks op de ribben), hellingen worden zoals de Helling met twee lijnen een `plaat` met onder- en bovenrand van rasterpunt naar rasterpunt (ook de gebogen helling: alle hoekpunten op rasterpunten; migratie `raatstad-berg-helling`, lib 20), zuilen massief. Test: `test/visueel/bergfort_raster.js`. Er zijn 21 bergfort-modules: varianten die dezelfde module gedraaid of gespiegeld zijn staan in `BERG_DUBBEL` (`08o2`) en worden bij plaatsen en laden de hoofdmodule met die draaiing; de weg (Parkeren · rijbaan met stoep) hoort er niet meer bij. Test: `test/visueel/bergfort_dubbel.js`. Nog open: dubbele muurrand bij "Plateau · met muurtjes", vorm van de lichtkoepel, 8 originele stukken die door de looproute-zoeker (`pad_af.py`) zijn vervangen terugzetten, en het uitzichtplatform (wacht op Joeps export met `tools/sketchup/export-alles-console.rb`).
+Bergfort: uit het spel gehaald (8 november 2026); Joep bouwt het opnieuw op in het spel. Zie README, deel "Bergfort (uit het spel)". Tests met een vast plateau: `test/visueel/vast/plateaus.json` (via `helper.js`).

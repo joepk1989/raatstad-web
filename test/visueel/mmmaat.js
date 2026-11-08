@@ -10,7 +10,7 @@ const { open, OUT } = require('./helper');
   const tel = () => p.evaluate(() => { const m = window.__MME.m; return { n: m.n, k: m.k || 0, vloer: m.lv.reduce((a, L) => a + Object.keys(L.f).length, 0), muren: m.lv.reduce((a, L) => a + Object.keys(L.w).length, 0), fk: m.lv.reduce((a, L) => a + Object.keys(L.fk || {}).length, 0) }; });
   const klik = (box, t) => p.evaluate(([box, t]) => [...document.getElementById(box).children].find(b => b.textContent === t).click(), [box, t]);
   await p.evaluate(() => window.__MME.load(window.__mods.find(m => m.name === 'Plateau · 3 m'), null)); await p.waitForTimeout(300);
-  console.log('bergfort-module:', await knoppen());
+  console.log('plateau (testmodule):', await knoppen());
   await p.evaluate(() => window.__MME.load(window.__mods.find(m => m.name.startsWith('Rijhuis · baksteen · 2L')), null)); await p.waitForTimeout(300);
   const t0 = await tel(); console.log('rijhuis:', await knoppen(), JSON.stringify(t0));
   await klik('mm_segGrid', '1,125 m'); await p.waitForTimeout(300); const t1 = await tel();
