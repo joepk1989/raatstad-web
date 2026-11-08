@@ -106,7 +106,8 @@
       if (nieuw.length || zet.length) { terrSet([...nieuw, ...zet]); terrFlush(); }
       const inst = [];
       for (const { it, q, r } of raat) {
-        const m = bergRaat.mod(it.i), lv = Math.round((it.z - laagste.get(q + ',' + r)) / 3), I = { mid: m.id, m: instData(m, false), q, r, rot: (it.rot + st.k) % 6 };
+        const P = bergRaat.plaats(it.i); if (!P) continue;   // de weg hoort niet meer bij het fort
+        const m = P.m, lv = Math.round((it.z - laagste.get(q + ',' + r)) / 3), I = { mid: m.id, m: instData(m, !!P.a), q, r, rot: (it.rot + st.k + P.k) % 6 }; if (P.a) I.mir = 1;   // dubbele variant: de hoofdmodule, gedraaid/gespiegeld
         if (lv) I.lv = lv; cells.inst.push(I); inst.push(I);
       }
       if (inst.length) { buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); n += inst.length; }

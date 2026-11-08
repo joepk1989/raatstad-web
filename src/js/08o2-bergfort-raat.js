@@ -171,6 +171,33 @@
   // welke bergfort-modules gevuld worden: niet de toren en de gebouwen (die blijven hol, dat zijn juist gebouwen)
   const BERG_VUL = m => !/^(Toren|Gebouw|Dak|Deel)\b/.test(m.name || '');
   window.__berg = { mv2NaarRaster: m => mv2NaarRaster(m), mv2VulHol: (m, mat) => mv2VulHol(m, mat), mv2BinnenVak: m => mv2BinnenVak(m) };   // voor tests
+  // Dubbele bergfort-modules: deze varianten zijn dezelfde module, gedraaid en/of gespiegeld (nagemeten: 95–100 % dezelfde
+  // vlakken en muren). Draaien en spiegelen kan bij het plaatsen, dus ze staan niet meer in de bibliotheek; waar het fort of een
+  // stad ze gebruikt, komt de hoofdmodule met die draaiing. Per variant: [hoofdmodule, k, a]: variant = draai k·60° (spiegel a(hoofd)).
+  const BERG_DUBBEL = {
+    'Vulstuk · halve zeshoek · 60° · verschoven': ['Vulstuk · halve zeshoek · 0° · verschoven', 1, 0],
+    'Pad · helling tussen twee wanden · 0° gespiegeld': ['Pad · helling tussen twee wanden', 0, 1],
+    'Pad · helling tussen twee wanden · 180° gespiegeld': ['Pad · helling tussen twee wanden', 3, 1],
+    'Pad · bocht binnen · 60° · verschoven': ['Pad · bocht binnen · 0° · verschoven', 3, 1],
+    'Pad · bocht binnen · 120° · verschoven': ['Pad · bocht binnen · 0° · verschoven', 2, 0],
+    'Pad · bocht binnen · 180° · verschoven': ['Pad · bocht binnen · 0° · verschoven', 3, 0],
+    'Pad · bocht met helling op pleinvloer · 120° gespiegeld': ['Pad · bocht met helling op pleinvloer', 2, 1],
+    'Pad · halve ring met helling · 0° gespiegeld': ['Pad · halve ring met helling', 0, 1],
+    'Pad · halve ring met helling · 60° gespiegeld': ['Pad · halve ring met helling', 1, 1],
+    'Pad · halve ring met helling · 120° gespiegeld': ['Pad · halve ring met helling', 2, 1],
+    'Pad · halve ring met helling · 240° gespiegeld': ['Pad · halve ring met helling', 4, 1],
+    'Pad · halve ring met helling · 300° gespiegeld': ['Pad · halve ring met helling', 5, 1],
+  };
+  const BERG_WEG = new Set(['Parkeren · rijbaan met stoep']);   // Joep: de weg hoort niet bij het bergfort
+  // een exemplaar (of plaatsing) van een dubbele variant omzetten naar de hoofdmodule: zelfde vorm, andere draaiing/spiegeling.
+  // Een gespiegeld exemplaar van variant V = draai k (spiegel a (H)) is draai −k (spiegel 1−a (H)): spiegelen keert de draairichting om.
+  function bergOmzetten(I) {
+    const naam = String(I.mid || '').startsWith('bergfort:') ? I.mid.slice(9) : null, D = naam && BERG_DUBBEL[naam]; if (!D) return false;
+    const [hoofd, k, a] = D, mir = !!I.mir, nieuwMir = mir !== !!a;
+    I.mid = 'bergfort:' + hoofd; I.rot = (((I.rot || 0) + (mir ? -k : k)) % 6 + 6) % 6; if (nieuwMir) I.mir = 1; else delete I.mir;
+    const M = typeof modules !== 'undefined' && modules.find(m => m.id === I.mid); if (M) { I.m = instData(M, nieuwMir); delete I.mref; }
+    return true;
+  }
   const bergRaat = (() => {
     const VERSIE = 'raatstad-berg-raat', ids = SKP_RAAT.mods.map(m => 'bergfort:' + m.name);
     function mod(i) {
@@ -180,8 +207,8 @@
     }
     try {
       if (localStorage.getItem(VERSIE) !== SKP_RAAT.versie) {
-        modules = modules.filter(m => !String(m.id || '').startsWith('bergfort:') || ids.includes(m.id));
-        SKP_RAAT.mods.forEach((src, i) => { const j = modules.findIndex(x => x.id === ids[i]); if (j >= 0) { const m = JSON.parse(JSON.stringify(src)); m.id = ids[i]; mv2Fix(m); mv2BinnenVak(m); mv2NaarRaster(m); if (BERG_VUL(m)) mv2VulHol(m); modules[j] = m; } else mod(i); });
+        modules = modules.filter(m => !String(m.id || '').startsWith('bergfort:') || (ids.includes(m.id) && !BERG_DUBBEL[m.id.slice(9)] && !BERG_WEG.has(m.id.slice(9))));
+        SKP_RAAT.mods.forEach((src, i) => { if (BERG_DUBBEL[src.name] || BERG_WEG.has(src.name)) return; const j = modules.findIndex(x => x.id === ids[i]); if (j >= 0) { const m = JSON.parse(JSON.stringify(src)); m.id = ids[i]; mv2Fix(m); mv2BinnenVak(m); mv2NaarRaster(m); if (BERG_VUL(m)) mv2VulHol(m); modules[j] = m; } else mod(i); });
         saveMods(); localStorage.setItem(VERSIE, SKP_RAAT.versie);
       }
     } catch (e) { /* geen opslag */ }
@@ -209,5 +236,18 @@
         if (n) saveMods(); localStorage.setItem(RASTER, '1');
       }
     } catch (e) { /* geen opslag */ }
-    return { mod, index: id => ids.indexOf(id) };
+    try {   // eenmalig: dubbele varianten en de weg uit de opgeslagen modules; exemplaren in de huidige stad omzetten
+      const DUB = 'raatstad-berg-dubbel';
+      if (localStorage.getItem(DUB) !== '1') {
+        const weg = id => { const n = String(id || '').startsWith('bergfort:') ? id.slice(9) : null; return n && (BERG_DUBBEL[n] || BERG_WEG.has(n)); };
+        for (const n in BERG_DUBBEL) mod(SKP_RAAT.mods.findIndex(m => m.name === BERG_DUBBEL[n][0]));   // de hoofdmodules bestaan
+        if (typeof cells !== 'undefined' && cells.inst) for (const I of cells.inst) bergOmzetten(I);
+        const voor = modules.length; modules = modules.filter(m => !weg(m.id)); if (modules.length !== voor) saveMods(); localStorage.setItem(DUB, '1');
+      }
+    } catch (e) { /* geen opslag */ }
+    // plaatsing i van het fort: de module en de extra draaiing/spiegeling (dubbele varianten), of null (de weg)
+    const plaats = i => { const naam = SKP_RAAT.mods[i] && SKP_RAAT.mods[i].name; if (BERG_WEG.has(naam)) return null; const D = BERG_DUBBEL[naam];
+      return D ? { m: mod(SKP_RAAT.mods.findIndex(m => m.name === D[0])), k: D[1], a: D[2] } : { m: mod(i), k: 0, a: 0 }; };
+    return { mod: i => plaats(i) ? plaats(i).m : mod(i), plaats, index: id => ids.indexOf(id), omzetten: bergOmzetten, dubbel: BERG_DUBBEL, weg: BERG_WEG };
   })();
+  window.__bergRaat = bergRaat;   // voor tests
