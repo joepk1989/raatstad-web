@@ -413,7 +413,7 @@
           let bent = false; for (let x = 0; x < L2.length && !bent; x++) for (let y = x + 1; y < L2.length; y++) if (L2[x].dir[0] * L2[y].dir[0] + L2[x].dir[1] * L2[y].dir[1] > -0.99) { bent = true; break; }
           if (!bent) continue;   // rechtdoor: de blokken sluiten al aan
           const [i, j] = k.split(',').map(Number), c = mv2P(i, j, ts), hedge = L2.every(e => e.W.m === 'hedge'), W0 = L2.find(e => e.W.m !== 'hedge') || L2[0];
-          const mat = hedge ? (Mt.wl.hedge) : (Mt.wl[W0.W.m] || Mt.wl.brick), r = hedge ? 0.3 : MV2.WALL_T / 2, h = hedge ? 1.4 : LH;
+          const mat = hedge ? (Mt.wl.hedge) : (Mt.wl[W0.W.m] || Mt.wl.brick), r = hedge ? 0.3 : MV2.WALL_T / 2, h = hedge ? 1.4 : Math.max(...L2.filter(e => e.W.m !== 'hedge').map(e => e.W.h || LH));   // lage muren: een lager paaltje
           const g = new THREE.CylinderGeometry(r * 1.02, r * 1.02, h, hedge ? 8 : 6);   // zeshoekig paaltje: van buiten niet te zien, een kwart van de driehoeken
           if (mat.userData && mat.userData.mUV) { const P2 = g.attributes.position, U = g.attributes.uv; for (let n = 0; n < P2.count; n++) U.setXY(n, Math.atan2(P2.getZ(n), P2.getX(n)) * r + c[0] + c[1], P2.getY(n) + y0 + h / 2); }
           const Wp = tf(c[0], c[1]); g.translate(Wp[0], y0 + h / 2, Wp[1]); put(mat, g);
@@ -440,6 +440,9 @@
           }
           if (gw > 0.1 && W.m === 'fence') for (const pp of [lerp(a, b, g0), lerp(a, b, 1 - g0)]) wallBox(Mt.metal, pp, lerp(pp, b, 0.01), y0, y0 + 1.25, 0.12);   // stevige palen naast de doorgang
           continue;
+        }
+        if (W.h && W.h < LH - 0.01) {   // halve wand of laag muurtje: een blok tot W.h, met een smalle afdekrand; geen opening
+          wallBox(mat, a, b, y0, y0 + W.h, T); if (!far) wallBox(Mt.trim, a, b, y0 + W.h - 0.05, y0 + W.h, T + 0.06); addWall(a, b, y0, y0 + W.h); continue;
         }
         const o = W.o || '', isGlass = W.m === 'glass';
         if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
@@ -888,7 +891,7 @@
       m.lv.forEach((L, li) => {
         const ends = new Map();
         for (const id in L.w) { const W = L.w[id]; if (!W) continue; const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts); if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, PASS.has(o) ? 2 : o === 'window' ? 1 : 0, idx);
+          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, (W.h && W.h < MV2.LV_H ? -3 : 0) + (PASS.has(o) ? 2 : o === 'window' ? 1 : 0), idx);   // een lage muur wijkt voor een hoge
           for (const p of [[i, j], [i + D[0], j + D[1]]]) { const pk = p.join(','); ends.set(pk, (ends.get(pk) || 0) + 1); } }
         for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wc[0], Wc[1]), I, 0, idx); }
       });
