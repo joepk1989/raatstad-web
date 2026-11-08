@@ -467,7 +467,7 @@
     function addWalls(a, d6, n) { const L = lvl(); let c = 0; for (const [i, j, d] of segsBetween(a, d6, n)) { const [p, q] = segOf(i, j, d); if (!mv2NearArea(E.m, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) continue; const k = wallKey(i, j, d); const had = L.w[k]; const hoog = MUURH[E.wh || 'vol']; L.w[k] = { m: E.wmat, o: had && !hoog ? had.o : '' }; if (hoog) L.w[k].h = hoog; c++; } return c; }   // halve hoogte of laag muurtje: W.h (m), zonder opening
     function setOpening(x, z, o) { const w = nearestWall(x, z); if (!w) { say('Klik op een muur'); return false; } lvl().w[w.id].o = o; return true; }
     // In 3D: raakt de straal vanuit de camera een wand vóór hij de vloer raakt? Dan is dat de muur onder de muis.
-    // Ook muren en wanden van de verdiepingen eronder (die zie je in 3D gewoon): bij het bergfort staan de muren op de
+    // Ook muren en wanden van de verdiepingen eronder (die zie je in 3D gewoon): staan de muren op de
     // begane grond en de vloer op de 1e verdieping, en dan kon de gum er vanaf de 1e verdieping niet bij. De vloer van de
     // huidige verdieping ligt ervóór, behalve waar die vloer een gat heeft. Geeft { id | si, li } (li = verdieping).
     function wallRay(sx, sy) {

@@ -534,8 +534,6 @@ body.night .btn.tod { color: #cdd8ff; }
 #mmApp .sw { width: 18px; height: 18px; border-radius: 4px; flex: none; border: 1px solid rgba(0,0,0,.3); }
 #mmApp .mm-filterrij { display: flex; gap: 6px; }
 #mmApp .mm-filterrij input { flex: 1; min-width: 0; }
-#mmApp #mm_side .mm-filterrij button { flex: none; padding: 6px 10px; }
-#mmApp #mm_side .mm-filterrij button[aria-pressed="true"] { background: var(--signal); color: var(--signal-ink); border-color: transparent; }
 #mm_lib { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 40vh; overflow-y: auto; }
 #mmApp .mod { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; cursor: pointer; }
 #mmApp .mod:hover { border-color: var(--muted); }

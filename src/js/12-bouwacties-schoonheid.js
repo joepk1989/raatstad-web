@@ -360,7 +360,7 @@
     return { place: cell, erase: [q, r], point: h.point };
   }
   // Rechtermuisknop: haalt de bovenste laag weg, welk blok er ook gekozen is
-  // een SketchUp-module (bergfort e.d., 15j3) weghalen als die vóór wat de gewone keuze raakt ligt
+  // een SketchUp-module (15j3) weghalen als die vóór wat de gewone keuze raakt ligt
   function skpWegAt(cx, cy, res) {
     const h = skpBouw.raak(cx, cy); if (!h) return false;
     if (res && res.point && camera.position.distanceTo(res.point) < h.d - 0.05) return false;

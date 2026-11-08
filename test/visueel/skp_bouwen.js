@@ -13,9 +13,9 @@ const path = require('path');
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   const info = await p.evaluate(() => { const S = window.__SC(), c = S.getCells(); return { skp: (c.skp || []).length, bewaard: (JSON.parse(S.serialize(c)).__k || []).length }; });
   console.log(JSON.stringify(info));
-  await p.screenshot({ path: path.join(OUT, 'skp-bergfort.png') });
+  await p.screenshot({ path: path.join(OUT, 'skp-winkelcentrum.png') });
   // dichterbij: camera naar het fort
   await p.evaluate(() => { const S = window.__SC(); S.orbit.radius = Math.max(60, S.orbit.radius * 0.5); S.applyOrbit(); }); await p.waitForTimeout(800);
-  await p.screenshot({ path: path.join(OUT, 'skp-bergfort-dichtbij.png') });
+  await p.screenshot({ path: path.join(OUT, 'skp-winkelcentrum-dichtbij.png') });
   await b.close();
 })();

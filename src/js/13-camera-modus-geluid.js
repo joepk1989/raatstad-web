@@ -176,7 +176,7 @@
 
   function setMode(m) {
     if (flyCam.on) flyStop();
-    if (m !== 'build' && window.__skpBouw && window.__skpBouw.on) window.__skpBouw.stop();   // een bergfort-/SketchUp-module die klaarstond: niet meenemen naar het lopen
+    if (m !== 'build' && window.__skpBouw && window.__skpBouw.on) window.__skpBouw.stop();   // een SketchUp-module die klaarstond: niet meenemen naar het lopen
     if (typeof vecChainEnd === 'function') vecChainEnd(true);
     if (mode !== m && typeof sound !== 'undefined') sound.fx('whoosh');
     mode = m;

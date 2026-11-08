@@ -20,7 +20,7 @@ Alles is in het Nederlands: code-commentaar, interface, commits en antwoorden aa
 ## Waar alles staat
 - `README.md` beschrijft per onderdeel hoe het werkt (maten, regels, formules). Lees het deel dat je gaat aanpassen.
 - Modules (Raatmaker, v2): `08c-modules-v2.js` (bouwen, trappen, `plaat` voor vrije hellingen/zuilen/wanden), `08d-module-maker.js` (de editor), `08f-modules-lopen.js` (loopnetwerk).
-- SketchUp-gereedschappen: `tools/sketchup/` (Python/Ruby). Het bergfort is uit het spel (Joep bouwt het opnieuw op in het spel); de losse SketchUp-stukken en het Winkelcentrum (`08m`, `08n`, Modulekaart `15j*`) blijven.
+- SketchUp-gereedschappen: `tools/sketchup/` (Python/Ruby): exports uit SketchUp, `maak-2d.py` (losse stukken, `08m`) en `maak-forten.py` (Winkelcentrum, `08n`). Het bergfort is uit het spel (Joep bouwt het opnieuw op in het spel); de losse SketchUp-stukken en het Winkelcentrum (`08m`, `08n`, Modulekaart `15j*`) blijven.
 - Beta: `15h-beta.js` (versie, Melden, foutbalk, credits, stad als bestand).
 
 ## Stand van zaken (6 november 2026)

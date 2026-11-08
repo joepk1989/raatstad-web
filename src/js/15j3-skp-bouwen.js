@@ -22,7 +22,7 @@
     }
     const suMid = (q, r) => { const w = cellToWorld(q, r); return [w.x, -w.z]; };
     // Alle exemplaren van dezelfde module samen in één InstancedMesh: één tekenopdracht per soort in plaats van per blok
-    // (een bergfort heeft honderden rotslagen maar maar een paar soorten). userData.recs: exemplaar → plek in cells.skp.
+    // (een voorbeeld heeft honderden stukken maar maar een paar soorten). userData.recs: exemplaar → plek in cells.skp.
     // tops[i]: de bovenkant van exemplaar i (voor bovenop bouwen), uit de omhullende doos van de vorm.
     let tops = [];
     const bbox = [], bbOf = mi => bbox[mi] || (bbox[mi] = (worldGeo(mi).computeBoundingBox(), worldGeo(mi).boundingBox.clone()));

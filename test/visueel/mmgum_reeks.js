@@ -24,7 +24,7 @@ const { open, OUT } = require('./helper');
   console.log('met Shift op de rand van het plateau:', n0, '→', n2, '· aangewezen:', label, '·', await p.evaluate(() => document.getElementById('mm_msg').textContent)); uit.push(n2 === 0 && /reeks/.test(label));
   await p.keyboard.press('Control+z'); await p.waitForTimeout(200); const n3 = await tel(); console.log('één keer ongedaan maken:', n3); uit.push(n3 === n0);
   // schuine wand met Shift: de wand en wat eraan vastzit
-  // (de bergfort-modules hebben sinds de omzetting naar het raster geen schuine wanden meer: zet de drie wanden uit SketchUp
+  // (de plateaus hebben sinds de omzetting naar het raster geen schuine wanden meer: zet de drie wanden uit SketchUp
   // terug, een lange en twee korte stompjes die op elkaar aansluiten)
   await laad('Pad · twee wanden'); await p.evaluate(() => { window.__MME.m.lv[0].s.push(
     { k: 'plaat', muur: 1, a: [0, 2], d: 0, n: 1, w: 0.3, m: 'breuksteen', p: [[[6.8, 2.07, 0], [-6.79, 2.07, 0], [-6.79, 2.07, 3], [6.8, 2.07, 3]]] },
