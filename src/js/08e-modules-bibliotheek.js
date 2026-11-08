@@ -310,6 +310,7 @@
       b.where(1, (x, z) => LAND.some(T => inT(x, z, T)), 'polished'); add(b); }
     libExtra(add);   // de 35 nieuwe basisgebouwen (08d9)
     libDorp(add);    // dorpshuizen voor het heuveldorp (08d9)
+    libKantoor(add); // hoog kantoor met groen dak (08d9)
     return out;
   }
   // ---------- Voorbeeld: het winkelcentrum uit de SketchUp-schets (hex_mall), precies zoals getekend ----------
@@ -394,6 +395,12 @@
       const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), have = new Set(modules.map(m => base(m.name))); let n = 0;
       for (const m of libStandard()) if (/^Dorpshuis/.test(m.name) && !have.has(base(m.name))) { m.lib = 18; modules.push(m); libNews++; n++; }
       if (n) saveMods(); localStorage.setItem('raatstad-lib18', '1'); if (n) libRefreshed = true;
+    }
+    // lib19: kantoor met groen dak erbij
+    if (!localStorage.getItem('raatstad-lib19')) {
+      const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), have = new Set(modules.map(m => base(m.name))); let n = 0;
+      for (const m of libStandard()) if (/^Kantoor · groen dak/.test(m.name) && !have.has(base(m.name))) { m.lib = 19; modules.push(m); libNews++; n++; }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib19', '1'); if (n) libRefreshed = true;
     }
     // lib15: steegjes erbij (twee smalle huizen met een sluipsteeg ertussen, voor het heuveldorp)
     if (!localStorage.getItem('raatstad-lib15')) {

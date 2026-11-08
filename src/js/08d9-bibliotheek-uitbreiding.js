@@ -356,3 +356,26 @@
       add(b);
     }
   }
+  // ---------- Kantoor met groen dak (7 vakken, 8 lagen) ----------
+  // Een getrapte zeshoek: een sokkel van vier lagen (zeshoek met een straal van 15,75 m), daarop een toren van drie lagen
+  // (straal 11,25 m) met een glazen vliesgevel. Op de sokkel rondom de toren een daktuin (gras, bomen, banken), bovenop
+  // de toren nog een daktuin. Lage muurtjes langs de daken (rand: muurtje). Beneden een lobby met twee ingangen, een balie
+  // en zitjes; daarboven kantoorvloeren met bureaus. Eén wenteltrap van de lobby tot de bovenste daktuin.
+  function libKantoor(add) {
+    const b = libBuilder('Kantoor · groen dak', 'Werken', 1), S = 15.75, T = 11.25, SOK = 4, TOP = 7;
+    for (let f = 0; f < SOK; f++) { b.hex(f, 0, 0, S, f ? 'carpet' : 'polished'); b.ring(f, 0, 0, S, f ? 'curtain' : 'glass', f ? {} : { open: { 0: 'door', 3: 'door' } }); }
+    // lobby: balie tegenover de ingang, zitjes en planten
+    b.obj(0, 'counter', 0, -6.5); b.obj(0, 'counter', 2.2, -6.5); for (const [x, z] of [[-9, 3], [9, 3], [-9, -3], [9, -3]]) b.obj(0, 'sofa', x, z, x < 0 ? Math.PI / 2 : -Math.PI / 2);
+    b.circle(0, 'planter', 0, 0, 12.5, 6, Math.PI / 6);
+    // kantoorvloeren in de sokkel: twee ringen bureaus, planten ertussen
+    for (let f = 1; f < SOK; f++) { b.circle(f, 'desk', 0, 0, 12, 12, 0); b.circle(f, 'desk', 0, 0, 8, 8, Math.PI / 8); b.circle(f, 'planter', 0, 0, 13.5, 6, Math.PI / 6); }
+    // daktuin op de sokkel (laag 4) rondom de toren
+    b.hex(SOK, 0, 0, S, 'grass'); b.circle(SOK, 'tree', 0, 0, 13.6, 6, 0); b.circle(SOK, 'bush', 0, 0, 13.6, 6, Math.PI / 6); b.circle(SOK, 'bench', 0, 0, 12.4, 6, Math.PI / 6 + 0.25);
+    // de toren: laag 4 t/m 6, vliesgevel, kantoren
+    for (let f = SOK; f < TOP; f++) { b.hex(f, 0, 0, T, 'carpet'); b.ring(f, 0, 0, T, 'curtain', f === SOK ? { open: { 0: 'door', 3: 'door' } } : {}); /* op de daktuin-laag twee deuren naar buiten */ b.circle(f, 'desk', 0, 0, 8, 10, 0); b.circle(f, 'planter', 0, 0, 9.6, 6, Math.PI / 6); }
+    // daktuin bovenop de toren
+    b.hex(TOP, 0, 0, T, 'grass'); b.circle(TOP, 'bush', 0, 0, 9.4, 6, 0); b.circle(TOP, 'planter', 0, 0, 9.4, 6, Math.PI / 6); b.obj(TOP, 'table', -3, -3); b.obj(TOP, 'bench', -5, -1.2, 0.3); b.obj(TOP, 'tree', 4, -3.5);
+    b.m.rand = 'muurtje';
+    b.stairwell(TOP + 1, 0, 4.5, 3, 3, 1.2);   // wenteltrap van de lobby tot de bovenste daktuin
+    add(b);
+  }
