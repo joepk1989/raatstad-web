@@ -1,5 +1,5 @@
 // Bergfort-modules op het raster: geen vrije wanden, zuilen of rechte hellingen meer uit SketchUp, maar rastermuren, massief
-// en gewone hellingen. Alleen de twee gebogen hellingen (bocht met helling) blijven een vrije vorm. Ook: bewaarde modules
+// en gewone hellingen. Alleen de gebogen helling (bocht met helling) blijft een vrije vorm. Ook: bewaarde modules
 // (van vóór de omzetting) worden bij het laden omgezet (vlag raatstad-berg-raster) en geplaatste exemplaren gaan mee (lib 19).
 // Gebruik: node visueel/bergfort_raster.js
 const { open } = require('./helper'), fs = require('fs'), path = require('path');
@@ -14,7 +14,7 @@ const skp = (() => { const s = fs.readFileSync(path.join(__dirname, '../../src/j
         for (const k in L.w) if (+k.split(',')[2] >= 3) c.muurHaaks++; c.massief += Object.keys(L.v || {}).length; } }
     return c; });
   const c1 = await tel(); console.log('nieuw geladen:', JSON.stringify(c1));
-  uit.push(c1.modules === 34 && c1.wand === 0 && c1.zuil === 0 && c1.rechteHelling === 0 && c1.gebogen === 2 && c1.helling === 10);
+  uit.push(c1.modules === 21 && c1.wand === 0 && c1.zuil === 0 && c1.rechteHelling === 0 && c1.gebogen === 1 && c1.helling === 3);   // 21 modules sinds de dubbele varianten en de weg eruit zijn (bergfort_dubbel.js)
   // elke helling past in het vak en komt bovenaan op een vloer uit (de controle van de Raatmaker)
   await p.evaluate(() => window.__SC().openSchets()); await p.waitForTimeout(1200);
   const chk = await p.evaluate(() => { const E = window.__MME, uit = []; for (const m of window.__mods.filter(x => String(x.id || '').startsWith('bergfort:') && x.lv.some(L => (L.s || []).some(S => S.k === 'ramp')))) { E.load(m, null); const r = E.checkModule(); uit.push({ naam: m.name, marks: r.marks.map(x => x.msg) }); } return uit; });

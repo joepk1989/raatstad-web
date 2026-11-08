@@ -16,7 +16,7 @@ const { open, OUT } = require('./helper');
   console.log('nog eens (alles)', JSON.stringify(await stand()));
   await p.click('#mm_filter'); await p.keyboard.type('bergfort pad'); await p.waitForTimeout(300);
   console.log("getypt 'bergfort pad'", JSON.stringify(await stand()));
-  console.log(k.n === 34 && k.alleBerg && k.knop === 'true' ? 'GOED: 34 bergfort-modules' : 'FOUT');
+  console.log(k.n === 21 && k.alleBerg && k.knop === 'true' ? 'GOED: 21 bergfort-modules' : 'FOUT');   // 21 sinds de dubbele varianten en de weg eruit zijn
   console.log('fouten', errs);
   await b.close();
 })();
