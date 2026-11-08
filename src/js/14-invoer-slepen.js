@@ -421,8 +421,23 @@
   function vecDragEnd() {
     const D = roadDrag, vp = D.vp; D.vp = null; clearTimeout(D.vtimer); showDragH(false); if (!vp) return;
     if (!vp.core || vp.core.length < 2) { const i = cells.paths.indexOf(vp); if (i >= 0) cells.paths.splice(i, 1); buildPathNet(); vecChainClick(D.vstart); return; }
+    // Niet dubbel: de stukken die precies over een bestaande weg op het terrein lopen (beide vakmiddens en het midden ertussen
+    // op die weg) vallen weg; wat overblijft zijn losse stukken die op die weg aansluiten. Kruisen blijft gewoon (daar ligt
+    // alleen het kruisingsvak op de andere weg). Een verhoogde weg of dakweg mag over een andere heen (viaduct).
+    let extra = [];
+    if (!vp.dak && !(vp.y && vp.y.some(h => Math.abs(h) > 0.5))) {
+      const op = W => vecOpWeg(W, vp, true), runs = [], C = [vp.core[0]];   // per vak: een rechte weg heeft alleen een begin- en eindpunt
+      for (let i = 0; i + 1 < vp.core.length; i++) { const a = vp.core[i], b = vp.core[i + 1], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / (R * SQ3))); for (let k = 1; k <= n; k++) C.push(k === n ? b : [r2(a[0] + (b[0] - a[0]) * k / n), r2(a[1] + (b[1] - a[1]) * k / n)]); }
+      let cur = [C[0]];
+      for (let i = 0; i + 1 < C.length; i++) { const a = C[i], b = C[i + 1]; if (op(a) && op(b) && op([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2])) { if (cur.length >= 2) runs.push(cur); cur = [b]; } else cur.push(b); }
+      if (cur.length >= 2) runs.push(cur);
+      if (!runs.length) { const i = cells.paths.indexOf(vp); if (i >= 0) cells.paths.splice(i, 1); buildPathNet(); toast('Hier ligt al weg', 1200); return; }
+      const rest = r => r.filter((q, i) => i === 0 || i === r.length - 1 || vp.core.some(c => c[0] === q[0] && c[1] === q[1]));   // alleen de echte hoekpunten en de nieuwe uiteinden
+      if (runs.length > 1 || runs[0].length !== C.length) { for (let i = 0; i < runs.length; i++) runs[i] = rest(runs[i]); delete vp.y; vp.core = runs[0]; for (const r of runs.slice(1)) { const np = { t: vp.t, l: vp.l, r: vp.r, core: r }; cells.paths.push(np); extra.push(np); } }
+    }
+    for (const np of extra) { np.p = vecExtend(np.core, true, np); delete np.core; }
     { const ex = vecExtend(vp.core, true, vp); if (vp.y) { const ys = vp.y.slice(vp.y.length > vp.core.length ? 1 : 0, vp.y.length > vp.core.length ? 1 + vp.core.length : vp.core.length); vp.y = [...(vp.tipS ? [ys[0]] : []), ...ys, ...(vp.tipE ? [ys[ys.length - 1]] : [])]; } vp.p = ex; delete vp.core; }
-    const gone = vecClearUnder([vp]);
+    const gone = vecClearUnder([vp, ...extra]);
     buildPathNet(); changed(); toast(TYPES[D.tool].name + (vp.dak ? ' over de daken' : '') + ' aangelegd, ' + D.count + ' vakken lang' + (gone ? ' · ' + gone + ' ' + (gone === 1 ? 'gebouw' : 'gebouwen') + ' weggehaald (Ctrl+Z zet terug)' : ''), gone ? 2600 : 1400);
   }
   // Wat onder een nieuwe weg staat, gaat weg: gebouwen, blokken en modules op de vakken waarvan het midden op de
@@ -504,8 +519,8 @@
   // óp die weg, zodat een aftakking meteen aansluit, net als bij slepen (een uiteinde naast een weg schuift ernaar toe).
   // Anders een rondje op het midden van het vak. Geeft { p, tipS, tipE, aan }.
   // ligt het midden van dit vak op een getekende weg (ergens langs de hartlijn, niet alleen bij een hoekpunt)?
-  function vecOpWeg(Wc) {
-    for (const q of pathsOf()) { if (q === vecPre.tmp || !q.p || q.p.length < 2 || !PATH_DEF[q.t]) continue; const pts = smoothPts(q.p);
+  function vecOpWeg(Wc, self, grond) {   // grond: alleen wegen op het terrein (geen viaduct of dakweg)
+    for (const q of pathsOf()) { if (q === vecPre.tmp || q === self || !q.p || q.p.length < 2 || !PATH_DEF[q.t]) continue; if (grond && (q.dak || (q.y && q.y.some(h => Math.abs(h) > 0.5)))) continue; const pts = smoothPts(q.p);
       for (let j = 0; j < pts.length - 1; j++) { const a = pts[j], b = pts[j + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, f = Math.max(0, Math.min(1, ((Wc[0] - a[0]) * dx + (Wc[1] - a[1]) * dz) / l2)); if (Math.hypot(a[0] + dx * f - Wc[0], a[1] + dz * f - Wc[1]) < 3) return true; } }
     return false;
   }
