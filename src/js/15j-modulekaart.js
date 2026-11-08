@@ -83,11 +83,30 @@
       if (!f[2]) { const v = Math.round(Math.min(110, 58 + f[1] * 4)); return `rgb(${v},${v + 2},${v + 6})`; }
       return shade(LOOPKLEUR[f[2]], Math.min(f[1], 6) * 0.5);   // hoger = lichter
     };
+    // Diepte: kleur per hoogte (blauwgrijs op de grond, groen op 3 m, oranje op 6 m en hoger) en schuin aanzicht
+    const HKLEUR = [[0, [92, 110, 128]], [1.5, [96, 150, 132]], [3, [110, 178, 98]], [4.5, [200, 196, 84]], [6, [242, 168, 58]], [9, [236, 112, 64]]];
+    const hoogteKleur = (h, licht) => { let i = 0; while (i < HKLEUR.length - 2 && h > HKLEUR[i + 1][0]) i++; const [h0, a] = HKLEUR[i], [h1, b] = HKLEUR[i + 1], t = Math.max(0, Math.min(1, (h - h0) / (h1 - h0))); return `rgb(${a.map((v, k) => Math.round((v + (b[k] - v) * t) * licht)).join(',')})`; };
+    function drawDiepte(g, m, px, big) {
+      const span = Math.max(m.w, m.d, 18.6) * (big ? 1.32 : 1.1), s = px / span, K = 0.5, hMax = Math.max(0, ...m.f.map(f => f[1])), cx = px / 2, cy = px / 2 + hMax * s * K * 0.45;
+      const P = (x, y, h) => [cx + x * s, cy - y * s * 0.82 - h * s * K];   // schuin van voren: de diepte iets ingedrukt, hoogte omhoog
+      g.beginPath(); for (let k = 0; k < 6; k++) { const a = (30 + 60 * k) * Math.PI / 180; g[k ? 'lineTo' : 'moveTo'](...P(9 * Math.cos(a), 9 * Math.sin(a), 0)); }
+      g.closePath(); g.setLineDash([3, 3]); g.strokeStyle = 'rgba(238,241,236,.22)'; g.lineWidth = 1; g.stroke(); g.setLineDash([]);
+      const midY = f => { let t = 0, n = 0; for (let i = 4; i < f.length; i += 2) { t += f[i]; n++; } return n ? t / n : 0; };
+      const vlakken = m.f.slice().sort((a, b) => a[1] - b[1] || midY(b) - midY(a));   // eerst laag en achter, dan hoog en voor
+      for (const f of vlakken) {
+        const h = f[1], dik = h <= 0.6 ? h : Math.min(h, 0.45), pts = []; for (let i = 3; i < f.length; i += 2) pts.push([f[i], f[i + 1]]);
+        for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length];
+          g.beginPath(); g.moveTo(...P(a[0], a[1], h)); g.lineTo(...P(b[0], b[1], h)); g.lineTo(...P(b[0], b[1], h - dik)); g.lineTo(...P(a[0], a[1], h - dik)); g.closePath(); g.fillStyle = hoogteKleur(h, 0.55); g.fill(); }
+        g.beginPath(); pts.forEach((q, i) => g[i ? 'lineTo' : 'moveTo'](...P(q[0], q[1], h))); g.closePath(); g.fillStyle = hoogteKleur(h, 1); g.fill(); g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 0.6; g.stroke();
+      }
+      if (big && hMax > 0.6) { g.font = '700 12px system-ui'; g.fillStyle = '#eef1ec'; g.fillText('hoogste punt ' + nl(hMax) + ' m', 8, 16); }
+    }
     function draw(cv, m, px, big) {
       const loop = st.view === 'lopen';
       const dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = cv.height = Math.round(px * dpr);
       const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, px, px);
       const span = Math.max(m.w, m.d, 18.6) * (big ? 1.32 : 1.1), s = px / span, cx = px / 2, cy = px / 2;
+      if (st.view === 'diepte') return drawDiepte(g, m, px, big);
       const P = (x, y) => [cx + x * s, cy - y * s];
       g.beginPath(); for (let k = 0; k < 6; k++) { const a = (30 + 60 * k) * Math.PI / 180; g[k ? 'lineTo' : 'moveTo'](...P(9 * Math.cos(a), 9 * Math.sin(a))); }
       g.closePath(); g.setLineDash([3, 3]); g.strokeStyle = 'rgba(238,241,236,.22)'; g.lineWidth = 1; g.stroke(); g.setLineDash([]);
@@ -114,12 +133,13 @@
     function renderTools() {
       tools.innerHTML = '';
       tools.append(seg([['modules', 'Alle modules'], ...fortKijker.forten.map((n, i) => ['fort' + i, n])], st.page, v => { st.page = v; st.sel = null; render(); }));
-      tools.append(seg([['gewoon', 'Gewoon'], ['lopen', 'Lopen']], st.view, v => { st.view = v; try { localStorage.setItem('raatstad-mk-view', v); } catch (e) { /* geen opslag */ } render(); }));
+      tools.append(seg([['gewoon', 'Gewoon'], ['lopen', 'Lopen'], ['diepte', 'Diepte']], st.view, v => { st.view = v; try { localStorage.setItem('raatstad-mk-view', v); } catch (e) { /* geen opslag */ } render(); }));
       if (st.page === 'modules') {
         tools.append(seg([['alle', 'Alles'], ['n', 'Nieuw'], ['c', 'Concept']], st.bron, v => { st.bron = v; render(); }));
         tools.append(check('Onderdelen tonen', st.delen, v => { st.delen = v; render(); }));
         if (D.paren.length) tools.append(check('Alleen (bijna) dubbel', st.bijna, v => { st.bijna = v; render(); }));
       }
+      if (st.view === 'diepte') { const lg = document.createElement('div'); lg.className = 'mk-legend'; lg.innerHTML = [[0, 'grond'], [1.5, '1,5 m'], [3, '3 m'], [4.5, '4,5 m'], [6, '6 m'], [9, '9 m+']].map(([h, t]) => `<span><i style="background:${hoogteKleur(h, 1)}"></i>${t}</span>`).join(''); tools.append(lg); }
       if (st.view === 'lopen') { const lg = document.createElement('div'); lg.className = 'mk-legend'; lg.innerHTML = `<span><i style="background:${LOOPKLEUR[1]}"></i>pad</span><span><i style="background:${LOOPKLEUR[3]}"></i>gras, zand</span><span><i style="background:${LOOPKLEUR[2]}"></i>fietspad</span><span><i style="background:#4a4d53"></i>niet te belopen</span><span><i class="dot"></i>ingang (pad)</span>`; tools.append(lg); }
     }
     function renderCats() {
@@ -144,10 +164,10 @@
       const fi = +st.page.slice(4); cats.hidden = true; grid.hidden = true; fortHost.hidden = false;
       if (!fortKijker.kijker || fortKijker.kijker.fort !== SKP_FORTEN.forten[fi]) {
         fortHost.innerHTML = '';
-        fortKijker.open(fortHost, fi, st.view, n => { st.sel = n; renderSide(); fortKijker.kijker.highlight(n); });
+        fortKijker.open(fortHost, fi, st.view === 'diepte' ? 'gewoon' : st.view, n => { st.sel = n; renderSide(); fortKijker.kijker.highlight(n); });
         fortHost.insertAdjacentHTML('beforeend', '<div class="fk-btns"><button type="button" data-v="schuin">Schuin</button><button type="button" data-v="top">Van boven</button></div><div class="fk-hint">Slepen draait · rechts of Shift slepen schuift · wiel zoomt · klik een module</div>');
         fortHost.querySelector('[data-v=schuin]').onclick = () => fortKijker.kijker.schuin(); fortHost.querySelector('[data-v=top]').onclick = () => fortKijker.kijker.top();
-      } else fortKijker.kijker.setView(st.view);
+      } else fortKijker.kijker.setView(st.view === 'diepte' ? 'gewoon' : st.view);
       fortKijker.kijker.highlight(st.sel); renderSide();
     }
     function render() {
@@ -180,7 +200,7 @@
       }
       const m = byName.get(st.sel);
       if (!m) {
-        side.innerHTML = `<h3>Overzicht</h3><p class="mk-leeg">Klik een module voor de details.<br><br><b>Gewoon</b> toont de kleuren uit SketchUp. <b>Lopen</b> toont wat beloopbaar is: zo kunnen mensen hun weg vinden. De witte stippen zijn de ingangen op de rand van het vak, met de hoogte waarop je binnenkomt.<br><br>Onderdelen (Deel) staan standaard uit: dat zijn stukken waar de modules uit bestaan.</p>${D.paren.length ? '<h4>Bijna dubbel</h4><ul class="mk-leeg">' + D.paren.map(p => `<li>${kort(p.a)} en ${kort(p.b)}</li>`).join('') + '</ul>' : ''}`;
+        side.innerHTML = `<h3>Overzicht</h3><p class="mk-leeg">Klik een module voor de details.<br><br><b>Gewoon</b> toont de kleuren uit SketchUp. <b>Lopen</b> toont wat beloopbaar is: zo kunnen mensen hun weg vinden. De witte stippen zijn de ingangen op de rand van het vak, met de hoogte waarop je binnenkomt. <b>Diepte</b> toont elk stuk schuin van voren met een kleur per hoogte (grond blauwgrijs, 3 m groen, 6 m oranje): zo zie je wat hoog en laag ligt.<br><br>Onderdelen (Deel) staan standaard uit: dat zijn stukken waar de modules uit bestaan.</p>${D.paren.length ? '<h4>Bijna dubbel</h4><ul class="mk-leeg">' + D.paren.map(p => `<li>${kort(p.a)} en ${kort(p.b)}</li>`).join('') + '</ul>' : ''}`;
         return;
       }
       const ps = pairsOf.get(m.n) || [];

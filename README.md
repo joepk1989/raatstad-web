@@ -232,6 +232,9 @@ Afspraak voor een gelaagde stad (november 2026): een pad komt aan het **midden v
 
 In de Raatmaker laat **Controle** (Shift+C) langs elke buitenzijde van de verdieping een strook zien: groen = pad, blauw = hele zijde, oranje = deur, rood = afwijkend; de melding telt ze. In de bibliotheek (168 modules) wijken er 7 af, allemaal details (kade, steiger, woonboot, amfitheater, tankstation, twee winkelcentrum-stukken). Test: `test/visueel/mm_randen.js`.
 
+## Modulekaart: Diepte
+De Modulekaart (K) heeft naast **Gewoon** en **Lopen** de weergave **Diepte**: elk stuk schuin van voren, hogere vlakken hoger in beeld met een randje eronder, en een kleur per hoogte (grond blauwgrijs, 1,5 m blauwgroen, 3 m groen, 4,5 m geel, 6 m oranje, 9 m en hoger rood-oranje), met een legenda. Laag en achter wordt eerst getekend. Zo zie je bij bruggen, trappen en hellingen wat boven wat ligt. De fortpagina (Winkelcentrum) toont bij Diepte de gewone 3D-weergave. Test: `test/visueel/modulekaart_diepte.js`.
+
 ## Modules: namen en bladeren
 
 Elke module heet **soort · variant (· bijzonderheid) · lagen · maat**, bijvoorbeeld `Rijhuis · baksteen · 2L` of `Plein · markt · 7v`. Het aantal lagen (`2L`, alleen bij gebouwen) en de maat (`7v` voor 7 vakken; 1 vak heeft geen toevoeging) rekent de Raatmaker bij het bewaren zelf uit en zet ze achteraan (`modMeta`, `modSuffix` in `08c`). De standaardbibliotheek gebruikt dezelfde regel (`LIB_NAMES` in `08e`). Oude namen worden eenmalig omgezet, en de categorie Trappen heet nu **Verbindingen** (trappen, hellingen, bruggen: wat lagen met elkaar verbindt).
