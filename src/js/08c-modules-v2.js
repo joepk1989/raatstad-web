@@ -653,6 +653,38 @@
           const Wl = k => { const an = (30 + 60 * k) * Math.PI / 180, p = tf(c[0] + Math.cos(an) * rr, c[1] + Math.sin(an) * rr); return [p[0], yb, p[1]]; }, gp = [];
           for (const k of [a, a + 3]) { const T = up(Wl(k), yb + h * rr / ro); for (const [P1, P2] of [[Wl(k - 1 + 6), Wl(k)], [Wl(k), Wl(k + 1)]]) gp.push(...P1, ...T, ...P2, ...P1, ...P2, ...T); }
           const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(gp.map((v, i) => i % 3 === 1 ? v / 3 : 0).filter((_, i) => i % 3 !== 2), 2)); gg.computeVertexNormals(); put(Mt.wl[wm] || Mt.wl.brick, gg);
+        } else if (/^shed\d$/.test(kind || '') || ['mansard', 'koepel', 'spits', 'lantaarn'].includes(kind)) {
+          // nieuwe daken (zeshoekig, op het vak): ring(rad, y) = zes hoekpunten op afstand rad van het midden, op hoogte y
+          const ring = (rad, y) => [0, 1, 2, 3, 4, 5].map(k => { const an = (30 + 60 * k) * Math.PI / 180, p = tf(c[0] + Math.cos(an) * rad, c[1] + Math.sin(an) * rad); return [p[0], y, p[1]]; });
+          const band = (A, B) => { for (let k = 0; k < 6; k++) { tri3(A[k], A[(k + 1) % 6], B[(k + 1) % 6]); tri3(A[k], B[(k + 1) % 6], B[k]); } };
+          const W0 = tf(c[0], c[1]), W1 = tf(c[0] + 1, c[1]), draai = Math.atan2(-(W1[1] - W0[1]), W1[0] - W0[0]);
+          const prisma = (mat, rad, yA, yB) => { const g2 = new THREE.CylinderGeometry(rad, rad, yB - yA, 6); g2.rotateY(draai); g2.translate(W0[0], (yA + yB) / 2, W0[1]); put(mat, g2); };
+          const punt = (mat, rad, yA, hh) => { const g2 = new THREE.ConeGeometry(rad, hh, 6); g2.rotateY(draai); g2.translate(W0[0], yA + hh / 2, W0[1]); put(mat, g2); };
+          const sh = /^shed(\d)$/.exec(kind || '');
+          if (sh) {   // lessenaarsdak: één vlak, laag aan zijde s (normaal op 60·s°), hoog aan de overkant; de zijmuren lopen mee omhoog
+            const sd = +sh[1] % 6, nx = Math.cos(sd * Math.PI / 3), nz = Math.sin(sd * Math.PI / 3), Aro = ro * SQ3 / 2, hs = 2.6 * rr / R;
+            const hoogte = (lx, lz) => yb + hs * (Aro - (lx * nx + lz * nz)) / (2 * Aro), hoek = (rad, k) => { const an = (30 + 60 * k) * Math.PI / 180; return [Math.cos(an) * rad, Math.sin(an) * rad]; };
+            const P3 = (rad, k) => { const [lx, lz] = hoek(rad, k), p = tf(c[0] + lx, c[1] + lz); return [p[0], hoogte(lx, lz), p[1]]; };
+            for (let k = 1; k < 5; k++) tri3(P3(ro, 0), P3(ro, k), P3(ro, k + 1));
+            let wm = null; { const cnt = {}; for (const wid in L.w) { const Wd = L.w[wid]; if (!Wd || Wd.m === 'fence' || Wd.m === 'hedge') continue; cnt[Wd.m] = (cnt[Wd.m] || 0) + 1; } let best = 0; for (const k2 in cnt) if (cnt[k2] > best) { best = cnt[k2]; wm = k2; } }
+            const gp = [], guv = [], Cw = tf(c[0], c[1]);   // zijmuren onder het dakvlak: één vlak naar buiten, textuur in meters (langs de muur, omhoog)
+            for (let k = 0; k < 6; k++) { let A = P3(rr, k), B = P3(rr, k + 1); if (A[1] - yb < 0.05 && B[1] - yb < 0.05) continue;
+              if ((B[2] - A[2]) * ((A[0] + B[0]) / 2 - Cw[0]) - (B[0] - A[0]) * ((A[2] + B[2]) / 2 - Cw[1]) > 0) [A, B] = [B, A];   // normaal (−dz, dx) naar buiten
+              const l = Math.hypot(B[0] - A[0], B[2] - A[2]); gp.push(A[0], yb, A[2], B[0], yb, B[2], B[0], B[1], B[2], A[0], yb, A[2], B[0], B[1], B[2], A[0], A[1], A[2]); guv.push(0, yb / 3, l / 3, yb / 3, l / 3, B[1] / 3, 0, yb / 3, l / 3, B[1] / 3, 0, A[1] / 3); }
+            if (gp.length) { const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(guv, 2)); gg.computeVertexNormals(); put(Mt.wl[wm] || Mt.wl.brick, gg); }
+          } else if (kind === 'mansard') {   // mansardedak: onderaan steil tot 2,2 m, daarboven een flauwe punt
+            const M = ring(ro * 0.62, yb + 2.2 * rr / R); band(ring(ro, yb), M); const T = [W0[0], yb + 3.3 * rr / R, W0[1]]; for (let k = 0; k < 6; k++) tri3(T, M[k], M[(k + 1) % 6]);
+          } else if (kind === 'koepel') {   // koepel: zes vlakken die rond oplopen (wit stucwerk), met een knopje
+            const rk = ro * 0.92, hk = 0.85 * rk, rings = [0, 15, 30, 45, 60, 75].map(d => ring(d ? rk * Math.cos(d * Math.PI / 180) : ro, yb + hk * Math.sin(d * Math.PI / 180)));   // net binnen de dakrand, met een smalle rand eromheen
+            const pos0 = pos.length; for (let i = 0; i + 1 < rings.length; i++) band(rings[i], rings[i + 1]); const T = [W0[0], yb + hk, W0[1]]; for (let k = 0; k < 6; k++) tri3(T, rings[5][k], rings[5][(k + 1) % 6]);
+            const kp = pos.splice(pos0), g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(kp, 3)); g2.setAttribute('uv', new THREE.Float32BufferAttribute(kp.map((v, i) => i % 3 === 1 ? null : v / 3).filter(v => v !== null), 2)); g2.computeVertexNormals(); put(Mt.wl.plaster || Mt.slab, g2);
+            prisma(Mt.wl.plaster || Mt.slab, 0.55, yb + hk - 0.1, yb + hk + 0.5); punt(Mt.wl.oker || Mt.roof, 0.7, yb + hk + 0.5, 0.9);
+          } else if (kind === 'spits') {   // spits: hoge, steile zeshoekige torenspits
+            const T = [W0[0], yb + 1.6 * ro, W0[1]], B = ring(ro, yb); for (let k = 0; k < 6; k++) tri3(T, B[k], B[(k + 1) % 6]);
+          } else {   // lantaarndak: schilddak met bovenop een glazen lantaarn en een spitsje (zoals de lichtkoepels van het bergfort)
+            const f = 0.26, yl = yb + h * (1 - f); band(ring(ro, yb), ring(ro * f, yl)); const rl = ro * f * 0.9;
+            prisma(Mt.wl.glass || Mt.frame, rl, yl - 0.05, yl + 1.1); punt(Mt.roof, ro * f * 1.15, yl + 1.1, 1.3);
+          }
         } else for (let k = 0; k < 6; k++) tri3(top, V(k), V(k + 1));   // schilddak (piramide)
         for (const arr of [pos, under]) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(arr.map((v, i) => (i % 3 === 0 ? v : i % 3 === 2 ? v : null)).filter(v => v !== null).map(v => v / 3), 2)); g.computeVertexNormals(); put(arr === pos ? Mt.roof : Mt.ceiling || Mt.roof, g); }
       }
@@ -1037,7 +1069,7 @@
         if (S.k === 'plaat') { S.p = S.p.map(pl => pl.map(p => [p[0], -p[1], p[2]])); S.a = mp(S.a[0], S.a[1]); continue; }
         S.a = mp(S.a[0], S.a[1]); S.d = (S.d || 0) < 6 ? D6[S.d || 0] : 6 + (12 - S.d) % 6;   /* 6–11: haaks op de zijden (0°, 60°, …) */ if (S.off) S.off = -S.off; if (S.k === 'spiral' || S.k === 'u') S.side = -(S.side || 1); else if (S.side) S.side = -S.side;   // zonder side is het 1: ook dan keert de draairichting om
       }
-      const r = {}; for (const id in L.r) { const [q, rr] = id.split(',').map(Number), g = /^gable(\d)$/.exec(L.r[id] || ''); r[(q + rr) + ',' + (-rr)] = g ? 'gable' + [2, 1, 0][+g[1] % 3] : L.r[id]; } L.r = r;   // zadeldak: de nok spiegelt mee
+      const r = {}; for (const id in L.r) { const [q, rr] = id.split(',').map(Number), g = /^gable(\d)$/.exec(L.r[id] || ''); const sh = /^shed(\d)$/.exec(L.r[id] || ''); r[(q + rr) + ',' + (-rr)] = g ? 'gable' + [2, 1, 0][+g[1] % 3] : sh ? 'shed' + ((6 - +sh[1]) % 6) : L.r[id]; } L.r = r;   // zadeldak: de nok spiegelt mee
       for (const o of L.o) { o.z = -o.z; o.rot = -(o.rot || 0); }
     }
     m.codes = modV2Codes(m); m._sig = (m._sig || 0) + 0.5; m.mir = true;
