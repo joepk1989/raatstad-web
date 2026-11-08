@@ -13,13 +13,14 @@ const { open, OUT } = require('./helper');
   const uit = [];
   const weg = async (tool, A, B, naam) => {
     await p.evaluate(t => window.__SC().selectTool(t), tool); await p.waitForTimeout(150);
-    const a = await scherm(...A), e = await scherm(...B), n0 = await tel(), t0 = Date.now(), f0 = errs.length;
+    const a = await scherm(...A), e = await scherm(...B), n0 = await tel(), t0 = Date.now(), f0 = errs.length, w0 = await p.evaluate(() => Object.assign({}, window.__wegTijd));
     await p.mouse.move(a[0], a[1]); await p.mouse.down();
     let zetten = 0; for (let i = 1; i <= 14; i++) { const t1 = Date.now(); await p.mouse.move(a[0] + (e[0] - a[0]) * i / 14, a[1] + (e[1] - a[1]) * i / 14); zetten += Date.now() - t1; }
+    const w1 = await p.evaluate(() => Object.assign({}, window.__wegTijd)), bouw = { keer: w1.n - w0.n, ms: Math.round(w1.ms - w0.ms), vol: w1.vol - w0.vol };
     const t2 = Date.now(); await p.mouse.up(); await p.evaluate(() => new Promise(r => requestAnimationFrame(() => r()))); const los = Date.now() - t2;
     let n1 = await tel(); for (let k = 0; k < 30 && n1.meter === n0.meter; k++) { await p.waitForTimeout(100); n1 = await tel(); }   // het opslaan kan een tel later komen
-    const ms = Date.now() - t0, r = { naam, tool, ms, slepen: Math.round(zetten / 14), los, paden: n0.paden + '→' + n1.paden, meter: n1.meter - n0.meter, fouten: errs.slice(f0) };
-    console.log((r.fouten.length ? 'FOUT ' : '') + naam.padEnd(34), tool.padEnd(7), String(ms).padStart(6) + ' ms', 'per muisbeweging ' + r.slepen + ' ms · loslaten ' + r.los + ' ms', 'paden ' + r.paden + ' · +' + r.meter + ' m weg', r.fouten.length ? JSON.stringify(r.fouten).slice(0, 300) : ''); uit.push(r); return r;
+    const ms = Date.now() - t0, r = { naam, tool, ms, slepen: Math.round(zetten / 14), bouw, los, paden: n0.paden + '→' + n1.paden, meter: n1.meter - n0.meter, fouten: errs.slice(f0) };
+    console.log((r.fouten.length ? 'FOUT ' : '') + naam.padEnd(34), tool.padEnd(7), String(ms).padStart(6) + ' ms', 'per muisbeweging ' + r.slepen + ' ms (wegen opbouwen: ' + r.bouw.keer + '× ' + r.bouw.ms + ' ms, ' + r.bouw.vol + '× alles) · loslaten ' + r.los + ' ms', 'paden ' + r.paden + ' · +' + r.meter + ' m weg', r.fouten.length ? JSON.stringify(r.fouten).slice(0, 300) : ''); uit.push(r); return r;
   };
   // raster: drie wegen oost-west en drie die ze kruisen
   for (const r of [-3, 0, 3]) await weg('vweg', [-6, r], [6, r], 'oost-west r=' + r);
@@ -38,6 +39,10 @@ const { open, OUT } = require('./helper');
   await weg('vbrd', [-5, -2], [-2, -2], 'brede weg');
   await p.evaluate(() => window.__SC().selectTool('kies')); await p.waitForTimeout(500);
   await p.screenshot({ path: OUT + '/wegennet_alles.png' });
+  // eerlijk vergelijken op het volle net: alles opnieuw (zoals vroeger bij elke muisbeweging) tegen alleen de weg die verandert
+  const vgl = await p.evaluate(() => { const S = window.__SC(), P = S.getCells().paths, w = P[P.length - 1], t = f => { const t0 = performance.now(); for (let i = 0; i < 5; i++) f(i); return Math.round((performance.now() - t0) / 5); };
+    const alles = t(() => S.buildPathNet(true)); const een = t(i => { w.p[w.p.length - 1][0] += i % 2 ? 0.01 : -0.01; S.buildPathNet(true, [w]); }); S.buildPathNet(); return { wegen: P.length, alles, een }; });
+  console.log('op het volle net (' + vgl.wegen + ' wegen): alles opnieuw ' + vgl.alles + ' ms · alleen de gesleepte weg ' + vgl.een + ' ms per muisbeweging');
   const traag = uit.filter(r => r.ms > 8000), fout = uit.filter(r => r.fouten.length), geen = uit.filter(r => r.meter <= 0 && r.naam !== 'over een bestaande weg');
   console.log('wegen:', uit.length, '· met fouten:', fout.length, '· traag (> 8 s):', traag.length, '· zonder nieuwe weg:', geen.map(r => r.naam).join(', ') || '-');
   console.log('alle fouten:', JSON.stringify([...new Set(errs)]).slice(0, 1500));

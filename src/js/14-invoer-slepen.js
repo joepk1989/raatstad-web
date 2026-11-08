@@ -365,7 +365,7 @@
     if (D.vp.p.length < 2) D.vp.p = [];
     D.count = 0; for (let i = 1; i < D.vp.p.length; i++) D.count += 1;
     { const pts = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])]; D.count = pts.length < 2 ? 0 : 1 + pts.slice(1).reduce((n, c, i) => n + hexDist(c[0] - pts[i][0], c[1] - pts[i][1]), 0); }
-    buildPathNet(true);
+    buildPathNet(true, [D.vp]);   // alleen de weg die je sleept opnieuw (07)
   }
   // Tijdens het slepen van een weg: hoger of lager (E/Q, Page Up/Down, + / −, scrollwiel of de knoppen ▲▼).
   // Zolang je nog op het beginvak staat, verander je het begin; daarna het punt waar je nu bent.
@@ -531,23 +531,23 @@
     return { p: [S0, Wc, [r2(Wc[0] + dx / L * HALF), r2(Wc[1] + dz / L * HALF)]], tipS: false, tipE: true, aan: true };
   }
   const vecPre = { tmp: null, key: '', orig: null };
-  function vecPreClear() {
+  function vecPreClear(nietBouwen) {   // nietBouwen: er komt meteen een nieuw voorbeeld (dat bouwt zelf)
     if (!vecPre.tmp) return; const i = pathsOf().indexOf(vecPre.tmp);
     if (i >= 0) { if (vecPre.orig) pathsOf()[i] = vecPre.orig; else pathsOf().splice(i, 1); }
-    vecPre.tmp = null; vecPre.orig = null; vecPre.key = ''; buildPathNet(true);
+    vecPre.tmp = null; vecPre.orig = null; vecPre.key = ''; if (!nietBouwen) buildPathNet(true);
   }
   function vecPreShow(cell, t, plan) {   // voorbeeld: precies wat een klik zou geven (bij doortrekken: de verlengde weg zelf)
     const kk = cell[0] + ',' + cell[1] + ',' + t + ',' + (manualDir !== null ? manualDir : viewDirIndex()) + (plan && plan.best ? 'c' + plan.best.end + plan.best.p.p.length : '');
     if (vecPre.tmp && vecPre.key === kk) return;
-    if (vecPre.tmp) vecPreClear();
+    const wasVoorbeeld = !!vecPre.tmp; if (vecPre.tmp) vecPreClear(true);
     if (plan && plan.best) {
       const o = plan.best.p, cl = { t: o.t, l: o.l, r: o.r, p: o.p.map(q => q.slice()), tipS: o.tipS, tipE: o.tipE }; if (o.y) cl.y = o.y.slice();
-      const i = pathsOf().indexOf(o); if (i < 0) return;
+      const i = pathsOf().indexOf(o); if (i < 0) { if (wasVoorbeeld) buildPathNet(true); return; }
       pathsOf()[i] = cl; vecPre.tmp = cl; vecPre.orig = o;
-      const res = vecExtendPath(cl, plan.best.end, plan.W); if (res.same) { pathsOf()[i] = o; vecPre.tmp = null; vecPre.orig = null; return; }
-    } else { { const c0 = cellToWorld(cell[0], cell[1]); if (vecOpWeg([r2(c0.x), r2(c0.z)])) return; }   // op een weg: geen voorbeeld (een klik zet hier niets neer)
+      const res = vecExtendPath(cl, plan.best.end, plan.W); if (res.same) { pathsOf()[i] = o; vecPre.tmp = null; vecPre.orig = null; if (wasVoorbeeld) buildPathNet(true); return; }
+    } else { { const c0 = cellToWorld(cell[0], cell[1]); if (vecOpWeg([r2(c0.x), r2(c0.z)])) { if (wasVoorbeeld) buildPathNet(true); return; } }   // op een weg: geen voorbeeld (een klik zet hier niets neer)
       const st = vecStartPts(cell); vecPre.tmp = { t, l: 0, r: 0, p: st.p, tipS: st.tipS, tipE: st.tipE }; pathsOf().push(vecPre.tmp); }
-    vecPre.key = kk; buildPathNet(true);
+    vecPre.key = kk; buildPathNet(true, [vecPre.tmp, vecPre.orig]);   // alleen het voorbeeld opnieuw (de weg die doorgetrokken wordt, telt niet mee in de rest)
   }
   function vecChainEnd(quiet) {
     const C = vecChain; if (!C.on) return;
