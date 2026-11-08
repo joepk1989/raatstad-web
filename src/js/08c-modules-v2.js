@@ -20,7 +20,7 @@
     DIR12: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1], [2, -1], [1, 1], [-1, 2], [-2, 1], [-1, -1], [1, -2]],
     DIR6: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
     floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', hexbeton: 'Beton zeshoek\u00ADtegels', hexgroot: 'Grote beton\u00ADzeshoeken', hexdonker: 'Antraciet zeshoeken', hexsteen: 'Natuur\u00ADsteen zeshoeken', hexraat: 'Raat\u00ADpatroon', hexgras: 'Gras\u00ADtegels zeshoek', hexkei: 'Oude keien', pannen: 'Terracotta pannen', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak' },
-    walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', breuksteen: 'Breuksteen', oker: 'Oker stucwerk', hedge: 'Haag', fence: 'Hek' },
+    walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', breuksteen: 'Breuksteen', oker: 'Oker stucwerk', zalm: 'Zalm stucwerk', terra: 'Terracotta stucwerk', geel: 'Geel stucwerk', hedge: 'Haag', fence: 'Hek' },
     openings: { '': 'Dicht', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open' },
     objects: { tree: 'Boom', bush: 'Struik', bench: 'Bankje', lamp: 'Lantaarn', pillar: 'Zuil', table: 'Tafel', planter: 'Plantenbak', fountain: 'Fontein', bin: 'Prullenbak', bike: 'Fietsenrek', shelf: 'Winkelstelling', counter: 'Toonbank', sign: 'Lichtreclame',
       bed: 'Bed', sofa: 'Bank (binnen)', desk: 'Bureau', kitchen: 'Keukenblok', screen: 'Filmdoek', car: 'Auto', pump: 'Tankpomp', charger: 'Laadpaal', solar: 'Zonnepanelen', turbine: 'Windmolen', chimney: 'Schoorsteen', container: 'Container', goal: 'Doel', grave: 'Grafsteen', boat: 'Boot', shelter: 'Abri', slide: 'Glijbaan', swing: 'Schommel', sheep: 'Schaap' },
@@ -95,6 +95,10 @@
       breuksteen: mk(breuk(0.3, 6, 8), { roughness: 0.97 }),
       // oker stucwerk zoals in een Italiaans bergdorp: warm geel met vlekken en een iets donkerder onderkant
       oker: mk(mvTex(2, 3, (g, w, h) => { noise(g, w, h, '#d99a3a', 0.07, 2200); for (let i = 0; i < 40; i++) { const x = hash01(i, 21) * w, y = hash01(i, 22) * h, r = (0.1 + hash01(i, 23) * 0.35) * w; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, `rgba(${hash01(i, 24) > 0.5 ? '255,214,140' : '150,92,30'},0.18)`); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); } }), { roughness: 0.96 }),
+      // meer Italiaanse stucwerkkleuren (heuveldorp): zalm, terracotta en zachtgeel, met dezelfde vlekken als oker
+      zalm: mk(mvTex(2, 3, (g, w, h) => { noise(g, w, h, '#fbcdb4', 0.07, 2200); for (let i = 0; i < 40; i++) { const x = hash01(i, 21) * w, y = hash01(i, 22) * h, r = (0.1 + hash01(i, 23) * 0.35) * w; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, `rgba(${hash01(i, 24) > 0.5 ? '255,214,196' : '205,130,105'},0.1)`); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); } }), { roughness: 0.96 }),
+      terra: mk(mvTex(2, 3, (g, w, h) => { noise(g, w, h, '#eba07c', 0.07, 2200); for (let i = 0; i < 40; i++) { const x = hash01(i, 21) * w, y = hash01(i, 22) * h, r = (0.1 + hash01(i, 23) * 0.35) * w; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, `rgba(${hash01(i, 24) > 0.5 ? '240,170,130' : '180,95,65'},0.1)`); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); } }), { roughness: 0.96 }),
+      geel: mk(mvTex(2, 3, (g, w, h) => { noise(g, w, h, '#fcebb6', 0.07, 2200); for (let i = 0; i < 40; i++) { const x = hash01(i, 21) * w, y = hash01(i, 22) * h, r = (0.1 + hash01(i, 23) * 0.35) * w; const grd = g.createRadialGradient(x, y, 0, x, y, r); grd.addColorStop(0, `rgba(${hash01(i, 24) > 0.5 ? '255,240,190' : '215,180,110'},0.1)`); grd.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); } }), { roughness: 0.96 }),
       curtain: mk(mvTex(1.5, 3, (g, w, h, p) => { const grd = g.createLinearGradient(0, 0, w * 0.4, h); grd.addColorStop(0, '#9fbfd3'); grd.addColorStop(0.55, '#5f7f97'); grd.addColorStop(1, '#3d5468'); g.fillStyle = grd; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.moveTo(0.1 * w, h); g.lineTo(0.55 * w, 0); g.lineTo(0.7 * w, 0); g.lineTo(0.25 * w, h); g.fill(); g.fillStyle = '#2b3a46'; g.fillRect(0, h - 0.9 * p, w, 0.9 * p); g.fillStyle = '#cfd4d7'; g.fillRect(0, 0, 4, h); g.fillRect(w - 4, 0, 4, h); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 0.9 * p - 2, w, 4); }, 64), { roughness: 0.15, metalness: 0.35 }),
     };
     // zeshoekige tegels (punt in de lengte van het raster, net als de vakken): naad in de kleur van de voeg, elke tegel
@@ -405,7 +409,7 @@
           add(i + ',' + j, u, W); add((i + D[0]) + ',' + (j + D[1]), [-u[0], -u[1]], W); }
         for (const [k, L2] of ends) {
           if (L2.length < 2 || far) continue;
-          if (opts.skip) { const [i0, j0] = k.split(',').map(Number), c0 = mv2P(i0, j0, ts), Wc = tf(c0[0], c0[1]); if (opts.skip.has('p' + wallKeyW((opts.baseLv || 0) + li, Wc[0], Wc[1]))) continue; }
+          if (opts.skip) { const [i0, j0] = k.split(',').map(Number), c0 = mv2P(i0, j0, ts), Wc = tf(c0[0], c0[1]); if (opts.skip.has('p' + wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wc[0], Wc[1]))) continue; }
           let bent = false; for (let x = 0; x < L2.length && !bent; x++) for (let y = x + 1; y < L2.length; y++) if (L2[x].dir[0] * L2[y].dir[0] + L2[x].dir[1] * L2[y].dir[1] > -0.99) { bent = true; break; }
           if (!bent) continue;   // rechtdoor: de blokken sluiten al aan
           const [i, j] = k.split(',').map(Number), c = mv2P(i, j, ts), hedge = L2.every(e => e.W.m === 'hedge'), W0 = L2.find(e => e.W.m !== 'hedge') || L2[0];
@@ -421,7 +425,7 @@
         const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue;
         const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts), len = Math.hypot(b[0] - a[0], b[1] - a[1]);
         if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); if (opts.skip.has(wallKeyW((opts.baseLv || 0) + li, Wm[0], Wm[1]))) continue; }   // dezelfde muur van de buurmodule staat er al
+        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); if (opts.skip.has(wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wm[0], Wm[1]))) continue; }   // dezelfde muur van de buurmodule staat er al
         const mat = Mt.wl[W.m] || Mt.wl.brick, T = MV2.WALL_T;
         // haag en hek: een deur, poort of open doorgang is een gat (vroeger bleef die dicht en kon je een omheind park niet in)
         if (W.m === 'hedge' || W.m === 'fence') {
@@ -760,7 +764,7 @@
   // stukken van een module (voor het instorten): zelfde bouw als in de stad, maar elk stuk apart
   function modPiecesOf(I) {
     const e = modGroups.get(I); if (!e) return null; const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H;
-    const b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: e.mask, roofStyle: e.style, skip: e.skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y), pieces: true });
+    const b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: e.mask, roofStyle: e.style, skip: e.skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y), pieces: true });
     return { e, G, pieces: b.pieces };
   }
   // ---------- Samenvoegen per buurt ----------
@@ -871,19 +875,22 @@
   // Twee modules naast elkaar hebben vaak allebei een muur op dezelfde rand: dan staan er twee muren in elkaar
   // (flikkerende texturen) en blokkeert de dichte muur de deur van de ander. Per rand blijft er één over: een
   // opening wint van een raam, een raam van een dichte muur, verder de eerst geplaatste. Zo ook voor hoekposten.
-  const wallKeyW = (lv, x, z) => lv + '|' + Math.round(x * 5) + ',' + Math.round(z * 5);
+  // sleutel van een muur in de stad: de echte hoogte van de verdieping (grond + laag × 3 m, op 10 cm) en de plek. Eerst alleen
+  // het laagnummer: dan liet een huis op een terras zijn muur weg voor de muur van een buurhuis dat 2,5 m hoger of lager
+  // stond (heuveldorp), en zat er een gat in de gevel.
+  const wallKeyW = (y, x, z) => Math.round(y * 10) + '|' + Math.round(x * 5) + ',' + Math.round(z * 5);
   function wallSkips(live) {
     const best = new Map(), per = new Map(), PASS = new Set(['door', 'gate', 'open']);
     const offer = (key, I, rank, idx) => { const b = best.get(key); if (!b || rank > b.rank || (rank === b.rank && idx < b.idx)) best.set(key, { I, rank, idx }); let L = per.get(I); if (!L) per.set(I, L = []); L.push(key); };
     let idx = 0;
     for (const I of live) {
-      const m = I.m, ts = mv2Ts(m), tf = mv2Tf(I.rot, I.q, I.r), b0 = instLv(I); idx++;
+      const m = I.m, ts = mv2Ts(m), tf = mv2Tf(I.rot, I.q, I.r), b0 = instLv(I), g0 = gH(I.q, I.r); idx++;
       m.lv.forEach((L, li) => {
         const ends = new Map();
         for (const id in L.w) { const W = L.w[id]; if (!W) continue; const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts); if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(b0 + li, Wm[0], Wm[1]), I, PASS.has(o) ? 2 : o === 'window' ? 1 : 0, idx);
+          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, PASS.has(o) ? 2 : o === 'window' ? 1 : 0, idx);
           for (const p of [[i, j], [i + D[0], j + D[1]]]) { const pk = p.join(','); ends.set(pk, (ends.get(pk) || 0) + 1); } }
-        for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(b0 + li, Wc[0], Wc[1]), I, 0, idx); }
+        for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wc[0], Wc[1]), I, 0, idx); }
       });
     }
     const out = new Map();
@@ -906,10 +913,10 @@
       if (e && e.cand && e.sig === sig && e.off !== e.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join('')) e.sig = '';   // er ligt nu een weg onder een boom of bankje (of juist niet meer)
       if (e && e.sig === sig) { /* ongewijzigd */ } else {
         if (e) { e.group.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); }); scene.remove(e.group); }
-        const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+        const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
         if (!instLv(I)) addFoundation(I, b.group);   // op een terras: een stenen fundering onder elk vak
         { // de eenvoudige versie voor ver weg: een kind van de groep, zelf nooit zichtbaar; alleen gebundeld (batchMods/batchLod)
-          const bf = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { far: true, stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+          const bf = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { far: true, stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
           if (!instLv(I)) addFoundation(I, bf.group);
           bf.group.traverse(m2 => { if (m2.isMesh) { m2.userData.lodFar = true; m2.visible = false; } }); bf.group.userData.lodFar = true; b.group.add(bf.group);
         }
