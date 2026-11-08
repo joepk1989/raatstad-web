@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
   const t0 = await tel(); console.log('rijhuis:', await knoppen(), JSON.stringify(t0));
   await klik('mm_segGrid', '1,125 m'); await p.waitForTimeout(300); const t1 = await tel();
   console.log('naar 1,125 m:', await knoppen(), JSON.stringify(t1), t1.n === 8 && t1.vloer === t0.vloer * 4 && t1.muren === t0.muren * 2 ? 'GOED (vloer ×4, muren ×2)' : 'FOUT');
-  await klik('mm_segGrid', '4,5 m'); await p.waitForTimeout(300); console.log('grover terug (niet leeg):', await knoppen(), (await tel()).n === 8 ? 'GOED (geweigerd)' : 'FOUT');
+  await klik('mm_segGrid', '4,5 m'); await p.waitForTimeout(300); { const kn = await knoppen(); console.log('grover (niet leeg) = tekenraster:', kn, (await tel()).n === 8 && kn.includes('[4,5 m]') ? 'GOED (module blijft 1,125 m)' : 'FOUT'); }
   await p.keyboard.press('Control+z'); await p.waitForTimeout(300); console.log('ongedaan:', await knoppen(), JSON.stringify(await tel()));
   await klik('mm_segArea', '7'); await p.waitForTimeout(300); console.log('7 vakken:', await knoppen(), (await tel()).k === 1 ? 'GOED' : 'FOUT');
   await p.keyboard.press('Control+z'); await p.waitForTimeout(300);

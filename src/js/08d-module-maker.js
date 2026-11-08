@@ -76,6 +76,9 @@
     const nextBrush = () => { const i = BRUSHES.findIndex(b => b[0] === E.brush); E.brush = BRUSHES[(i + 1) % BRUSHES.length][0]; say('Penseel: ' + BRUSHES.find(b => b[0] === E.brush)[1], 1200); if (E.tool === 'floor' || E.tool === 'erase') renderCtx(); draw(); };
     // driehoeken van het penseel rond (x, z): zeshoek rond het rasterpunt, één driehoek, of (delen van) het vak
     function brushTris(x, z) {
+      const k = tk(); if (k > 1 && (E.brush === 'hex' || E.brush === 'tri')) {   // tekenraster: de driehoeken van het grove raster, als fijne driehoeken
+        if (E.brush === 'tri') { const t = ts() * k, fi = x / (t * SQ3 / 2), fj = z / t - fi / 2, I = Math.floor(fi), J = Math.floor(fj); return fijnIn(I, J, (fi - I) + (fj - J) < 1 ? 0 : 1, k); }
+        const [vi, vj] = vertexAt(x, z); return around(vi / k, vj / k).flatMap(([I, J, T]) => fijnIn(I, J, T, k)); }
       if (E.brush === 'hex') return around(...vertexAt(x, z)); if (E.brush === 'tri') return [triAt(x, z)];
       const [q, r] = cellAt(x, z), c = mv2CellXZ(q, r), t = ts(), out = [], iM = Math.ceil(R / (t * SQ3 / 2)) + 2, jM = Math.ceil(R / t) + iM;
       const ci = Math.round(c[0] / (t * SQ3 / 2)), cj = Math.round(c[1] / t - ci / 2);
@@ -95,9 +98,13 @@
     const ts = () => mv2Ts(E.m);
     const P = (i, j) => mv2P(i, j, ts());
     const triAt = (x, z) => { const t = ts(), fi = x / (t * SQ3 / 2), fj = z / t - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return [i, j, (fi - i) + (fj - j) < 1 ? 0 : 1]; };
+    // Tekenraster (E.teken 1, 2 of 4): je tekent op een grover raster dan waarop de module bewaard is. Rasterpunten en
+    // driehoeken van het tekenraster zijn die van het fijne raster × k; de module zelf blijft fijn (er gaat niets verloren).
+    const tk = () => E.teken || 1;
+    const fijnIn = (I, J, T, k) => { const out = []; for (let i = k * I; i < k * I + k; i++) for (let j = k * J; j < k * J + k; j++) for (const t of [0, 1]) { const ci = (i + (t ? 2 / 3 : 1 / 3)) / k, cj = (j + (t ? 2 / 3 : 1 / 3)) / k; if (Math.floor(ci) === I && Math.floor(cj) === J && ((ci - I) + (cj - J) < 1 ? 0 : 1) === T) out.push([i, j, t]); } return out; };
     function vertexAt(x, z) {
-      const t = ts(), fi = x / (t * SQ3 / 2), fj = z / t - fi / 2; let b = null;
-      for (let a = 0; a <= 1; a++) for (let c = 0; c <= 1; c++) { const i = Math.floor(fi) + a, j = Math.floor(fj) + c, p = P(i, j), d = Math.hypot(p[0] - x, p[1] - z); if (!b || d < b.d) b = { i, j, d }; }
+      const k = tk(), t = ts() * k, fi = x / (t * SQ3 / 2), fj = z / t - fi / 2; let b = null;
+      for (let a = 0; a <= 1; a++) for (let c = 0; c <= 1; c++) { const i = Math.floor(fi) + a, j = Math.floor(fj) + c, p = P(k * i, k * j), d = Math.hypot(p[0] - x, p[1] - z); if (!b || d < b.d) b = { i: k * i, j: k * j, d }; }
       return [b.i, b.j];
     }
     const around = (i, j) => [[i, j, 0], [i - 1, j, 0], [i, j - 1, 0], [i - 1, j, 1], [i, j - 1, 1], [i - 1, j - 1, 1]];
@@ -118,7 +125,8 @@
     function dirSteps(a, x, z, twelve) {
       const p = P(a[0], a[1]); let best = null;
       for (let d = 0; d < (twelve ? 12 : 6); d++) { const D = MV2.DIR12[d], q = P(a[0] + D[0], a[1] + D[1]), ux = q[0] - p[0], uz = q[1] - p[1], l = Math.hypot(ux, uz), al = ((x - p[0]) * ux + (z - p[1]) * uz) / l, lat = Math.abs(((x - p[0]) * -uz + (z - p[1]) * ux) / l); if (al < 0) continue; const sc = lat - al * 0.05; if (!best || sc < best.sc) best = { d, n: Math.max(1, Math.round(al / l)), sc }; }
-      return best || { d: 0, n: 1 };
+      const k = tk(); if (best && k > 1) best.n = Math.max(k, Math.round(best.n / k) * k);   // tekenraster: hele stappen van het grove raster
+      return best || { d: 0, n: k };
     }
     function nearestWall(x, z, maxD = 0.7) {   // dichtstbijzijnde muurrib op deze verdieping
       const L = lvl(); let best = null;
@@ -840,8 +848,10 @@
       if (s * t > 6) {
         ctx.strokeStyle = in3 ? 'rgba(20,24,16,0.45)' : css('--grid'); ctx.lineWidth = in3 ? 1.1 : 0.7; ctx.beginPath();   // in 3D donker: zichtbaar op lichte en donkere vloeren
         const ext = R * (1 + 2 * k) + t, iM = Math.ceil(ext / (t * SQ3 / 2)) + 1, jM = Math.ceil(ext / t) + iM;
-        for (let i = -iM; i <= iM; i++) for (let j = -jM; j <= jM; j++) { const a = P(i, j); for (const D of MV2.DIR3) { const b = P(i + D[0], j + D[1]); if (!mv2NearArea(E.m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue; const A = toS(a[0], a[1]), B = toS(b[0], b[1]); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } }
+        const kk = tk(), grof = (i, j, D) => kk === 1 || (D[1] === 0 ? j % kk === 0 : D[0] === 0 ? i % kk === 0 : (i + j) % kk === 0), fijn = [];   // tekenraster: de grove lijnen gewoon, de fijne vaag
+        for (let i = -iM; i <= iM; i++) for (let j = -jM; j <= jM; j++) { const a = P(i, j); for (const D of MV2.DIR3) { const b = P(i + D[0], j + D[1]); if (!mv2NearArea(E.m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue; const A = toS(a[0], a[1]), B = toS(b[0], b[1]); if (!grof(i, j, D)) { fijn.push(A, B); continue; } ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } }
         ctx.stroke();
+        if (fijn.length) { ctx.save(); ctx.globalAlpha = 0.25; ctx.lineWidth = 0.5; ctx.beginPath(); for (let n = 0; n < fijn.length; n += 2) { ctx.moveTo(fijn[n][0], fijn[n][1]); ctx.lineTo(fijn[n + 1][0], fijn[n + 1][1]); } ctx.stroke(); ctx.restore(); }
       }
       const tri = (id, fill, knip) => { const [i, j, tt] = id.split(',').map(Number); let v = mv2TriVerts(i, j, tt, t); if (knip) { for (const h of (Array.isArray(knip[0]) ? knip : [knip])) v = v.length >= 3 ? mv2ClipKeep(v, h) : v; if (v.length < 3) return; } ctx.beginPath(); v.forEach((p, n) => { const S = toS(p[0], p[1]); n ? ctx.lineTo(S[0], S[1]) : ctx.moveTo(S[0], S[1]); }); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); };
       const wallLine = (id, Wd, ghost) => {
@@ -1157,7 +1167,7 @@
     stage.addEventListener('wheel', e => { if (E.walk) { e.stopPropagation(); e.preventDefault(); } }, { capture: true, passive: false });
     // ---------- module: laden, bewaren, bibliotheek ----------
     const catSel = $('cat'); for (const c of MV2.cats) { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); }
-    function loadModule(m, idx) { E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
+    function loadModule(m, idx) { E.teken = 1; E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
     function newModule() { loadModule(mv2New('Nieuwe module'), -1); $('name').value = ''; say('Nieuwe module: begin met vloer of muren', 2500); }
     // duidelijke melding bovenin (niet alleen het kleine regeltje rechtsonder) en de knop kleurt even groen
     let toastT = 0;
@@ -1178,19 +1188,25 @@
     catSel.addEventListener('change', () => { E.m.cat = catSel.value; E.dirty = true; });
     $('area').addEventListener('change', () => { snap(); E.m.k = +$('area').value; fit(); changed(); });
     $('grid').addEventListener('change', () => {
-      const n = +$('grid').value, old = E.m.n || 4; if (n === old) return;
-      if (n < old) { const empty = E.m.lv.every(isEmptyLevel); if (!empty) { $('grid').value = String(old); say('Grover raster kan alleen bij een lege module', 2500); return; } snap(); E.m.n = n; changed(); return; }
+      const n = +$('grid').value, old = E.m.n || 4; if (n === old && tk() === 1) return;
+      if (n < old) {   // grover: bij een lege module het raster zelf, anders alleen het tekenraster (de module blijft fijn, er gaat niets verloren)
+        if (E.m.lv.every(isEmptyLevel)) { snap(); E.m.n = n; E.teken = 1; changed(); return; }
+        E.teken = old / n; $('grid').value = String(old); maatSync(); draw(); if (E.vm === '3d') dirty3(); say('Tekenraster ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m · de module blijft ' + (R / old).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m, er gaat niets verloren', 2600); return;
+      }
+      E.teken = 1;
+      if (n === old) { maatSync(); draw(); say('Tekenraster ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m', 1400); return; }
       snap(); for (let f = n / old; f > 1; f /= 2) refineModule(E.m, 2); changed(); say('Raster verfijnd naar ' + (R / n).toLocaleString('nl', { maximumFractionDigits: 2 }) + ' m');
     });
     // Vakken en raster als knoppen linksonder in het tekenvlak; ze zetten de (verborgen) keuzelijsten en volgen ze
     function maatKnoppen() {
       for (const [sel, box, kort] of [['area', 'segArea', o => ['1', '7', '19', '37'][+o.value]], ['grid', 'segGrid', o => (R / +o.value).toLocaleString('nl', { maximumFractionDigits: 3 }) + ' m']]) {
         const S = $(sel), B = $(box); if (!S || !B) continue; B.innerHTML = '';
-        for (const o of S.options) { const b = document.createElement('button'); b.type = 'button'; b.textContent = kort(o); b.dataset.v = o.value; b.title = o.textContent; b.addEventListener('click', () => { if (S.value === o.value) return; S.value = o.value; S.dispatchEvent(new Event('change')); maatSync(); }); B.appendChild(b); }
+        for (const o of S.options) { const b = document.createElement('button'); b.type = 'button'; b.textContent = kort(o); b.dataset.v = o.value; b.title = o.textContent; b.addEventListener('click', () => { if (S.value === o.value && !(sel === 'grid' && tk() > 1)) return; S.value = o.value; S.dispatchEvent(new Event('change')); maatSync(); }); B.appendChild(b); }
       }
       maatSync();
     }
-    function maatSync() { for (const [sel, box] of [['area', 'segArea'], ['grid', 'segGrid']]) { const S = $(sel), B = $(box); if (S && B) for (const b of B.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.value)); } }
+    function maatSync() { if (E.m && tk() > 1 && ((E.m.n || 4) % tk() || (E.m.n || 4) / tk() < 2)) E.teken = 1;   // past het tekenraster niet meer (ongedaan maken, ander raster): weer het eigen raster
+      for (const [sel, box] of [['area', 'segArea'], ['grid', 'segGrid']]) { const S = $(sel), B = $(box), v = sel === 'grid' && E.m ? String((E.m.n || 4) / tk()) : S && S.value; if (S && B) for (const b of B.children) b.setAttribute('aria-pressed', String(b.dataset.v === v)); } }   // raster: het tekenraster
     E.maatSync = maatSync;
     function refineModule(m, f) {   // f = 2: elk rasterpunt (i,j) wordt (2i,2j); driehoeken en ribben splitsen
       for (const L of m.lv) {
