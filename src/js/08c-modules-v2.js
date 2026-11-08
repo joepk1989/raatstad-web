@@ -405,7 +405,7 @@
           add(i + ',' + j, u, W); add((i + D[0]) + ',' + (j + D[1]), [-u[0], -u[1]], W); }
         for (const [k, L2] of ends) {
           if (L2.length < 2 || far) continue;
-          if (opts.skip) { const [i0, j0] = k.split(',').map(Number), c0 = mv2P(i0, j0, ts), Wc = tf(c0[0], c0[1]); if (opts.skip.has('p' + wallKeyW((opts.baseLv || 0) + li, Wc[0], Wc[1]))) continue; }
+          if (opts.skip) { const [i0, j0] = k.split(',').map(Number), c0 = mv2P(i0, j0, ts), Wc = tf(c0[0], c0[1]); if (opts.skip.has('p' + wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wc[0], Wc[1]))) continue; }
           let bent = false; for (let x = 0; x < L2.length && !bent; x++) for (let y = x + 1; y < L2.length; y++) if (L2[x].dir[0] * L2[y].dir[0] + L2[x].dir[1] * L2[y].dir[1] > -0.99) { bent = true; break; }
           if (!bent) continue;   // rechtdoor: de blokken sluiten al aan
           const [i, j] = k.split(',').map(Number), c = mv2P(i, j, ts), hedge = L2.every(e => e.W.m === 'hedge'), W0 = L2.find(e => e.W.m !== 'hedge') || L2[0];
@@ -421,7 +421,7 @@
         const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue;
         const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts), len = Math.hypot(b[0] - a[0], b[1] - a[1]);
         if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); if (opts.skip.has(wallKeyW((opts.baseLv || 0) + li, Wm[0], Wm[1]))) continue; }   // dezelfde muur van de buurmodule staat er al
+        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); if (opts.skip.has(wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wm[0], Wm[1]))) continue; }   // dezelfde muur van de buurmodule staat er al
         const mat = Mt.wl[W.m] || Mt.wl.brick, T = MV2.WALL_T;
         // haag en hek: een deur, poort of open doorgang is een gat (vroeger bleef die dicht en kon je een omheind park niet in)
         if (W.m === 'hedge' || W.m === 'fence') {
@@ -760,7 +760,7 @@
   // stukken van een module (voor het instorten): zelfde bouw als in de stad, maar elk stuk apart
   function modPiecesOf(I) {
     const e = modGroups.get(I); if (!e) return null; const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H;
-    const b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: e.mask, roofStyle: e.style, skip: e.skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y), pieces: true });
+    const b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: e.mask, roofStyle: e.style, skip: e.skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y), pieces: true });
     return { e, G, pieces: b.pieces };
   }
   // ---------- Samenvoegen per buurt ----------
@@ -871,19 +871,22 @@
   // Twee modules naast elkaar hebben vaak allebei een muur op dezelfde rand: dan staan er twee muren in elkaar
   // (flikkerende texturen) en blokkeert de dichte muur de deur van de ander. Per rand blijft er één over: een
   // opening wint van een raam, een raam van een dichte muur, verder de eerst geplaatste. Zo ook voor hoekposten.
-  const wallKeyW = (lv, x, z) => lv + '|' + Math.round(x * 5) + ',' + Math.round(z * 5);
+  // sleutel van een muur in de stad: de echte hoogte van de verdieping (grond + laag × 3 m, op 10 cm) en de plek. Eerst alleen
+  // het laagnummer: dan liet een huis op een terras zijn muur weg voor de muur van een buurhuis dat 2,5 m hoger of lager
+  // stond (heuveldorp), en zat er een gat in de gevel.
+  const wallKeyW = (y, x, z) => Math.round(y * 10) + '|' + Math.round(x * 5) + ',' + Math.round(z * 5);
   function wallSkips(live) {
     const best = new Map(), per = new Map(), PASS = new Set(['door', 'gate', 'open']);
     const offer = (key, I, rank, idx) => { const b = best.get(key); if (!b || rank > b.rank || (rank === b.rank && idx < b.idx)) best.set(key, { I, rank, idx }); let L = per.get(I); if (!L) per.set(I, L = []); L.push(key); };
     let idx = 0;
     for (const I of live) {
-      const m = I.m, ts = mv2Ts(m), tf = mv2Tf(I.rot, I.q, I.r), b0 = instLv(I); idx++;
+      const m = I.m, ts = mv2Ts(m), tf = mv2Tf(I.rot, I.q, I.r), b0 = instLv(I), g0 = gH(I.q, I.r); idx++;
       m.lv.forEach((L, li) => {
         const ends = new Map();
         for (const id in L.w) { const W = L.w[id]; if (!W) continue; const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts); if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(b0 + li, Wm[0], Wm[1]), I, PASS.has(o) ? 2 : o === 'window' ? 1 : 0, idx);
+          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, PASS.has(o) ? 2 : o === 'window' ? 1 : 0, idx);
           for (const p of [[i, j], [i + D[0], j + D[1]]]) { const pk = p.join(','); ends.set(pk, (ends.get(pk) || 0) + 1); } }
-        for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(b0 + li, Wc[0], Wc[1]), I, 0, idx); }
+        for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wc[0], Wc[1]), I, 0, idx); }
       });
     }
     const out = new Map();
@@ -906,10 +909,10 @@
       if (e && e.cand && e.sig === sig && e.off !== e.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join('')) e.sig = '';   // er ligt nu een weg onder een boom of bankje (of juist niet meer)
       if (e && e.sig === sig) { /* ongewijzigd */ } else {
         if (e) { e.group.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); }); scene.remove(e.group); }
-        const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+        const o = cellToWorld(I.q, I.r), G = gH(I.q, I.r) + instLv(I) * MV2.LV_H, b = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
         if (!instLv(I)) addFoundation(I, b.group);   // op een terras: een stenen fundering onder elk vak
         { // de eenvoudige versie voor ver weg: een kind van de groep, zelf nooit zichtbaar; alleen gebundeld (batchMods/batchLod)
-          const bf = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { far: true, stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
+          const bf = mv2Build(I.m, mv2Tf(I.rot, I.q, I.r), [o.x, o.z], { far: true, stacked: instLv(I) > 0, roofMask: cov.mask, roofStyle: cov.style, skip, skipH: gH(I.q, I.r), baseLv: instLv(I), offRoad: (x, z, y) => offSpot(I, x, z, y) });
           if (!instLv(I)) addFoundation(I, bf.group);
           bf.group.traverse(m2 => { if (m2.isMesh) { m2.userData.lodFar = true; m2.visible = false; } }); bf.group.userData.lodFar = true; b.group.add(bf.group);
         }
