@@ -541,7 +541,7 @@
       for (const [i, j, t, m] of c.v || []) { const V = triVertsIdx(i, j, t).map(mI).map(([a, b]) => P(a, b)); out.v.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(mI([i, j]), mI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) out.o.push(Object.assign({}, o, { z: Math.round((2 * pw[1] - o.z) * 1000) / 1000, rot: -(o.rot || 0) }));
-      for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: mI(St.a), p: St.p.map(pl => pl.map(p => [p[0], Math.round((2 * pw[1] - p[1]) * 1000) / 1000, p[2]])) })); continue; } if (St.k === 'hexramp') { stay.s.push(St); continue; } const S2 = Object.assign({}, St, { a: mI(St.a), d: D6[St.d || 0] }); if (S2.off) S2.off = -S2.off; if (S2.k === 'spiral' || S2.k === 'u') S2.side = -(S2.side || 1); else if (S2.side) S2.side = -S2.side; out.s.push(S2); }
+      for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: mI(St.a), p: St.p.map(pl => pl.map(p => [p[0], Math.round((2 * pw[1] - p[1]) * 1000) / 1000, p[2]])) })); continue; } if (St.k === 'hexramp') { stay.s.push(St); continue; } const S2 = Object.assign({}, St, { a: mI(St.a), d: (St.d || 0) < 6 ? D6[St.d || 0] : 6 + (12 - St.d) % 6 });   /* 6–11: haaks op de zijden (0°, 60°, …), zoals mv2Mirror */ if (S2.off) S2.off = -S2.off; if (S2.k === 'spiral' || S2.k === 'u') S2.side = -(S2.side || 1); else if (S2.side) S2.side = -S2.side; out.s.push(S2); }
       for (const R0 of c.r) { if (!pc) { stay.r.push(R0); continue; } const dq = R0[0] - pc[0], dr = R0[1] - pc[1], g = /^gable(\d)$/.exec(R0[2] || ''); out.r.push([dq + dr + pc[0], -dr + pc[1], g ? 'gable' + [2, 1, 0][+g[1] % 3] : R0[2]]); }
       if (axis !== 'x') return { out, stay };
       const r2 = clipRot(out, 3, pv); return { out: r2.out, stay: clipJoin(stay, r2.stay) };
@@ -1212,7 +1212,7 @@
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });
       // bergfort-modules (en kopieën ervan) vind je ook met 'bergfort'; bij elk staat hoe vaak hij in het fort voorkomt
       const berg = m => m.bron === 'bergfort' || String(m.id || '').startsWith('bergfort:');
-      const inFort = new Map(); if (typeof SKP_RAAT !== 'undefined') for (const p of SKP_RAAT.fort) { const id = 'bergfort:' + SKP_RAAT.mods[p[0]].name; inFort.set(id, (inFort.get(id) || 0) + 1); }
+      const inFort = new Map(); if (typeof SKP_RAAT !== 'undefined') for (const p of SKP_RAAT.fort) { const pl = typeof bergRaat !== 'undefined' ? bergRaat.plaats(p[0]) : null; if (typeof bergRaat !== 'undefined' && !pl) continue; const id = pl ? pl.m.id : 'bergfort:' + SKP_RAAT.mods[p[0]].name;   /* dubbele varianten tellen bij hun hoofdmodule, de weg niet */ inFort.set(id, (inFort.get(id) || 0) + 1); }
       const list = modules.map((m, i) => [m, i]).filter(([m]) => !q || q.split(/\s+/).every(w => ((m.name || '') + ' ' + (m.cat || '') + (berg(m) ? ' bergfort' : '')).toLowerCase().includes(w))).sort(([a], [b]) => ord(a.cat) - ord(b.cat) || coll.compare(a.name || '', b.name || ''));
       $('libN').textContent = list.length + (list.length === modules.length ? '' : ' van ' + modules.length);
       for (const [m, i] of list) {
