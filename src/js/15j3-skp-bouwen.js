@@ -176,15 +176,16 @@
       a.download = 'raatstad-' + f.naam.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
     function stop() { st.on = false; ghost.visible = false; hint.hidden = true; }
-    window.addEventListener('pointermove', e => { if (st.on && e.target === canvas) moveGhost(e.clientX, e.clientY); });
-    window.addEventListener('pointerdown', e => { if (!st.on || e.target !== canvas || e.button !== 0) return; st.down = { x: e.clientX, y: e.clientY, shift: e.shiftKey }; e.stopImmediatePropagation(); e.preventDefault(); }, true);
+    const bouwt = () => st.on && mode === 'build' && !flyCam.on;   // alleen in de bouwmodus: niet tijdens lopen of in de cameramodus
+    window.addEventListener('pointermove', e => { if (bouwt() && e.target === canvas) moveGhost(e.clientX, e.clientY); });
+    window.addEventListener('pointerdown', e => { if (!bouwt() || e.target !== canvas || e.button !== 0) return; st.down = { x: e.clientX, y: e.clientY, shift: e.shiftKey }; e.stopImmediatePropagation(); e.preventDefault(); }, true);
     window.addEventListener('pointerup', e => {
-      if (!st.on || !st.down || e.button !== 0) return; const d = st.down; st.down = null; e.stopImmediatePropagation();
+      if (!bouwt() || !st.down || e.button !== 0) { st.down = null; return; } const d = st.down; st.down = null; e.stopImmediatePropagation();
       if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;
       if (d.shift) remove(e.clientX, e.clientY); else { moveGhost(e.clientX, e.clientY); place(); }
     }, true);
     window.addEventListener('keydown', e => {
-      if (!st.on || (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return;
+      if (!bouwt() || (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) return;
       const k = e.code; let used = true;
       if (k === 'Escape') stop();
       else if (k === 'KeyR') { st.k = (st.k + (e.shiftKey ? 5 : 1)) % 6; buildGhost(); setHint(); }
