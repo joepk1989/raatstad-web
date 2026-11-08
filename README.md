@@ -225,6 +225,13 @@ Nieuw in de Raatmaker hiervoor:
 - Vloermateriaal **Glazen dak** (doorzichtig, voor lichtkappen) en de voorwerpen **winkelstelling**, **toonbank** en **lichtreclame**.
 - Een trap kan zijwaarts verschoven staan (`off` in een trap-item), zodat hij in een galerijband van 1,95 m past.
 
+## Aansluiten aan de rand (mv2Randen, 08c)
+Afspraak voor een gelaagde stad (november 2026): een pad komt aan het **midden van een zijde** uit en is **4,5 m** breed (de halve zijde, past op elk tekenraster: 4 stukjes van 1,125 m, 2 van 2,25 m of 1 van 4,5 m), of de **hele zijde** (9 m) is open (plein, plateau). Paden komen alleen uit op de **vloer van een verdieping** (0, 3, 6 m …); halve hoogtes horen binnen een module bij een trap of helling.
+
+`mv2Randen(m)` kijkt per verdieping en per buitenzijde welk stuk van de zijde beloopbaar is: verharde vloer (op de begane grond tellen gras en terrein niet als pad: daar loop je overal), op een verdieping elke vloer behalve water, de bovenkant van massief, of het boveneind van een helling van de verdieping eronder; niet in een trapgat en zonder dichte muur (deur, poort en open doorgang mogen, een laag muurtje onder 0,6 m ook). Soorten: `pad`, `heel`, `deur` (alleen openingen in een muur), `anders` (afwijkend: een andere breedte, niet in het midden, of een helling die op een halve hoogte aan de rand uitkomt).
+
+In de Raatmaker laat **Controle** (Shift+C) langs elke buitenzijde van de verdieping een strook zien: groen = pad, blauw = hele zijde, oranje = deur, rood = afwijkend; de melding telt ze. In de bibliotheek (168 modules) wijken er 7 af, allemaal details (kade, steiger, woonboot, amfitheater, tankstation, twee winkelcentrum-stukken). Test: `test/visueel/mm_randen.js`.
+
 ## Modules: namen en bladeren
 
 Elke module heet **soort · variant (· bijzonderheid) · lagen · maat**, bijvoorbeeld `Rijhuis · baksteen · 2L` of `Plein · markt · 7v`. Het aantal lagen (`2L`, alleen bij gebouwen) en de maat (`7v` voor 7 vakken; 1 vak heeft geen toevoeging) rekent de Raatmaker bij het bewaren zelf uit en zet ze achteraan (`modMeta`, `modSuffix` in `08c`). De standaardbibliotheek gebruikt dezelfde regel (`LIB_NAMES` in `08e`). Oude namen worden eenmalig omgezet, en de categorie Trappen heet nu **Verbindingen** (trappen, hellingen, bruggen: wat lagen met elkaar verbindt).
