@@ -707,8 +707,25 @@
     }
     buildPathNet(); return true;
   }
-  // quick: tijdens het slepen alleen de tekening; botsing en het maaiveld langs de weg pas bij het loslaten
-  function buildPathNet(quick) {
+  // quick: tijdens het slepen alleen de tekening; botsing en het maaiveld langs de weg pas bij het loslaten.
+  // voorbeeld (bij quick): [de weg die verandert (slepen, het voorbeeld onder de muis), ...wegen die niet getekend worden]. Dan
+  // worden alleen de wegen die niet veranderen één keer opgebouwd (zolang dezelfde wegen blijven liggen), en bij elke
+  // muisbeweging alleen die ene weg: zo blijft slepen even vlot in een grote stad. Kruisingen met die weg komen bij het loslaten.
+  let pathPre = null, pathBasis = null;
+  const pathWeg = G => { if (!G) return; G.traverse(m => { if (m.isMesh && m.userData.own) m.geometry.dispose(); }); scene.remove(G); };
+  const wegTijd = window.__wegTijd = { n: 0, ms: 0, vol: 0 };   // voor tests: hoe vaak en hoe lang de wegen opgebouwd worden
+  function buildPathNet(quick, voorbeeld) { const t0 = performance.now(); try { return buildPathNet_(quick, voorbeeld); } finally { wegTijd.n++; wegTijd.ms += performance.now() - t0; } }
+  function buildPathNet_(quick, voorbeeld) {
+    const V = quick && voorbeeld && voorbeeld[0] && (cells.paths || []).includes(voorbeeld[0]) ? voorbeeld : null;
+    if (V) {
+      const uit = new Set(V), basis = (cells.paths || []).filter(p => !uit.has(p));
+      if (!(pathBasis && basis.length === pathBasis.size && basis.every(p => pathBasis.has(p)))) {
+        pathWeg(pathGroup); vecLightReg = []; pathGroup = pathBuild(basis, vecLightReg, true); scene.add(pathGroup); pathBasis = new Set(basis);
+      }
+      pathWeg(pathPre); pathPre = pathBuild([V[0]], [], true); scene.add(pathPre); vecDirty = true; vecCover = vecCoverOf(cells.paths);
+      return;
+    }
+    pathWeg(pathPre); pathPre = null; pathBasis = null; wegTijd.vol++;
     if (pathGroup) { pathGroup.traverse(m => { if (m.isMesh && m.userData.own) m.geometry.dispose(); }); scene.remove(pathGroup); }
     for (const k of profCache.keys()) if (!cells.paths || !cells.paths.includes(k)) profCache.delete(k);
     vecLightReg = []; pathGroup = pathBuild(cells.paths, vecLightReg, quick); scene.add(pathGroup); carsDirty = true; vecDirty = true;
