@@ -321,7 +321,7 @@
     const lvl = () => E.m.lv[E.lv];
     // ---------- geschiedenis ----------
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
-    const undo = () => { if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
+    const undo = () => { if (E.rLaag) { hellingAf(); return; } if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
     const redo = () => { if (!E.redo.length) return; E.sel = null; E.undo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.redo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); };
     function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; if (E.m) { $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); }   // ook na ongedaan maken
       renderLevels(); rebuild3(); draw(); liveCheck(); }
@@ -720,7 +720,7 @@
         else if (St.k === 'plaat') { if (St.muur || g.plaat.hi[2] - g.plaat.lo[2] < MV2.LV_H - 0.4) continue; lo = g.plaat.lo; hi = g.plaat.hi; }
         else if (St.k === 'u') { lo = g.at(-0.6, 0); hi = g.at(-0.6, (St.side || 1) * g.w); }
         else { lo = g.at(-0.6, 0); hi = g.at(g.len + 0.6, 0); }
-        let A = node(li, lo[0], lo[1]); const B = li + 1 < m.lv.length ? node(li + 1, hi[0], hi[1]) : null;
+        let A = node(li, lo[0], lo[1]); const B = (li + 1 < m.lv.length ? node(li + 1, hi[0], hi[1]) : null) || (St.k === 'plaat' && !inArea(hi[0], hi[1]) ? 'OUT' : null);   // een vrije helling die over de rand van het vak loopt: daar begint de buurmodule
         if (!A && St.k === 'spiral' && li > 0 && (m.lv[li - 1].s || []).some(S0 => S0.k === 'spiral' && S0.a[0] === St.a[0] && S0.a[1] === St.a[1])) { const a0 = Math.atan2(g.uz, g.ux), sd = St.side || 1; A = node(li, g.a[0] + Math.cos(a0 - sd * 10 * D2) * 1.7, g.a[1] + Math.sin(a0 - sd * 10 * D2) * 1.7); }   // wenteltrappen boven elkaar: je loopt van de ene zo de volgende op
         if (!A) res.marks.push({ li, x: lo[0], z: lo[1], msg: 'trap begint niet op een vloer' });
         if (!B && St.k !== 'trib') res.marks.push({ li: li + 1, x: hi[0], z: hi[1], msg: 'trap komt hier niet op een vloer uit' });
@@ -1274,7 +1274,7 @@
     stage.addEventListener('wheel', e => { if (E.walk) { e.stopPropagation(); e.preventDefault(); } }, { capture: true, passive: false });
     // ---------- module: laden, bewaren, bibliotheek ----------
     const catSel = $('cat'); for (const c of MV2.cats) { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); }
-    function loadModule(m, idx) { E.teken = 1; E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
+    function loadModule(m, idx) { E.teken = 1; E.rLaag = null; E.m = mv2Fix(JSON.parse(JSON.stringify(m))); E.editing = idx; E.lv = 0; E.undo = []; E.redo = []; E.dirty = false; $('name').value = E.m.name; catSel.value = E.m.cat || 'Overig'; $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); fit(); changed(); renderLib(); }
     function newModule() { loadModule(mv2New('Nieuwe module'), -1); $('name').value = ''; say('Nieuwe module: begin met vloer of muren', 2500); }
     // duidelijke melding bovenin (niet alleen het kleine regeltje rechtsonder) en de knop kleurt even groen
     let toastT = 0;

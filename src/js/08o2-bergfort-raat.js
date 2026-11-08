@@ -85,6 +85,29 @@
     const ts = mv2Ts(m), DW = MV2.DIRW, A = R * SQ3 / 2, eenVak = (m.k || 0) === 0; let n = 0;
     const stap = D => mv2P(D[0], D[1], ts), hoekVerschil = (a, b) => { const d = Math.abs(((a - b) % Math.PI + Math.PI) % Math.PI); return Math.min(d, Math.PI - d); };
     const binnen = (x, z) => !eenVak || Math.max(...[0, 1, 2, 3, 4, 5].map(k => x * Math.cos(k * Math.PI / 3) + z * Math.sin(k * Math.PI / 3))) < A + 0.05;
+    // de dichtstbijzijnde rasterpunten bij p (binnen het vak), dichtstbijzijnde eerst
+    const naastePunten = (p, k) => { const out = []; for (let i = -24; i <= 24; i++) for (let j = -24; j <= 24; j++) { const q = mv2P(i, j, ts); if (!binnen(q[0], q[1])) continue; out.push({ ij: [i, j], q, d: Math.hypot(q[0] - p[0], q[1] - p[1]) }); } return out.sort((a, b) => a.d - b.d).slice(0, k); };
+    // Zoals de Helling met twee lijnen in de Raatmaker: de onderrand (l0–l1, hoogte 0) en de bovenrand (h0–h1, hoogte H) elk
+    // van rasterpunt naar rasterpunt. Gekozen wordt het paar lijnen dat het minst verschuift, met een voorkeur voor even
+    // brede en evenwijdige randen (een rechte loop tussen twee wanden). Niet evenwijdig: twee platte driehoeken.
+    function tweeLijnen([l0, l1], [h0, h1], H) {
+      const kruis = (p, q, r, t) => { const o = (u, v, w) => Math.sign((v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0])); return o(p, q, r) * o(p, q, t) < 0 && o(r, t, p) * o(r, t, q) < 0; };
+      if (kruis(l0, h0, l1, h1)) [h0, h1] = [h1, h0];
+      const K = [l0, l1, h0, h1].map(p => naastePunten(p, 8)), len = (a, b) => Math.hypot(b.q[0] - a.q[0], b.q[1] - a.q[1]);
+      // verschuiven in de looprichting maakt de helling alleen wat flauwer (telt licht) of steiler (telt meer); zijwaarts, en vooral buiten
+      // de oorspronkelijke zijkanten (door een muur of over de rand), telt zwaar
+      const mx = (l0[0] + l1[0]) / 2, mz = (l0[1] + l1[1]) / 2, hx = (h0[0] + h1[0]) / 2, hz = (h0[1] + h1[1]) / 2, ul = Math.hypot(hx - mx, hz - mz) || 1, ux = (hx - mx) / ul, uz = (hz - mz) / ul;
+      const zijde = (A, B) => { const ex = B[0] - A[0], ez = B[1] - A[1], l = Math.hypot(ex, ez) || 1, sg = Math.sign(ex * (mz + uz * ul / 2 - A[1]) - ez * (mx + ux * ul / 2 - A[0])) || 1; return q => Math.max(0, -sg * (ex * (q[1] - A[1]) - ez * (q[0] - A[0])) / l); };   // hoe ver q aan de buitenkant van de lijn A–B ligt
+      const buiten = [zijde(l0, h0), zijde(l1, h1)], kost = (P0, o, sg0) => { const dx = P0.q[0] - o[0], dz = P0.q[1] - o[1], al = dx * ux + dz * uz, la = -dx * uz + dz * ux; return (al * sg0 > 0 ? 0.15 : 0.5) * Math.abs(al) + Math.abs(la) + 4 * Math.max(buiten[0](P0.q), buiten[1](P0.q)); };
+      let best = null; const owl = Math.hypot(l1[0] - l0[0], l1[1] - l0[1]), owh = Math.hypot(h1[0] - h0[0], h1[1] - h0[1]);
+      for (const a of K[0]) for (const b of K[1]) { const wl = len(a, b); if (wl < 0.9) continue;
+        for (const c of K[2]) for (const d of K[3]) { const wh = len(c, d); if (wh < 0.9 || kruis(a.q, c.q, b.q, d.q)) continue;
+          const sin = Math.abs((b.q[0] - a.q[0]) * (d.q[1] - c.q[1]) - (b.q[1] - a.q[1]) * (d.q[0] - c.q[0])) / (wl * wh);
+          const sc = kost(a, l0, -1) + kost(b, l1, -1) + kost(c, h0, 1) + kost(d, h1, 1) + 1.5 * Math.abs(wh - wl) + Math.abs(wl - owl) + Math.abs(wh - owh) + 3 * sin;   /* even breed als in het origineel */ if (!best || sc < best.sc) best = { sc, a, b, c, d, sin }; } }
+      if (!best) return null;
+      const r3 = v => Math.round(v * 1000) / 1000, pt = (P0, y) => [r3(P0.q[0]), r3(P0.q[1]), y], vl = [pt(best.a, 0), pt(best.b, 0), pt(best.d, H), pt(best.c, H)];
+      return { a: best.a.ij, p: best.sin < 0.01 ? [vl] : [[vl[0], vl[1], vl[2]], [vl[0], vl[2], vl[3]]] };
+    }
     const roosterOp = (nx, nz, c) => { for (let i = -24; i <= 24; i++) for (let j = -24; j <= 24; j++) { const p = mv2P(i, j, ts); if (Math.abs(p[0] * nx + p[1] * nz - c) < 1e-6) return [i, j]; } return null; };
     for (const L of m.lv || []) {
       const lijnen = [], rest = [], muren = [];
@@ -110,18 +133,10 @@
         }
         const pts = S.p.length === 1 ? S.p[0] : null, top = pts ? Math.max(...pts.map(p => p[2])) : 0;
         const laag = pts ? pts.filter(p => p[2] < 0.1) : [], hoog = pts ? pts.filter(p => p[2] > top - 0.1) : [];
-        if (pts && top > 1 && laag.length >= 2 && hoog.length >= 2) {   // rechte helling -> gewone helling
+        if (pts && top > 1 && laag.length >= 2 && hoog.length >= 2) {   // rechte helling -> helling met twee lijnen (onderrand en bovenrand van rasterpunt naar rasterpunt)
           const verst = Q => { let best = [Q[0], Q[1]], dm = -1; for (const p of Q) for (const q of Q) { const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2; if (dd > dm) { dm = dd; best = [p, q]; } } return best; };
-          const [l0, l1] = verst(laag), [h0, h1] = verst(hoog), lm = [(l0[0] + l1[0]) / 2, (l0[1] + l1[1]) / 2], hm = [(h0[0] + h1[0]) / 2, (h0[1] + h1[1]) / 2], hoek = Math.atan2(hm[1] - lm[1], hm[0] - lm[0]);
-          let d = 0, dv = 9; MV2.DIR12.forEach((D, k) => { const dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, da = Math.abs(((Math.atan2(dz, dx) - hoek) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); if (da < dv) { dv = da; d = k; } });
-          const D = MV2.DIR12[d], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, sp = d < 6 ? ts * SQ3 / 2 : ts / 2;
-          const len = (hm[0] - lm[0]) * ux + (hm[1] - lm[1]) * uz, nn = Math.max(1, Math.round(len / ts));
-          const dwars = pts.map(p => (p[0] - lm[0]) * nx + (p[1] - lm[1]) * nz), w = Math.max(sp, Math.round((Math.max(...dwars) - Math.min(...dwars)) / sp) * sp);
-          const midL = (Math.max(...dwars) + Math.min(...dwars)) / 2;   // midden van de helling dwars, vanaf lm
-          // beginpunt: het rasterpunt het dichtst bij het midden van de lage kant; zijwaarts verschoven zodat de randen op rasterlijnen liggen
-          let a = null, ad = 1e9; for (let i = -24; i <= 24; i++) for (let j = -24; j <= 24; j++) { const p = mv2P(i, j, ts), dd = Math.hypot(p[0] - lm[0] - nx * midL, p[1] - lm[1] - nz * midL); if (dd < ad) { ad = dd; a = [i, j]; } }
-          const pa = mv2P(a[0], a[1], ts), cLat = (lm[0] + nx * midL - pa[0]) * nx + (lm[1] + nz * midL - pa[1]) * nz, rand0 = Math.round((cLat - w / 2) / sp) * sp, off = +(rand0 + w / 2).toFixed(4);
-          rest.push({ k: 'ramp', a, d, n: nn, w: +w.toFixed(4), off, h: top, m: S.m || 'hexkei' }); n++; continue;
+          const pl2 = tweeLijnen(verst(laag), verst(hoog), Math.abs(top - MV2.LV_H) < 0.05 ? MV2.LV_H : +top.toFixed(3));
+          if (pl2) { rest.push({ k: 'plaat', a: pl2.a, d: 0, n: 1, w: 2, m: S.m || 'hexkei', p: pl2.p }); n++; continue; }
         }
         rest.push(S);
       }
@@ -163,14 +178,23 @@
         lijnen.push(K.lijn); n++;
       }
       // overgebleven vrije vormen: hoekpunten tot 0,3 m van een verschoven muurlijn gaan naar die lijn
-      for (const S of rest) if (S.k === 'plaat' && !S.muur && S.p) for (const pl of S.p) for (const p of pl) for (const [nx, nz, c] of lijnen) { const e = p[0] * nx + p[1] * nz - c; if (Math.abs(e) < 0.3 && Math.abs(e) > 1e-6) { p[0] = +(p[0] - e * nx).toFixed(3); p[1] = +(p[1] - e * nz).toFixed(3); } }
+      // (de gebogen helling met bordes): elk hoekpunt naar het dichtstbijzijnde rasterpunt (gedeelde hoekpunten samen, dus
+      // de stukken blijven aan elkaar), dubbele punten eruit, en een vlak dat daardoor niet meer plat is wordt driehoeken
+      for (const S of rest) { if (S.k !== 'plaat' || S.muur || !S.p || S.raster) continue; const naar = new Map(), uit = [];
+        for (const pl of S.p) { const q = []; for (const p of pl) { const kk = p[0].toFixed(2) + ',' + p[1].toFixed(2); if (!naar.has(kk)) naar.set(kk, naastePunten(p, 1)[0]); const N = naar.get(kk), v = [+N.q[0].toFixed(3), +N.q[1].toFixed(3), p[2]]; const z = q[q.length - 1]; if (!z || z[0] !== v[0] || z[1] !== v[1] || z[2] !== v[2]) q.push(v); }
+          while (q.length > 1 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] && q[0][2] === q[q.length - 1][2]) q.pop();
+          const opp = q.reduce((t, p, i) => { const r2 = q[(i + 1) % q.length]; return t + p[0] * r2[1] - r2[0] * p[1]; }, 0) / 2; if (q.length < 3 || Math.abs(opp) < 0.05) continue;
+          const A = q[0], B = q[1], C = q[2], nx = (B[2] - A[2]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[2] - A[2]), ny = (B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]), nz = (B[0] - A[0]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[0] - A[0]), nl = Math.hypot(nx, ny, nz) || 1;
+          const plat = q.every(p => Math.abs(((p[0] - A[0]) * nx + (p[2] - A[2]) * ny + (p[1] - A[1]) * nz) / nl) < 0.02);   // assen: (x, hoogte, z)
+          if (plat) uit.push(q); else for (let i = 1; i + 1 < q.length; i++) uit.push([q[0], q[i], q[i + 1]]); }
+        if (uit.length) { S.p = uit; S.raster = 1; const v0 = naastePunten(uit[0][0], 1)[0]; S.a = v0.ij; n++; } }
       L.s = rest;
     }
     return n;
   }
   // welke bergfort-modules gevuld worden: niet de toren en de gebouwen (die blijven hol, dat zijn juist gebouwen)
   const BERG_VUL = m => !/^(Toren|Gebouw|Dak|Deel)\b/.test(m.name || '');
-  window.__berg = { mv2NaarRaster: m => mv2NaarRaster(m), mv2VulHol: (m, mat) => mv2VulHol(m, mat), mv2BinnenVak: m => mv2BinnenVak(m) };   // voor tests
+  window.__berg = { bron: () => SKP_RAAT, mv2NaarRaster: m => mv2NaarRaster(m), mv2VulHol: (m, mat) => mv2VulHol(m, mat), mv2BinnenVak: m => mv2BinnenVak(m) };   // voor tests
   // Dubbele bergfort-modules: deze varianten zijn dezelfde module, gedraaid en/of gespiegeld (nagemeten: 95–100 % dezelfde
   // vlakken en muren). Draaien en spiegelen kan bij het plaatsen, dus ze staan niet meer in de bibliotheek; waar het fort of een
   // stad ze gebruikt, komt de hoofdmodule met die draaiing. Per variant: [hoofdmodule, k, a]: variant = draai k·60° (spiegel a(hoofd)).
@@ -243,6 +267,17 @@
         for (const n in BERG_DUBBEL) mod(SKP_RAAT.mods.findIndex(m => m.name === BERG_DUBBEL[n][0]));   // de hoofdmodules bestaan
         if (typeof cells !== 'undefined' && cells.inst) for (const I of cells.inst) bergOmzetten(I);
         const voor = modules.length; modules = modules.filter(m => !weg(m.id)); if (modules.length !== voor) saveMods(); localStorage.setItem(DUB, '1');
+      }
+    } catch (e) { /* geen opslag */ }
+    try {   // eenmalig: de hellingen van bewaarde bergfort-modules opnieuw, als helling met twee lijnen op het raster (de rest blijft zoals je hem hebt)
+      const HEL = 'raatstad-berg-helling';
+      if (localStorage.getItem(HEL) !== '1') {
+        const helling = S => (S.k === 'ramp' && S.h !== undefined) || (S.k === 'plaat' && !S.muur && !S.zuil); let n = 0;
+        for (const m of modules) { const i = ids.indexOf(m.id); if (i < 0 || !m.lv.some(L => (L.s || []).some(helling))) continue;
+          const nw = JSON.parse(JSON.stringify(SKP_RAAT.mods[i])); mv2Fix(nw); mv2BinnenVak(nw); mv2NaarRaster(nw);
+          m.lv.forEach((L, li) => { L.s = (L.s || []).filter(S => !helling(S)).concat(nw.lv[li] ? (nw.lv[li].s || []).filter(helling) : []); });
+          m.lib = Math.max(m.lib || 0, 20); m._sig = Date.now(); n++; }
+        if (n) saveMods(); localStorage.setItem(HEL, '1');
       }
     } catch (e) { /* geen opslag */ }
     // plaatsing i van het fort: de module en de extra draaiing/spiegeling (dubbele varianten), of null (de weg)
