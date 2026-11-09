@@ -219,6 +219,47 @@
     buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); changed(); toast('"' + m.name + '" weggehaald', 1200); return true;
   }
   const moduleGhost = new THREE.Group(); scene.add(moduleGhost); let moduleGhostKey = '';
+  // ---------- Aansluiten bij het plaatsen: welke zijden van het spookbeeld passen op de buren? ----------
+  // Per buitenzijde van het spookbeeld de randen (mv2Randen: pad, hele zijde, deur, per verdieping) naast die van de modules
+  // die er al staan, in wereldcoördinaten (draaiing, spiegeling, laag en terreinhoogte tellen mee). Groen: beide kanten
+  // hebben op dezelfde hoogte een pad of opening die elkaar raken. Rood: aan de ene kant een pad en aan de andere niet, of een
+  // andere hoogte (het pad loopt dood tegen gras of een muur, of je valt). Waar nog geen module staat: geen kleur.
+  const randCache = new WeakMap(), randVan = m => { let r = randCache.get(m); if (!r) { r = mv2Randen(m); randCache.set(m, r); } return r; };
+  const randSleutel = (a, b) => { const k = p => Math.round(p[0] * 20) + ',' + Math.round(p[1] * 20); return k(a) < k(b) ? k(a) + '|' + k(b) : k(b) + '|' + k(a); };
+  function randenInWereld(m, rot, q, r, lvBase) {   // [{ key, a, b, y, bits }] per rand met iets beloopbaars
+    const tf = mv2Tf(rot, q, r), uit = [];
+    for (const x of randVan(m)) { const a = tf(...x.p0), b = tf(...x.p1), c = mv2CellXZ(x.q, x.r), cw = tf(c[0], c[1]), [cq, cr] = worldToCell(cw[0], cw[1]);
+      uit.push({ key: randSleutel(a, b), a, b, y: +(gH(cq, cr) + (lvBase + x.li) * MV2.LV_H).toFixed(2), bits: x.seg, soort: x.soort }); }
+    return uit;
+  }
+  function aansluiten(mod, rot, q0, r0, lv) {   // geeft per buitenrand van het spookbeeld: { a, b, y, bits, goed } (en rood voor een pad van de buur dat doodloopt)
+    const eigen = new Set(mv2Area({ m: mod, rot, q: q0, r: r0 }).map(c => c.join(','))), buren = new Set();
+    for (const k of eigen) { const [q, r] = k.split(',').map(Number); for (const [dq, dr] of NEIGH) { const n = (q + dq) + ',' + (r + dr); if (!eigen.has(n)) buren.add(n); } }
+    const bezet = new Map();   // rand → lijst van randen van de buren (en welke buurvakken bezet zijn)
+    const burenBezet = new Set();
+    for (const I of cells.inst || []) { if (!I.m || I.m.v !== 2) continue; const vak = mv2Area(I).map(c => c.join(',')); if (!vak.some(v => buren.has(v))) continue; for (const v of vak) if (buren.has(v)) burenBezet.add(v);
+      for (const e of randenInWereld(I.m, I.rot || 0, I.q, I.r, instLv(I))) (bezet.get(e.key) || bezet.set(e.key, []).get(e.key)).push(e); }
+    const mijn = randenInWereld(mod, rot, q0, r0, lv), uit = [], perRand = new Map();
+    for (const e of mijn) (perRand.get(e.key) || perRand.set(e.key, []).get(e.key)).push(e);
+    // alle buitenranden van het spookbeeld (ook zonder pad), om een doodlopend pad van de buur te vinden
+    const tf = mv2Tf(rot, q0, r0), A = R * SQ3 / 2;
+    for (const k of eigen) { const [q, r] = k.split(',').map(Number), c = cellToWorld(q, r); FRAMES.forEach((f, z) => { const bq = q + NEIGH[z][0], br = r + NEIGH[z][1]; if (eigen.has(bq + ',' + br) || !burenBezet.has(bq + ',' + br)) return;
+      const a = [c.x + f.nx * A - f.tx * R / 2, -(c.z) * 0 + c.z + f.nz * A - f.tz * R / 2], b = [c.x + f.nx * A + f.tx * R / 2, c.z + f.nz * A + f.tz * R / 2], key = randSleutel(a, b);
+      const M = perRand.get(key) || [], N = bezet.get(key) || [], ys = new Set([...M, ...N].map(e => e.y));
+      const bitsIn = (e, ref) => { const s2 = Math.hypot(e.a[0] - ref[0], e.a[1] - ref[1]) < 0.1 ? e.bits : e.bits.split('').reverse().join(''); return s2; };
+      for (const y of ys) { const m1 = M.find(e => Math.abs(e.y - y) < 0.2), n1 = N.find(e => Math.abs(e.y - y) < 0.2), bm = m1 ? bitsIn(m1, a) : '', bn = n1 ? bitsIn(n1, a) : '';
+        const raak = bm && bn && [...bm].some((ch, i) => ch === '1' && bn[i] === '1');
+        uit.push({ a, b, y, bits: bm || bn, goed: !!raak }); } }); }
+    void tf; return uit;
+  }
+  window.__aansluiten = () => showModuleGhost.aansluiten;   // voor de tests
+  function aansluitGroep(lijst, y0) {   // gekleurde stroken net boven de rand (los van de diepte: altijd zichtbaar)
+    const g = new THREE.Group();
+    for (const e of lijst) { const N = e.bits.length || 1, mat = new THREE.MeshBasicMaterial({ color: e.goed ? '#3fcf6a' : '#ff4838', transparent: true, opacity: 0.95, depthTest: false });
+      for (let s = 0; s < N; s++) { if (e.bits[s] !== '1') continue; const t0 = (s + 0.06) / N, t1 = (s + 0.94) / N, p = [e.a[0] + (e.b[0] - e.a[0]) * t0, e.a[1] + (e.b[1] - e.a[1]) * t0], q = [e.a[0] + (e.b[0] - e.a[0]) * t1, e.a[1] + (e.b[1] - e.a[1]) * t1];
+        const l = Math.hypot(q[0] - p[0], q[1] - p[1]), box = new THREE.Mesh(new THREE.BoxGeometry(l, 0.18, 0.55), mat); box.position.set((p[0] + q[0]) / 2, e.y + 0.25 - y0, (p[1] + q[1]) / 2); box.rotation.y = -Math.atan2(q[1] - p[1], q[0] - p[0]); box.renderOrder = 8; g.add(box); } }
+    return g;
+  }
   function showModuleGhost(q0, r0, lv = 0) {
     const mod0 = modules[moduleSel], mod = mod0 && moduleMir && mod0.v === 2 ? (showModuleGhost.mc && showModuleGhost.mc.src === mod0 && showModuleGhost.mc.sig === mod0._sig ? showModuleGhost.mc.m : (showModuleGhost.mc = { src: mod0, sig: mod0._sig, m: mv2Mirror(mod0) }).m) : mod0, kk = mod ? moduleSel + ':' + moduleRot + ':' + (moduleMir ? 'm' : '') + ':' + q0 + ',' + r0 + ':' + lv + ':' + mod.edges.length + ':' + (mod.cells || []).length + ':' + (mod.paths || []).length + ':' + (mod.tris || []).length : '';
     if (kk === moduleGhostKey) { moduleGhost.visible = !!mod; return; }
@@ -229,7 +270,9 @@
       const bad = !!mv2CanPlace(mod, moduleRot, q0, r0, lv);
       for (const [q, r] of mv2Area({ m: mod, rot: moduleRot, q: q0, r: r0 })) { const w = cellToWorld(q, r), g = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.3, R - 0.3, 0.3, 6), new THREE.MeshBasicMaterial({ color: bad ? '#e0573e' : '#f2b233', transparent: true, opacity: 0.4, depthWrite: false })); g.position.set(w.x, 0.3, w.z); moduleGhost.add(g); }
       const b = mv2Build(mod, mv2Tf(moduleRot, q0, r0), [0, 0], { stacked: lv > 0 }); b.group.traverse(o => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: bad ? '#e0573e' : '#f2b233', transparent: true, opacity: 0.35, depthWrite: false }); o.castShadow = false; } }); moduleGhost.add(b.group);
-      moduleGhost.position.y = (Number.isInteger(q0) ? gH(q0, r0) : 0) + lv * MV2.LV_H; moduleGhost.visible = true; return;
+      moduleGhost.position.y = (Number.isInteger(q0) ? gH(q0, r0) : 0) + lv * MV2.LV_H;
+      if (Number.isInteger(q0)) { try { const L = aansluiten(mod, moduleRot, q0, r0, lv); moduleGhost.add(aansluitGroep(L, moduleGhost.position.y)); showModuleGhost.aansluiten = L; } catch (e) { showModuleGhost.aansluiten = null; } }
+      moduleGhost.visible = true; return;
     }
     moduleGhost.position.y = 0;
     for (const [q, r, k, type] of moduleItems(mod, moduleRot, q0, r0)) {

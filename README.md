@@ -232,6 +232,8 @@ Afspraak voor een gelaagde stad (november 2026): een pad komt aan het **midden v
 
 In de Raatmaker laat **Controle** (Shift+C) langs elke buitenzijde van de verdieping een strook zien: groen = pad, blauw = hele zijde, oranje = deur, rood = afwijkend; de melding telt ze. In de bibliotheek (168 modules) wijken er 7 af, allemaal details (kade, steiger, woonboot, amfitheater, tankstation, twee winkelcentrum-stukken). Test: `test/visueel/mm_randen.js`.
 
+**Bij het plaatsen in de stad** (`aansluiten` in `08-schets-modules.js`): het spookbeeld van de module laat langs elke zijde waar een andere module naast staat zien of ze op elkaar passen. Per verdiepingshoogte worden de randen van beide kanten (`mv2Randen`, gedraaid en verschoven naar de wereld) op dezelfde zijde gelegd: **groen** waar beide kanten beloopbaar zijn op dezelfde hoogte (het pad loopt door), **rood** waar maar één kant open is (een pad dat doodloopt, een plateau op 3 m naast een pad op de grond, een pad dat dwars staat). Een plein (hele zijde) naast een pad van 4,5 m is groen. Draai met R tot alles groen is. Test: `test/visueel/aansluiten.js` (pad in het verlengde, dwars, naast een plein, naast een plateau, helling die boven op een plateau uitkomt).
+
 ## Geen overlappende vlakken (z-fighting)
 Twee vlakken op precies dezelfde plek, die dezelfde kant op kijken, flikkeren (z-fighting): strepen langs randen. Regel: nergens twee vlakken op elkaar; wat elkaar raakt, steekt een stukje in het andere of ligt erachter. Daarom:
 - de rand van een vloerplaat is één staand vlak precies op de rand, naar buiten gekeerd (`randVlak`), zonder boven- en onderkant (die liggen al in de vloer en het plafond); staat de vloer op massief, dan is de zijkant van het massief de rand en komt er geen randvlak;
