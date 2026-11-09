@@ -339,6 +339,45 @@
   const mv2Fan = pl => { const o = []; for (let n = 1; n + 1 < pl.length; n++) { const T = [pl[0], pl[n], pl[n + 1]]; if (Math.abs((T[1][0] - T[0][0]) * (T[2][1] - T[0][1]) - (T[1][1] - T[0][1]) * (T[2][0] - T[0][0])) > 1e-5) o.push(T); } return o; };
   // de vloerdriehoeken van een verdieping zoals ze echt liggen: zonder de trapgaten, afgeknipte stukken als losse driehoeken
   // (voor het loopnetwerk en de balustrades; mv2Build doet hetzelfde voor de vloer zelf)
+  // Beeld voor het overzicht van de Raatmaker (15j): de module echt gebouwd en gefotografeerd, recht van boven ('boven':
+  // x naar rechts, z naar beneden, zoals het bovenaanzicht in de Raatmaker) of schuin van voren met een kleur per hoogte
+  // ('diepte': grond blauwgrijs, 3 m groen, 6 m oranje, 9 m rood). span = meters over de breedte van het beeld.
+  const beeldCache = new Map(); let beeldR = null, diepteMat = null;
+  function mv2DiepteMat() {
+    if (diepteMat) return diepteMat;
+    diepteMat = new THREE.MeshLambertMaterial({ color: '#ffffff', side: THREE.DoubleSide });
+    diepteMat.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vHoog;').replace('#include <project_vertex>', '#include <project_vertex>\nvec4 wpH = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\nwpH = instanceMatrix * wpH;\n#endif\nvHoog = (modelMatrix * wpH).y;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vHoog;\nvec3 hoogKleur(float h) { vec3 c0 = vec3(0.36, 0.43, 0.50), c1 = vec3(0.38, 0.59, 0.52), c2 = vec3(0.43, 0.70, 0.38), c3 = vec3(0.78, 0.77, 0.33), c4 = vec3(0.95, 0.66, 0.23), c5 = vec3(0.93, 0.44, 0.25); if (h < 1.5) return mix(c0, c1, clamp(h / 1.5, 0.0, 1.0)); if (h < 3.0) return mix(c1, c2, (h - 1.5) / 1.5); if (h < 4.5) return mix(c2, c3, (h - 3.0) / 1.5); if (h < 6.0) return mix(c3, c4, (h - 4.5) / 1.5); return mix(c4, c5, clamp((h - 6.0) / 3.0, 0.0, 1.0)); }')
+        .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( hoogKleur(vHoog), 1.0 );');
+    };
+    return diepteMat;
+  }
+  function mv2Beeld(m, soort, px, span) {
+    const k = m.id + ':' + soort + ':' + px + ':' + Math.round(span * 10) + ':' + (m._sig || 0) + ':' + m.lv.length;
+    if (beeldCache.has(k)) return beeldCache.get(k);
+    const c = document.createElement('canvas'); c.width = c.height = px; const g2 = c.getContext('2d');
+    try {
+      if (!beeldR) { beeldR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); beeldR.outputEncoding = renderer.outputEncoding; beeldR.setClearColor(0x000000, 0); }
+      beeldR.setSize(px, px, false);
+      const sc = new THREE.Scene(), b = mv2Build(m, mv2Tf(0, 0, 0)); sc.add(b.group);
+      const cam = new THREE.OrthographicCamera(-span / 2, span / 2, span / 2, -span / 2, 1, 1000);
+      if (soort === 'diepte') {
+        sc.add(new THREE.HemisphereLight('#ffffff', '#8a8f96', 0.85)); const sun = new THREE.DirectionalLight('#ffffff', 0.45); sun.position.set(-20, 40, 30); sc.add(sun);
+        const mat = mv2DiepteMat(), oud = []; b.group.traverse(o => { if (o.isMesh) { oud.push([o, o.material]); o.material = mat; } });
+        const h = m.lv.length * MV2.LV_H, e = 0.96;   /* 55° boven de horizon */ cam.position.set(0, 200 * Math.sin(e) + h * 0.3, 200 * Math.cos(e)); cam.lookAt(0, h * 0.3, 0);
+        beeldR.render(sc, cam); for (const [o, om] of oud) o.material = om;
+      } else {
+        sc.add(new THREE.HemisphereLight('#f4f7ff', '#8a8a78', 1.0)); const sun = new THREE.DirectionalLight('#fff6e2', 0.55); sun.position.set(-25, 60, -20); sc.add(sun);
+        cam.up.set(0, 0, -1); cam.position.set(0, 400, 0); cam.lookAt(0, 0, 0);
+        beeldR.render(sc, cam);
+      }
+      g2.drawImage(beeldR.domElement, 0, 0, px, px);
+      b.group.traverse(o => { if (o.isMesh && o.userData.own) o.geometry.dispose(); });
+    } catch (e) { c.fout = true; }
+    if (beeldCache.size > 700) beeldCache.clear();
+    beeldCache.set(k, c); return c;
+  }
   function mv2FloorPolys(m, li, ts) {
     const L = m.lv[li], holes = li > 0 ? ((m.lv[li - 1] || {}).s || []).map(S => mv2StairHole(S, ts)) : [], out = [];
     for (const id in L.f) {

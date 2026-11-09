@@ -6,6 +6,7 @@ const { open, OUT } = require('./helper');
   const { b, p } = await open({ width: 1440, height: 900 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.keyboard.press('KeyK'); await p.waitForTimeout(700);
+  await p.evaluate(() => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === 'SketchUp').click()); await p.waitForTimeout(500);   // de stukken uit SketchUp staan op hun eigen pagina van het overzicht
   const seg = n => p.evaluate(n => [...document.querySelectorAll('.mk-seg button')].find(x => x.textContent === n).click(), n);
   const cat = n => p.evaluate(n => [...document.querySelectorAll('.mk-cats button')].find(x => x.textContent.startsWith(n)).click(), n);
   await seg('Diepte'); await p.waitForTimeout(800);

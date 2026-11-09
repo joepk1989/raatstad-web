@@ -1444,6 +1444,7 @@
       }, 220);
     }
     $('bClose').onclick = () => { if (E.dirty && !sure('close', 'Niet-bewaarde wijzigingen weggooien?')) return; leave(); };
+    $('bOverz').onclick = () => { if (E.dirty && !sure('overz', 'Niet-bewaarde wijzigingen weggooien?')) return; const id = E.editing >= 0 && modules[E.editing] ? modules[E.editing].id : null; E.dirty = false; leave(); modKaart.toggle(true, 'raat'); if (id) modKaart.kies(id); };
     // ---------- openen ----------
     // zolang je ontwerpt: helder weer en middag (sneeuw of regen bedekt anders je vloer); bij het sluiten komt het weer terug
     let wxKeep = null;
@@ -1453,7 +1454,7 @@
       wxClear();
       app.classList.remove('mm-leave'); if (!reduced()) { app.classList.remove('mm-enter'); void app.offsetWidth; app.classList.add('mm-enter'); }
       app.hidden = false; resize();
-      if (m && m.v === 2) loadModule(m, modules.indexOf(m)); else if (!E.m) newModule(); else { renderLib(); changed(); }
+      if (m === 'nieuw') newModule(); else if (m && m.v === 2) loadModule(m, modules.indexOf(m)); else if (!E.m) newModule(); else { renderLib(); changed(); }
       setTool(E.tool); setView(E.vm); renderCtx(); fit();
     };
     openMakerFn = (m) => {

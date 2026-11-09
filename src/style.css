@@ -462,6 +462,8 @@ body.night .btn.tod { color: #cdd8ff; }
 #mmApp [hidden] { display: none !important; }
 #mm_top { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 #mmApp .mm-close { background: var(--signal); color: var(--signal-ink); border: 0; border-radius: 8px; font: 700 14px var(--ui); padding: 8px 12px; cursor: pointer; }
+#mmApp .mm-close.mm-overz { background: transparent; color: var(--ink); border: 1px solid var(--line); margin-left: 6px; }
+#mmApp .mm-close.mm-overz:hover { border-color: var(--muted); }
 #mmApp .mm-tools { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 6px; border-left: 1px solid var(--line); }
 #mmApp .mm-tools:first-of-type { border-left: 0; }
 #mmApp .mm-tools button { width: 42px; height: 42px; display: grid; place-items: center; background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 8px; cursor: pointer; padding: 0; position: relative; }
