@@ -20,6 +20,7 @@ Alles is in het Nederlands: code-commentaar, interface, commits en antwoorden aa
 ## Waar alles staat
 - `README.md` beschrijft per onderdeel hoe het werkt (maten, regels, formules). Lees het deel dat je gaat aanpassen.
 - Modules (Raatmaker, v2): `08c-modules-v2.js` (bouwen, trappen, `plaat` voor vrije hellingen/zuilen/wanden), `08d-module-maker.js` (de editor), `08f-modules-lopen.js` (loopnetwerk).
+- Raatmaker · overzicht (één scherm, toets K of Menu → Raatmaker): `15j-modulekaart.js`. Pagina's: Raatmaker-modules (foto's via `mv2Beeld` in `08c`, randen, Past op, Bewerken, Neerzetten, + Nieuwe module), SketchUp, Winkelcentrum. Test: `test/visueel/raatmaker_overzicht.js`.
 - SketchUp-gereedschappen: `tools/sketchup/` (Python/Ruby): exports uit SketchUp, `maak-2d.py` (losse stukken, `08m`) en `maak-forten.py` (Winkelcentrum, `08n`). Het bergfort is uit het spel (Joep bouwt het opnieuw op in het spel); de losse SketchUp-stukken en het Winkelcentrum (`08m`, `08n`, Modulekaart `15j*`) blijven.
 - Beta: `15h-beta.js` (versie, Melden, foutbalk, credits, stad als bestand).
 
