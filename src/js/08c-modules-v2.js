@@ -269,6 +269,44 @@
       const r = v => Math.round(v * 1e5) / 1e5; return [r(nx), r(nz), r(A[0] * nx + A[1] * nz)]; };
     return Array.isArray(k[0]) ? k.map(een) : een(k);
   }
+  // ---------- Pad leggen (gereedschap Pad in de Raatmaker; ook de paden uit de Modulekaart worden zo gemaakt) ----------
+  // Een strook van 'breedte' langs de hartlijn door de knopen ([x, z] in meters), met een twaalfhoekige kop op elke knoop
+  // (vlakke kanten om de 30°: in de zes looprichtingen sluit de kop precies op de strook aan, en een bocht krijgt een schuine
+  // buitenhoek). Een driehoek die helemaal in de strook ligt krijgt het padmateriaal; ligt hij er half in, dan wordt hij
+  // geknipt (L.fk) met de oude vloer als overkant (L.f2). Geeft het aantal veranderde driehoeken.
+  function mv2PadStukken(knopen, breedte) {
+    const w = breedte / 2, uit = [];
+    for (let k = 0; k + 1 < knopen.length; k++) { const A = knopen[k], B = knopen[k + 1], l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (l < 1e-6) continue;
+      const ux = (B[0] - A[0]) / l, uz = (B[1] - A[1]) / l, nx = -uz, nz = ux;
+      uit.push([[nx, nz, nx * A[0] + nz * A[1] - w], [-nx, -nz, -(nx * A[0] + nz * A[1]) - w], [ux, uz, ux * A[0] + uz * A[1]], [-ux, -uz, -(ux * B[0] + uz * B[1])]]); }
+    for (const C of knopen) { const H = []; for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6, cx = Math.cos(a), cz = Math.sin(a); H.push([-cx, -cz, -(cx * C[0] + cz * C[1]) - w]); } uit.push(H); }
+    return uit;
+  }
+  function mv2PadLeggen(m, li, knopen, breedte, mat) {
+    const ts = mv2Ts(m), L = m.lv[li]; if (!L || knopen.length < 2) return 0;
+    const stukken = mv2PadStukken(knopen, breedte), w = breedte / 2 + 0.01, xs = knopen.map(p => p[0]), zs = knopen.map(p => p[1]);
+    const x0 = Math.min(...xs) - w, x1 = Math.max(...xs) + w, z0 = Math.min(...zs) - w, z1 = Math.max(...zs) + w, a = ts * SQ3 / 2;
+    const iA = Math.floor(x0 / a) - 1, iB = Math.ceil(x1 / a) + 1, binnenH = (H, p) => H.every(h => p[0] * h[0] + p[1] * h[1] >= h[2] - 1e-9);
+    let n = 0;
+    for (let i = iA; i <= iB; i++) for (let j = Math.floor(z0 / ts - Math.max(i, i + 1) / 2) - 2; j <= Math.ceil(z1 / ts - Math.min(i, i + 1) / 2) + 2; j++) for (const t of [0, 1]) {
+      const v = mv2TriVerts(i, j, t, ts), cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3; if (!mv2InArea(m, cx, cz)) continue;
+      if (Math.max(...v.map(p => p[0])) < x0 || Math.min(...v.map(p => p[0])) > x1 || Math.max(...v.map(p => p[1])) < z0 || Math.min(...v.map(p => p[1])) > z1) continue;
+      const id = i + ',' + j + ',' + t, oud = L.f[id], oudK = L.fk && L.fk[id], oudH = oudK ? (Array.isArray(oudK[0]) ? oudK : [oudK]) : null;
+      if (oud === mat && !oudK) continue;   // al helemaal pad
+      const monsters = []; for (let p = 0; p <= 8; p++) for (let q = 0; q + p <= 8; q++) { const r = 8 - p - q, b0 = (p + 0.5) / 9.5, b1 = (q + 0.5) / 9.5, b2 = (r + 0.5) / 9.5, s0 = b0 + b1 + b2; monsters.push([(v[0][0] * b0 + v[1][0] * b1 + v[2][0] * b2) / s0, (v[0][1] * b0 + v[1][1] * b1 + v[2][1] * b2) / s0]); }
+      const pad = p => stukken.some(H => binnenH(H, p)) || (oud === mat && oudH && binnenH(oudH, p));
+      const gedekt = monsters.filter(pad).length / monsters.length; if (gedekt < 0.02) continue;
+      if (gedekt > 0.98) { if (oud !== mat || oudK) n++; L.f[id] = mat; if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; continue; }
+      // de beste rechte knip: van één stuk de lijnen die door deze driehoek gaan (of de oude knip), zo dat er zo weinig mogelijk mis is
+      const kand = stukken.map(H => H.filter(h => v.some(p => p[0] * h[0] + p[1] * h[1] < h[2] - 1e-9))).filter(K => K.length); if (oud === mat && oudH) kand.push(oudH);
+      let best = null, bs = -1e9; for (const K of kand) { let sc = 0; for (const p of monsters) if (binnenH(K, p)) sc += pad(p) ? 1 : -1; else sc -= pad(p) ? 1 : 0; if (sc > bs || (sc === bs && K.length < best.length)) { bs = sc; best = K; } }
+      if (!best) continue;
+      const rest = oud && oud !== mat ? oud : (oud === mat ? (L.f2 && L.f2[id]) : null);
+      L.f[id] = mat; (L.fk || (L.fk = {}))[id] = best.length === 1 ? best[0].map(x => Math.round(x * 1e5) / 1e5) : best.map(h => h.map(x => Math.round(x * 1e5) / 1e5));
+      if (rest) (L.f2 || (L.f2 = {}))[id] = rest; else if (L.f2) delete L.f2[id]; n++;
+    }
+    return n;
+  }
   const mv2Fan = pl => { const o = []; for (let n = 1; n + 1 < pl.length; n++) { const T = [pl[0], pl[n], pl[n + 1]]; if (Math.abs((T[1][0] - T[0][0]) * (T[2][1] - T[0][1]) - (T[1][1] - T[0][1]) * (T[2][0] - T[0][0])) > 1e-5) o.push(T); } return o; };
   // de vloerdriehoeken van een verdieping zoals ze echt liggen: zonder de trapgaten, afgeknipte stukken als losse driehoeken
   // (voor het loopnetwerk en de balustrades; mv2Build doet hetzelfde voor de vloer zelf)
