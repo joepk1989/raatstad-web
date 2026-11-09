@@ -394,6 +394,15 @@
       toast('Tik nog eens op dit vak om te plaatsen · Draai om te draaien', 2600);
       return;
     }
+    // Zelfde reden: op een touchscreen zie je het spookbeeld van een module anders nooit (hover bestaat niet). Alleen het
+    // wisselen van variant (op de gevel tikken) blijft meteen, net als bij de muis.
+    if (coarse && tool === 'module' && mode === 'build' && modules[moduleSel] && !(res.inst && res.side)) {
+      const a = anchorOf(res), lv = hudLayer() !== null ? hudLayer() : res.inst && !res.side ? res.lv : 0, k = moduleSel + ':' + moduleRot + ':' + (moduleMir ? 'm' : '') + ':' + a[0] + ',' + a[1] + ':' + lv;
+      if (pendingKey === k) { pendingKey = null; place(a[0], a[1]); ghost.visible = false; ghostArrow.visible = false; moduleGhost.visible = false; return; }
+      pendingKey = k; updateGhost(cx, cy);
+      toast('Tik nog eens op dit vak om neer te zetten · Draai om te draaien', 2600);
+      return;
+    }
     if (tool === 'gum') { if (skpWegAt(cx, cy, res)) return; if (!eraseEdgeAt(res) && !erasePathAt(res) && !eraseTriAt(res) && !spoor.eraseAt(res.point) && res.erase) removeTop(res.erase[0], res.erase[1]); }
     else place(res.place[0], res.place[1]);
     updateGhost(cx, cy);

@@ -150,6 +150,14 @@
     e.preventDefault();
     const d = e.deltaY || e.deltaX;   // Shift+wiel geeft in sommige browsers deltaX
     if (roadDrag.on && roadDrag.vp) { wheelAcc += d; const now = performance.now(); if (Math.abs(wheelAcc) < 40 || now - wheelT < 120) return; roadHeightStep(wheelAcc < 0 ? 1 : -1); wheelAcc = 0; wheelT = now; return; }   // tijdens het slepen van een weg: hoger of lager
+    if (tool === 'module' && mode === 'build' && e.ctrlKey) {   // Ctrl+wiel: de laag kiezen waarop de module komt (zoals de laagkiezer, 15d)
+      wheelAcc += d;
+      const now = performance.now();
+      if (Math.abs(wheelAcc) < 40 || now - wheelT < 90) return;
+      const cur = HUD.layer; HUD.setLayer(cur === null ? 0 : cur + (wheelAcc < 0 ? 1 : -1), true);
+      wheelAcc = 0; wheelT = now; updateGhost(e.clientX, e.clientY);
+      return;
+    }
     if (mode === 'walk' || e.shiftKey) {
       wheelAcc += d;
       const now = performance.now();
