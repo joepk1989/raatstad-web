@@ -1,79 +1,73 @@
   // ---------- Paden uit de Modulekaart als Raatmaker-modules (portie 1: paden op de grond) ----------
-  // De nieuwe SketchUp-paden (SKP_MODS, 08m: bovenaanzicht in vlakken met kleur, hoogte en soort) worden echte modules
-  // v2 op het raster van 1,125 m, volgens de afspraak voor aansluiten (mv2Randen, 08c): een pad komt in het midden van
-  // een zijde uit, 4,5 m breed. Een SketchUp-pad is 3 m breed: elk padvlak wordt 0,75 m verbreed (ook in de bochten),
-  // zodat het precies in het midden van de zijde 4,5 m breed aankomt. Hoeveel er bij moet, wordt per stuk aan de rand
-  // gemeten (een recht fietspad is al 4,5 m, een fietspad in de bocht 2,6 m); bij fietspad met voetpad
-  // worden beide stroken 2,25 m. Bomen en bankjes worden voorwerpen, de muren van een steeg rastermuren, de blokken
-  // van de overdekte doorgang massief (met de doorgang op de begane grond en de overkapping van 3 tot 6 m).
+  // Joeps regel: alles moet met de Raatmaker te maken zijn zoals het hier gemaakt wordt. Elk pad is daarom een RECEPT van
+  // gewone Raatmaker-stappen, uitgevoerd met dezelfde functies als de gereedschappen:
+  //   Vloer      heel vak, zeshoek-penseel (op een tekenraster van 1,125 / 2,25 / 4,5 m) of losse driehoeken
+  //   Pad (A)    mv2PadLeggen: een hartlijn tussen vaste punten (midden van een zijde, midden van het vak, rasterpunt),
+  //              4,5 m (of smal 2,25 m) breed, strakke randen (geknipt, met het gras aan de overkant)
+  //   Muur (W)   een rechte muur van rasterpunt naar rasterpunt
+  //   Massief (Y) Ruimte vullen tussen de muren (knipt langs een muur die door de driehoeken loopt)
+  //   Ding (B)   een voorwerp op een plek, gedraaid in stappen van 30°
+  // Waar de paden aansluiten komt uit de SketchUp-stukken (SKP_MODS, 08m: veld a = zijden met een pad of fietspad), net als
+  // de plekken van bomen en bankjes. De afspraak voor aansluiten (mv2Randen, 08c): een pad komt 4,5 m breed in het midden
+  // van een zijde uit; een plein is aan alle zes zijden open.
   const PADEN_1 = ['Pad · recht', 'Pad · flauwe bocht', 'Pad · scherpe bocht', 'Pad · Y-splitsing', 'Pad · zijtak', 'Pad · kruising', 'Pad · ster',
     'Pad · doodlopend met boom', 'Pad · rondgang met boom', 'Pad · rotonde met plantvak', 'Pad · bocht met bankje',
     'Fietspad · recht', 'Fietspad · met voetpad', 'Fietspad · flauwe bocht', 'Fietspad · Y-splitsing',
     'Steeg · pad tussen muren', 'Steeg · overdekte doorgang',
     'Plein · zeshoek met boom', 'Plein · bankjes langs de rand', 'Plein · speelplek met zandbak', 'Plein · waterplein met stapstenen'];
-  // SketchUp-kleur → vloer van de Raatmaker
-  const PAD_VLOER = { '#d6cdbc': 'hexsteen', '#a8483c': 'paver', '#7ab256': 'grass', '#468cbe': 'water', '#bdb5a5': 'stonetile', '#e2cc96': 'stonetile', '#966c46': 'wood' };
-  const PAD_KLEUR = ['#d6cdbc', '#a8483c'];   // pad en fietspad: verbreden tot 4,5 m aan de rand
+  const PAD_A = R * SQ3 / 2, padZij = k => [+(PAD_A * Math.cos(-k * Math.PI / 3)).toFixed(4), +(PAD_A * Math.sin(-k * Math.PI / 3)).toFixed(4)];   // midden van zijde k (zoals FRAMES)
+  const padRing = (r, k) => [+(r * Math.cos(-k * Math.PI / 3)).toFixed(4), +(r * Math.sin(-k * Math.PI / 3)).toFixed(4)];   // punt op afstand r richting zijde k (r = 3,897: een rasterpunt)
   function padModule(sk) {
-    const b = libBuilder(sk.n, 'Paden', 0, 8), m = b.m; m.tegel = 1; m.bron = 'modulekaart';   // tegel: de vloeren zijn al gekozen (geen zeshoek-omzetting)
-    const smal = sk.n === 'Fietspad · met voetpad' ? 3.2 / 2.25 : 1;   // twee stroken van 3,2 m → elk 2,25 m
+    const b = libBuilder(sk.n, 'Paden', 0, 8), m = b.m, ts = R / 8; m.tegel = 1; m.bron = 'modulekaart';   // tegel: de vloeren zijn al gekozen (geen zeshoek-omzetting)
+    const zijden = soort => (sk.a || []).filter(x => soort.includes(x[2])).map(x => (6 - x[0]) % 6);   // SketchUp-zijde k = zijde (6 − k) van de Raatmaker
+    const midden = v => v.pts.reduce((a, p) => [a[0] + p[0] / v.pts.length, a[1] + p[1] / v.pts.length], [0, 0]);
     const vlak = sk.f.map(f => { const pts = []; for (let i = 3; i < f.length; i += 2) pts.push([f[i], f[i + 1]]); return { kleur: f[0], h: f[1], soort: f[2], pts }; });
-    const binnen = (x, z, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], q = pts[j]; if ((a[1] > z) !== (q[1] > z) && x < (q[0] - a[0]) * (z - a[1]) / (q[1] - a[1]) + a[0]) c = !c; } return c; };
-    const afstand = (x, z, pts) => { let d = 1e9; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[j], q = pts[i], ex = q[0] - a[0], ez = q[1] - a[1], l2 = ex * ex + ez * ez || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (z - a[1]) * ez) / l2)); d = Math.min(d, Math.hypot(a[0] + ex * t - x, a[1] + ez * t - z)); } return d; };
-    // hoe breed komt elk soort pad aan de rand aan? (punten op een zijde van de zeshoek, per zijde de breedte langs de zijde)
-    const A = R * SQ3 / 2, breder = {};
-    for (const kl of PAD_KLEUR) { const br = [];
-      FRAMES.forEach(f => { const t = []; for (const v of vlak) if (v.kleur === kl && v.soort >= 1) for (const q of v.pts) if (Math.abs(q[0] * f.nx + q[1] * f.nz - A) < 0.05) t.push(q[0] * f.tx + q[1] * f.tz); if (t.length > 1) br.push(Math.max(...t) - Math.min(...t)); });
-      if (br.length) { br.sort((a, c) => a - c); breder[kl] = Math.max(0, (4.5 - br[br.length >> 1]) / 2); } }
-    const grond = vlak.filter(v => (v.soort >= 1 || v.kleur === '#468cbe') && v.h <= 0.7 && PAD_VLOER[v.kleur]);   // beloopbare vlakken op de grond (en water)
-    const grondVloer = (x, z) => {   // de bovenste grondvloer op dit punt, met de verbrede paden
-      const xs = x, zs = Math.abs(z) <= 2.25 ? z * smal : z + Math.sign(z) * 2.25 * (smal - 1); let best = null;   // alleen de padstrook samendrukken, het gras ernaast schuift mee
-      for (const v of grond) if (binnen(xs, zs, v.pts) && (!best || v.h > best.h || (v.h === best.h && v.soort < best.soort))) best = v;
-      if (smal === 1 && (!best || best.kleur === '#7ab256')) for (const v of grond) if (breder[v.kleur] > 0.01 && afstand(xs, zs, v.pts) < breder[v.kleur]) return PAD_VLOER[v.kleur];
-      return best ? PAD_VLOER[best.kleur] : smal !== 1 ? 'grass' : null;   // buiten de geschoven tekening: gras
-    };
-    // blokken en overkappingen (wit, niet beloopbaar, groot): massief van onder tot boven; dunne stroken zijn muren
-    const wit = vlak.filter(v => v.soort === 0 && v.kleur === '#ece8e0');
-    const maat = v => { const xs = v.pts.map(p => p[0]), zs = v.pts.map(p => p[1]); return [Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)]; };
-    const blokken = wit.filter(v => Math.min(...maat(v)) >= 0.6), muren = wit.filter(v => Math.min(...maat(v)) < 0.6 && v.h > 1);
-    const padOp = (x, z) => { const v = grondVloer(x, z); return v === 'hexsteen' || v === 'paver'; };
-    b.where(0, (x, z) => !!grondVloer(x, z), 'tile');   // eerst overal, dan per driehoek het juiste materiaal
-    const ts = R / 8, L0 = m.lv[0];
-    const plein = /^Plein/.test(sk.n);   // een plein is tot aan de rand verhard (in SketchUp ligt er een grasrand van 0,8 m omheen): zo sluit elk pad erop aan
-    for (const id of Object.keys(L0.f)) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3; let mat = grondVloer(cx, cz);
-      if (plein && (mat === 'grass' || !mat)) mat = 'hexsteen'; if (mat) L0.f[id] = mat; else delete L0.f[id]; }
-    if (blokken.length) {   // massief: per driehoek van de onderkant tot de bovenkant van de blokken erboven (boven het verbrede pad pas vanaf 3 m)
-      for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) for (const t of [0, 1]) {
-        const v = mv2TriVerts(i, j, t, ts), cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3; if (!mv2InArea(m, cx, cz)) continue;
-        const hs = blokken.filter(B => binnen(cx, cz, B.pts)).map(B => B.h); if (!hs.length) continue;
-        const top = Math.max(...hs), onder = padOp(cx, cz) ? Math.max(3, Math.min(...hs.filter(h => h >= 2.9).concat([3]))) : (Math.min(...hs) <= 0.5 ? 0 : Math.min(...hs));
-        for (let li = Math.round(onder / 3); li < Math.round(top / 3); li++) { while (m.lv.length <= li) m.lv.push(mv2Level()); const L = m.lv[li]; L.v = L.v || {}; L.v[i + ',' + j + ',' + t] = 'plaster'; }
-        if (onder < 1.5) delete L0.f[i + ',' + j + ',' + t];
+    const pad = (knopen, breedte, mat) => mv2PadLeggen(m, 0, knopen, breedte, mat);   // gereedschap Pad
+    const spaken = (ks, mat, breedte = 4.5) => { for (const k of ks) pad([padZij(k), [0, 0]], breedte, mat); };
+    const ring = (r, mat) => { for (let k = 0; k < 6; k++) pad([padRing(r, k), padRing(r, (k + 1) % 6)], 4.5, mat); };
+    const ding = (t, x, z, rot) => b.obj(0, t, +x.toFixed(2), +z.toFixed(2), Math.round((rot || 0) / (Math.PI / 6)) * (Math.PI / 6));   // gereedschap Ding: per 30°
+    const bomen = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#6e5034')) { const c = midden(v); if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c); b.hex(0, c[0], c[1], ts + 0.01, 'stonetile'); ding('tree', c[0], c[1]); } };   // plantvak: zeshoek-penseel
+    const banken = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#966c46' && v.soort === 0)) { const c = midden(v); if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c);
+      let la = 0, ang = 0; for (let i = 0; i < v.pts.length; i++) { const a = v.pts[i], q = v.pts[(i + 1) % v.pts.length], l = Math.hypot(q[0] - a[0], q[1] - a[1]); if (l > la) { la = l; ang = Math.atan2(q[1] - a[1], q[0] - a[0]); } } ding('bench', c[0], c[1], -ang); } };
+    const n = sk.n, padZ = zijden([1]), fietsZ = zijden([2]);
+    if (/^Plein/.test(n)) {
+      b.cell(0, 0, 0, 'hexsteen');   // Vloer · heel vak
+      if (/zandbak/.test(n)) b.hex(0, 0, 0, 2.25 + 0.01, 'stonetile');   // zandbak: zeshoek-penseel op het tekenraster van 2,25 m
+      if (/waterplein/.test(n)) { b.hex(0, 0, 0, 4.5 + 0.01, 'water');   // water: zeshoek-penseel op 4,5 m; stapstenen: losse driehoeken om en om langs de hartlijn
+        b.where(0, (x, z) => Math.abs(z) < 0.34 && Math.abs(x) < 4.2 && Math.floor(x / (ts * SQ3 / 2) + 10) % 2 === 0, 'stonetile'); }
+      bomen(); banken();
+    } else {
+      b.cell(0, 0, 0, 'grass');   // Vloer · heel vak, gras
+      if (/rondgang|rotonde/.test(n)) { ring(3.897, 'hexsteen'); for (const k of padZ) pad([padZij(k), padRing(3.897, k)], 4.5, 'hexsteen'); }
+      else if (n === 'Fietspad · met voetpad') { pad([[-PAD_A, -1.125], [PAD_A, -1.125]], 2.25, 'paver'); pad([[-PAD_A, 1.125], [PAD_A, 1.125]], 2.25, 'hexsteen'); }   // twee smalle stroken naast elkaar
+      else { spaken(padZ, 'hexsteen'); spaken(fietsZ, 'paver'); }
+      if (/^Steeg/.test(n)) for (const z of [-2.25, 2.25]) b.wline(0, -PAD_A, z, 3, 8, 'plaster');   // Muur langs beide kanten van het pad
+      if (n === 'Steeg · overdekte doorgang') {   // Massief · ruimte vullen naast de muren (0–6 m) en boven de doorgang (3–6 m)
+        while (m.lv.length < 2) m.lv.push(mv2Level()); const L0 = m.lv[0], L1 = m.lv[1]; L0.v = {}; L0.vk = {}; L1.v = {};
+        for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) for (const t of [0, 1]) {
+          const v = mv2TriVerts(i, j, t, ts), cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3; if (!mv2InArea(m, cx, cz)) continue; const id = i + ',' + j + ',' + t;
+          L1.v[id] = 'plaster'; const zs = v.map(q => q[1]);
+          for (const sg of [1, -1]) { const ver = zs.map(z => z * sg); if (Math.max(...ver) <= 2.25 + 1e-9) continue; L0.v[id] = 'plaster'; if (Math.min(...ver) < 2.25 - 1e-9) L0.vk[id] = [0, sg, 2.25]; }   // over de muur: alleen het deel achter de muur
+        }
       }
-    }
-    for (const M of muren) {   // muur langs de lange as, 0,75 m naar buiten (het pad is breder geworden), op de dichtstbijzijnde rasterlijn
-      const [w, d] = maat(M), xs = M.pts.map(p => p[0]), zs = M.pts.map(p => p[1]), lang = w >= d;
-      if (lang) { const z0 = (Math.min(...zs) + Math.max(...zs)) / 2 * (1 / smal), z1 = z0 + Math.sign(z0) * 0.75, zr = Math.round(z1 / (ts / 2)) * (ts / 2), x0 = Math.min(...xs), n = Math.round((Math.max(...xs) - x0) / (ts * SQ3));
-        b.wline(0, x0 + 0.01, zr, 3, n, 'plaster'); }
-    }
-    // voorwerpen: een boom op elke stam, een bankje op elke bank (de zitting: het laagste houten vlak)
-    const stam = vlak.filter(v => v.kleur === '#6e5034'), gezet = [];
-    const zet = (t, x, z, rot) => { if (gezet.some(g => g.t === t && Math.hypot(g.x - x, g.z - z) < 1)) return; gezet.push({ t, x, z }); b.obj(0, t, +x.toFixed(2), +z.toFixed(2), rot || 0); };
-    for (const v of stam) { const c = v.pts.reduce((a, p) => [a[0] + p[0] / v.pts.length, a[1] + p[1] / v.pts.length], [0, 0]); zet('tree', c[0], c[1]); }
-    for (const v of vlak.filter(v => v.kleur === '#966c46' && v.soort === 0)) {
-      const c = v.pts.reduce((a, p) => [a[0] + p[0] / v.pts.length, a[1] + p[1] / v.pts.length], [0, 0]);
-      let la = 0, ang = 0; for (let i = 0; i < v.pts.length; i++) { const a = v.pts[i], q = v.pts[(i + 1) % v.pts.length], l = Math.hypot(q[0] - a[0], q[1] - a[1]); if (l > la) { la = l; ang = Math.atan2(q[1] - a[1], q[0] - a[0]); } }
-      zet('bench', c[0], c[1], -ang);
+      bomen(); banken();
     }
     return b;
   }
   // in de standaardbibliotheek (Standaard terugzetten); bij het eerste laden van 08e bestaat SKP_MODS nog niet: dan later
   function libPaden(add) { let L; try { L = SKP_MODS.mods; } catch (e) { return; } for (const n of PADEN_1) { const sk = L.find(x => x.n === n); if (sk) add(padModule(sk)); } }
-  // eenmalig toevoegen aan de bewaarde bibliotheek (lib21)
   try {
+    const base = n => (n || '').replace(/( · \d+[Lv])+$/, '');
+    // eenmalig toevoegen aan de bewaarde bibliotheek (lib21)
     if (!localStorage.getItem('raatstad-lib21')) {
-      const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), have = new Set(modules.map(m => base(m.name))); let n = 0;
-      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 21; modules.push(m); n++; }
-      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1');
+      const have = new Set(modules.map(m => base(m.name))); let n = 0;
+      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 22; modules.push(m); n++; }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1'); localStorage.setItem('raatstad-lib22', '1');
+    }
+    // lib22: de paden opnieuw, met het gereedschap Pad (strakke randen); geplaatste exemplaren gaan mee
+    if (!localStorage.getItem('raatstad-lib22')) {
+      const nieuw = new Map(libStandard().filter(m => m.cat === 'Paden').map(m => [base(m.name), m])); let n = 0;
+      modules.forEach((m, i) => { const N = m.bron === 'modulekaart' && nieuw.get(base(m.name)); if (!N) return; N.id = m.id; N.lib = 22; modules[i] = N; n++; });
+      if (n) saveMods(); localStorage.setItem('raatstad-lib22', '1');
     }
   } catch (e) { /* geen opslag */ }
