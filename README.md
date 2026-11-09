@@ -253,6 +253,7 @@ De nieuwe padstukken uit de SketchUp-bibliotheek (Modulekaart) zijn Raatmaker-mo
 - Pad (A): spaken van het midden van elke aangesloten zijde naar het midden van het vak (zeshoekstenen, fietspad in klinkers), 4,5 m; een ring van 3,9 m om de boom (rondgang, rotonde); fietspad met voetpad als twee smalle stroken van 2,25 m naast elkaar.
 - Muur (W) langs beide kanten van de steeg; Massief (Y) naast de muren van de overdekte doorgang (0–6 m, geknipt langs de muur) en erboven (3–6 m).
 - Ding (B): bomen en bankjes op de plek uit SketchUp, gedraaid per 30°.
+- Doodlopend met boom: het pad loopt tot aan de boom (op het rasterpunt 3,9 m voorbij het midden) en eindigt in een rond pleintje (een padkop van 6,75 m). Waterplein: een vijver van ¾ van het vak (kern-penseel) met zes zeshoekige stapstenen om en om (zeshoek-penseel op 1,125 m), van rand tot rand. Zandbak: zeshoek-penseel 4,5 m hout met daarin 2,25 m **Zand** (nieuwe vloer, ook zelf te kiezen bij Vloer).
 Welke zijden een pad hebben komt uit SketchUp (veld `a`; SketchUp-zijde k is zijde 6 − k van de Raatmaker). Ze staan in de standaardbibliotheek (Standaard terugzetten), komen één keer in een bewaarde bibliotheek (`raatstad-lib21`), en de eerste, rafelige versie wordt één keer vervangen (`raatstad-lib22`; geplaatste exemplaren gaan mee). Test: `test/visueel/paden.js`. Overzicht: `test/visueel/uit/paden_portie1_strak.png`.
 
 ## Modulekaart: Diepte

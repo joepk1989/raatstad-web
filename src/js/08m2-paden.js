@@ -26,20 +26,22 @@
     const spaken = (ks, mat, breedte = 4.5) => { for (const k of ks) pad([padZij(k), [0, 0]], breedte, mat); };
     const ring = (r, mat) => { for (let k = 0; k < 6; k++) pad([padRing(r, k), padRing(r, (k + 1) % 6)], 4.5, mat); };
     const ding = (t, x, z, rot) => b.obj(0, t, +x.toFixed(2), +z.toFixed(2), Math.round((rot || 0) / (Math.PI / 6)) * (Math.PI / 6));   // gereedschap Ding: per 30°
-    const bomen = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#6e5034')) { const c = midden(v); if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c); b.hex(0, c[0], c[1], ts + 0.01, 'stonetile'); ding('tree', c[0], c[1]); } };   // plantvak: zeshoek-penseel
+    const bomen = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#6e5034')) { let c = midden(v); if (/doodlopend/.test(n)) c = padRing(3.897, (padZ[0] + 3) % 6);   /* de boom op het rasterpunt aan het eind van het pad */ if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c); b.hex(0, c[0], c[1], ts + 0.01, 'stonetile'); ding('tree', c[0], c[1]); } };   // plantvak: zeshoek-penseel
     const banken = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#966c46' && v.soort === 0)) { const c = midden(v); if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c);
       let la = 0, ang = 0; for (let i = 0; i < v.pts.length; i++) { const a = v.pts[i], q = v.pts[(i + 1) % v.pts.length], l = Math.hypot(q[0] - a[0], q[1] - a[1]); if (l > la) { la = l; ang = Math.atan2(q[1] - a[1], q[0] - a[0]); } } ding('bench', c[0], c[1], -ang); } };
     const n = sk.n, padZ = zijden([1]), fietsZ = zijden([2]);
     if (/^Plein/.test(n)) {
       b.cell(0, 0, 0, 'hexsteen');   // Vloer · heel vak
-      if (/zandbak/.test(n)) b.hex(0, 0, 0, 2.25 + 0.01, 'stonetile');   // zandbak: zeshoek-penseel op het tekenraster van 2,25 m
-      if (/waterplein/.test(n)) { b.hex(0, 0, 0, 4.5 + 0.01, 'water');   // water: zeshoek-penseel op 4,5 m; stapstenen: losse driehoeken om en om langs de hartlijn
-        b.where(0, (x, z) => Math.abs(z) < 0.34 && Math.abs(x) < 4.2 && Math.floor(x / (ts * SQ3 / 2) + 10) % 2 === 0, 'stonetile'); }
+      if (/zandbak/.test(n)) { b.hex(0, 0, 0, 4.5 + 0.01, 'wood'); b.hex(0, 0, 0, 2.25 + 0.01, 'zand'); }   // zandbak: zeshoek-penseel 4,5 m hout (de rand), daarin 2,25 m zand
+      if (/waterplein/.test(n)) { b.hex(0, 0, 0, 6.75 + 0.01, 'water');   // vijver: kern-penseel (¾ van het vak); de rand van 1 m blijft verhard
+        // stapstenen: zeshoekjes (zeshoek-penseel op 1,125 m) om en om op rasterpunten 2,25 m uit elkaar: ze raken elkaar met een punt, een pad van stenen van rand tot rand
+        for (let k = 0; k < 6; k++) { const i = -5 + 2 * k, j = -Math.floor(i / 2) - (k % 2 ? 1 : 0), p = mv2P(i, j, ts); b.hex(0, p[0], p[1], ts + 0.01, 'stonetile'); } }
       bomen(); banken();
     } else {
       b.cell(0, 0, 0, 'grass');   // Vloer · heel vak, gras
       if (/rondgang|rotonde/.test(n)) { ring(3.897, 'hexsteen'); for (const k of padZ) pad([padZij(k), padRing(3.897, k)], 4.5, 'hexsteen'); }
       else if (n === 'Fietspad · met voetpad') { pad([[-PAD_A, -1.125], [PAD_A, -1.125]], 2.25, 'paver'); pad([[-PAD_A, 1.125], [PAD_A, 1.125]], 2.25, 'hexsteen'); }   // twee smalle stroken naast elkaar
+      else if (/doodlopend/.test(n)) { const boom = padRing(3.897, (padZ[0] + 3) % 6); pad([padZij(padZ[0]), boom], 4.5, 'hexsteen'); pad([boom, boom], 6.75, 'hexsteen'); }   // tot aan de boom, met een rond pleintje (kop van 6,75 m) eromheen
       else { spaken(padZ, 'hexsteen'); spaken(fietsZ, 'paver'); }
       if (/^Steeg/.test(n)) for (const z of [-2.25, 2.25]) b.wline(0, -PAD_A, z, 3, 8, 'plaster');   // Muur langs beide kanten van het pad
       if (n === 'Steeg · overdekte doorgang') {   // Massief · ruimte vullen naast de muren (0–6 m) en boven de doorgang (3–6 m)
@@ -61,13 +63,15 @@
     // eenmalig toevoegen aan de bewaarde bibliotheek (lib21)
     if (!localStorage.getItem('raatstad-lib21')) {
       const have = new Set(modules.map(m => base(m.name))); let n = 0;
-      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 22; modules.push(m); n++; }
-      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1'); localStorage.setItem('raatstad-lib22', '1');
+      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 23; modules.push(m); n++; }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1'); localStorage.setItem('raatstad-paden-lib', '23');
     }
-    // lib22: de paden opnieuw, met het gereedschap Pad (strakke randen); geplaatste exemplaren gaan mee
-    if (!localStorage.getItem('raatstad-lib22')) {
+    // een nieuwe versie van de paden (PAD_LIB): de paden uit de Modulekaart in de bewaarde bibliotheek vervangen; geplaatste
+    // exemplaren gaan mee. 22: strakke randen (gereedschap Pad); 23: doodlopend tot aan de boom, vijver met stapstenen, zandbak in zand
+    const PAD_LIB = 23;
+    if ((+localStorage.getItem('raatstad-paden-lib') || 0) < PAD_LIB) {
       const nieuw = new Map(libStandard().filter(m => m.cat === 'Paden').map(m => [base(m.name), m])); let n = 0;
-      modules.forEach((m, i) => { const N = m.bron === 'modulekaart' && nieuw.get(base(m.name)); if (!N) return; N.id = m.id; N.lib = 22; modules[i] = N; n++; });
-      if (n) saveMods(); localStorage.setItem('raatstad-lib22', '1');
+      modules.forEach((m, i) => { const N = m.bron === 'modulekaart' && nieuw.get(base(m.name)); if (!N) return; N.id = m.id; N.lib = PAD_LIB; modules[i] = N; n++; });
+      if (n) saveMods(); localStorage.setItem('raatstad-paden-lib', String(PAD_LIB));
     }
   } catch (e) { /* geen opslag */ }

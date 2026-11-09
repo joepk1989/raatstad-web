@@ -33,10 +33,10 @@ const { open, OUT, testModules } = require('./helper');
   const L2 = await lijst(); await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); const L3 = await lijst();
   zeg(L2.length === 21 && L3.length === 21, 'bestaande bibliotheek: één keer erbij', L2.length + ' → na nog eens laden ' + L3.length);
   // lib22: een bibliotheek met de oude (rafelige) paden krijgt één keer de nieuwe, met strakke randen (gereedschap Pad)
-  await p.evaluate(() => { for (const m of window.__mods) if (m.cat === 'Paden') for (const L of m.lv) { delete L.fk; delete L.f2; } window.__saveMods(); localStorage.removeItem('raatstad-lib22'); });
+  await p.evaluate(() => { for (const m of window.__mods) if (m.cat === 'Paden') for (const L of m.lv) { delete L.fk; delete L.f2; } window.__saveMods(); localStorage.removeItem('raatstad-paden-lib'); });
   await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); await p.evaluate(() => document.querySelector('#welcomeGo')?.click());
   const l22 = await p.evaluate(() => { const P = window.__mods.filter(m => m.cat === 'Paden'); return { n: P.length, strak: P.filter(m => Object.keys(m.lv[0].fk || {}).length).length, lib: [...new Set(P.map(m => m.lib))] }; });
-  zeg(l22.n === 21 && l22.strak >= 17 && l22.lib.join() === '22', 'oude paden vervangen door strakke (lib22)', l22);
+  zeg(l22.n === 21 && l22.strak >= 17 && l22.lib.join() === '23', 'oude paden vervangen door de nieuwe (versie 23)', l22);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();
