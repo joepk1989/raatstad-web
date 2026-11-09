@@ -35,6 +35,13 @@ const { open, OUT } = require('./helper');
   const r3 = await meet(1), f2 = await p.evaluate(() => Object.keys(window.__MME.m.lv[1].f2 || {}).length); zeg(Math.abs(r3.pad - PAD) < 0.01 && Math.abs(r3.tot - PAD) < 0.01 && f2 === 0 && r3.randen === '2:pad 5:pad', 'pad op de 1e verdieping', Object.assign({ overkant: f2 }, r3));
   await p.keyboard.press('Digit3'); await p.evaluate(() => { const E = window.__MME; E.th = 0.5; E.ph = 0.75; E.lagen = 'alles'; }); await p.waitForTimeout(900); await p.mouse.move(5, 5); await p.screenshot({ path: OUT + '/mmpad_verdieping.png' });
   const chk = await p.evaluate(() => { const r = window.__MME.checkModule(); return [...r.bad.values()].reduce((s, S) => s + S.size, 0) + ' / ' + r.marks.map(q => q.msg).join(';'); }); console.log('      controle:', chk);
+  // 4. Trap, stand Langs een pad: van het midden van zijde 3 naar het midden van het vak, even breed als het pad, 3 m omhoog
+  await nieuw(); await p.keyboard.press('Digit2'); await p.waitForTimeout(300); await p.keyboard.press('KeyT'); await p.waitForTimeout(150);
+  await p.evaluate(() => { const E = window.__MME; E.tmode = 'pad'; E.pw = 4.5; }); await p.keyboard.press('KeyT'); await p.waitForTimeout(150);
+  await sleep(zij(3), [0, 0], [0.4, 0.3]);
+  const tr = await p.evaluate(() => { const E = window.__MME, S = E.m.lv[0].s[0], V = window.__mv2; let gat = 0; const h = S && V.mv2StairHole(S, 9 / 8); if (h) for (const id in E.m.lv[1].f) { const [i, j, t] = id.split(',').map(Number); if (h(V.mv2TriVerts(i, j, t, 9 / 8))) gat++; } return S ? { k: S.k, d: S.d, n: S.n, w: S.w, lagen: E.m.lv.length } : null; });
+  zeg(tr && tr.k === 'stair' && tr.d >= 6 && tr.w === 4.5 && tr.n === 7, 'Trap langs een pad (zijde → midden)', tr);
+  await p.mouse.move(5, 5); await p.keyboard.press('Digit3'); await p.evaluate(() => { const E = window.__MME; E.th = 0.7; E.ph = 0.8; }); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/mmpad_trap.png' });
   console.log(uit.every(Boolean) && !errs.length ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();
