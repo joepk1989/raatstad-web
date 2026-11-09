@@ -232,6 +232,13 @@ Afspraak voor een gelaagde stad (november 2026): een pad komt aan het **midden v
 
 In de Raatmaker laat **Controle** (Shift+C) langs elke buitenzijde van de verdieping een strook zien: groen = pad, blauw = hele zijde, oranje = deur, rood = afwijkend; de melding telt ze. In de bibliotheek (168 modules) wijken er 7 af, allemaal details (kade, steiger, woonboot, amfitheater, tankstation, twee winkelcentrum-stukken). Test: `test/visueel/mm_randen.js`.
 
+## Geen overlappende vlakken (z-fighting)
+Twee vlakken op precies dezelfde plek, die dezelfde kant op kijken, flikkeren (z-fighting): strepen langs randen. Regel: nergens twee vlakken op elkaar; wat elkaar raakt, steekt een stukje in het andere of ligt erachter. Daarom:
+- de rand van een vloerplaat is één staand vlak precies op de rand, naar buiten gekeerd (`randVlak`), zonder boven- en onderkant (die liggen al in de vloer en het plafond); staat de vloer op massief, dan is de zijkant van het massief de rand en komt er geen randvlak;
+- kozijnen steken 1 cm voor de muur uit en 1 cm de muur in; het glas zit met zijn randen in het kozijn (glas is aan twee kanten zichtbaar); een glaswand zit met zijn randen in de metalen banden; deurlijsten stoppen net onder de latei;
+- een lage muur stopt waar de afdekrand begint; de planken van een winkelstelling liggen 1 cm achter de voorkant.
+Test: `test/visueel/overlap.js` bouwt elke module (zoals in de stad) en zoekt driehoeken van verschillende onderdelen in hetzelfde vlak (2 mm) die dezelfde kant op kijken en elkaar overlappen. Van duizenden m² naar 45 m² in de hele bibliotheek (wat over is zit in de vloer verstopt of is een voorwerp); vloerrand op vloer of plafond en de plateaus moeten 0 zijn. Foto: `test/visueel/overlap_foto.js`.
+
 ## Knippen met twee materialen (L.fk + L.f2, 08c)
 Een vloerdriehoek kan worden afgeknipt langs een rechte lijn (`L.fk[id]` = `[nx, nz, c]` of een lijst: het deel waar x·nx + z·nz ≥ c blijft). Met `L.f2[id]` krijgt het afgeknipte deel een eigen materiaal: één driehoek, twee materialen, een rechte grens ertussen (`mv2KnipRest` geeft de stukken van de overkant). Zo kan een pad met strakke randen dwars door de driehoeken van het raster lopen, ook op een verdieping waar geen terrein onder ligt. Bouwen, lopen en de balustrades (`mv2FloorPolys`), spiegelen (`mv2Mirror`), de randen (`mv2Randen`) en in de Raatmaker tekenen, schilderen en gummen (knip en overkant gaan samen weg), kiezen, verschuiven, draaien, spiegelen, kopiëren en plakken (`mv2KnipTf` neemt de lijn mee) en een fijner tekenraster kennen de overkant. Test: `test/visueel/mm_knip2.js` (een recht pad van 4,5 m: precies 70,148 m² pad, ook na draaien, spiegelen en kopiëren).
 
