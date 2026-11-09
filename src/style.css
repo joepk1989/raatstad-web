@@ -521,6 +521,16 @@ body.night .btn.tod { color: #cdd8ff; }
 #mmApp h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 6px; font-weight: 700; }
 #mmApp h2 small { font: 400 11px var(--mono); text-transform: none; letter-spacing: 0; }
 #mmApp .hint { font-weight: 500; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+/* Past op (aansluittabel): per zijde een kop met zeshoekje en de passende modules als knopjes */
+#mm_past { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+#mm_past .mm-pastkop { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+#mm_past .mm-pastkop svg { flex: none; }
+#mm_past .mm-pastkop b { font-size: 12px; font-weight: 600; }
+#mm_past .mm-pastkop small { margin-left: auto; font: 400 11px var(--mono); color: var(--muted); white-space: nowrap; }
+#mm_past .mm-dood .mm-pastkop small { color: #ff8a78; }
+#mm_past .mm-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0 30px; }
+#mmApp #mm_side #mm_past button.mm-chip { min-height: 26px; padding: 2px 8px; font-size: 11px; border-radius: 13px; color: var(--ink); }
+#mmApp #mm_side #mm_past button.mm-meer { color: var(--signal); border-style: dashed; }
 #mmApp .row { display: flex; gap: 6px; flex-wrap: wrap; }
 #mmApp .row > button, #mmApp .row > select, #mmApp .row > .btn-like { flex: 1 1 auto; text-align: center; }
 #mmApp #mm_side button, #mmApp .btn-like, #mmApp select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; min-height: 36px; }

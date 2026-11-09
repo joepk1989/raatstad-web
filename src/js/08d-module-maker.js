@@ -331,7 +331,7 @@
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
     const undo = () => { if (E.rLaag) { hellingAf(); return; } if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
     const redo = () => { if (!E.redo.length) return; E.sel = null; E.undo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.redo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); };
-    function changed() { bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; if (E.m) { $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); }   // ook na ongedaan maken
+    function changed() { pastLater(); bUndo.disabled = !E.undo.length; bRedo.disabled = !E.redo.length; if (E.m) { $('area').value = String(E.m.k || 0); $('grid').value = String(E.m.n || 4); maatSync(); }   // ook na ongedaan maken
       renderLevels(); rebuild3(); draw(); liveCheck(); }
     // na elke wijziging (iets later) stil controleren: een groen of rood bolletje op de knop, de uitleg pas bij klikken
     let lcT = 0;
@@ -1363,6 +1363,42 @@
     { const knop = $('libBig'), zet = aan => { app.classList.toggle('mm-libgroot', aan); if (knop) { knop.setAttribute('aria-pressed', String(aan)); knop.textContent = aan ? '⤡ Kleiner' : '⤢ Groter'; } try { localStorage.setItem('raatmaker-bib-groot', aan ? '1' : ''); } catch (e) { } if (E.m) renderLib(); };
       let groot = false; try { groot = localStorage.getItem('raatmaker-bib-groot') === '1'; } catch (e) { }
       zet(groot); if (knop) knop.addEventListener('click', e => { e.stopPropagation(); zet(!app.classList.contains('mm-libgroot')); }); }
+    // ---------- Past op: de aansluittabel (mv2Past, 08c) ----------
+    // Per zijde van de module met een pad of opening (mv2Randen): de modules uit de bibliotheek (één vak) die er in een of
+    // meer draaiingen naast passen. Een klein zeshoekje wijst de zijde aan, zoals in het bovenaanzicht.
+    const ZIJ_NAAM = ['rechts', 'rechtsboven', 'linksboven', 'links', 'linksonder', 'rechtsonder'];
+    const SOORT_NAAM = { pad: 'pad 4,5 m', heel: 'hele zijde', deur: 'deur', anders: 'afwijkend' };
+    let pastT = 0; const pastLater = () => { clearTimeout(pastT); pastT = setTimeout(() => { if (!app.hidden && E.m) renderPast(); }, 500); };
+    const pastOpen = new Set();
+    function zijIcoon(z, kleur) {   // zeshoekje met zijde z gekleurd (zijde z: tussen de hoeken op −60°·z ± 30°; y naar beneden zoals het bovenaanzicht)
+      const pt = a => [(9 * Math.cos(a)).toFixed(2), (9 * Math.sin(a)).toFixed(2)], hoek = k => pt(-k * Math.PI / 3 - Math.PI / 6), p0 = pt(-z * Math.PI / 3 - Math.PI / 6), p1 = pt(-z * Math.PI / 3 + Math.PI / 6);
+      return `<svg viewBox="-11 -11 22 22" width="22" height="22" aria-hidden="true"><polygon points="${[0, 1, 2, 3, 4, 5].map(k => hoek(k).join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/><line x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}" stroke="${kleur}" stroke-width="3.4" stroke-linecap="round"/></svg>`; }
+    function renderPast() {
+      const el = $('past'), nEl = $('pastN'); if (!el) return; el.innerHTML = '';
+      if (!E.m) return; if (E.m.k) { nEl.textContent = ''; el.innerHTML = '<p class="hint">Alleen voor modules van één vak.</p>'; return; }
+      let ra; try { ra = mv2Randen(E.m); } catch (e) { return; }
+      const kand = modules.map((m, i) => ({ m, i })).filter(({ m }) => m.v === 2 && !(m.k || 0) && m.id !== E.m.id);
+      const per = new Map();   // zijde → [{ m, rots }]
+      let zijden = null;
+      for (const { m } of kand) { let rb; try { rb = mv2Randen(m); } catch (e) { continue; } if (!rb.length) continue; const P = mv2Past(ra, rb); if (!zijden) zijden = P;
+        for (const x of P) { if (!per.has(x.z)) per.set(x.z, []); if (x.rots.length) per.get(x.z).push({ m, rots: x.rots }); } }
+      if (!zijden) zijden = mv2Past(ra, []);
+      if (!zijden.length) { nEl.textContent = ''; el.innerHTML = '<p class="hint">Deze module heeft geen pad of opening aan de rand.</p>'; return; }
+      let dood = 0;
+      for (const x of zijden) {
+        const lijst = (per.get(x.z) || []).sort((a, b) => (a.m.cat === 'Paden' ? 0 : 1) - (b.m.cat === 'Paden' ? 0 : 1) || a.m.name.localeCompare(b.m.name)), soort = x.mijn.map(e => (SOORT_NAAM[e.soort] || e.soort) + ' op ' + e.li * MV2.LV_H + ' m').join(' + ');
+        const rij = document.createElement('div'); rij.className = 'mm-pastrij'; rij.dataset.z = x.z; if (!lijst.length) { rij.classList.add('mm-dood'); dood++; }
+        const kop = document.createElement('div'); kop.className = 'mm-pastkop'; kop.innerHTML = zijIcoon(x.z, lijst.length ? '#3fcf6a' : '#ff4838') + '<b></b><small></small>';
+        kop.querySelector('b').textContent = 'Zijde ' + ZIJ_NAAM[x.z] + ': ' + soort; kop.querySelector('small').textContent = lijst.length ? lijst.length + ' module' + (lijst.length === 1 ? '' : 's') : 'nog niets dat hierop past';
+        rij.appendChild(kop);
+        if (lijst.length) { const chips = document.createElement('div'); chips.className = 'mm-chips'; const MAX = 12, alles = pastOpen.has(x.z);
+          for (const { m, rots } of alles ? lijst : lijst.slice(0, MAX)) { const c = document.createElement('button'); c.type = 'button'; c.className = 'mm-chip'; c.textContent = m.name; c.title = m.name + ' (' + (m.cat || 'Overig') + ') past in ' + rots.length + ' van de 6 draaiingen'; c.addEventListener('click', () => { $('filter').value = m.name; renderLib(); const s = $('libSec'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); chips.appendChild(c); }
+          if (lijst.length > MAX) { const c = document.createElement('button'); c.type = 'button'; c.className = 'mm-chip mm-meer'; c.textContent = alles ? 'minder' : '+' + (lijst.length - MAX) + ' meer'; c.addEventListener('click', () => { if (alles) pastOpen.delete(x.z); else pastOpen.add(x.z); renderPast(); }); chips.appendChild(c); }
+          rij.appendChild(chips); }
+        el.appendChild(rij); }
+      nEl.textContent = zijden.length + ' zijde' + (zijden.length === 1 ? '' : 'n') + (dood ? ' · ' + dood + ' zonder buur' : '');
+    }
+    E.renderPast = renderPast;   // voor de tests
     function renderLib() {
       const el = $('lib'), q = ($('filter').value || '').trim().toLowerCase(); el.innerHTML = '';
       const ord = c => { const k = MV2.cats.indexOf(c || 'Overig'); return k < 0 ? 99 : k; }, coll = new Intl.Collator('nl', { numeric: true, sensitivity: 'base' });

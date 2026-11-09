@@ -984,6 +984,25 @@
   // ---------- In de stad ----------
   const mv2Tf = (rot, q0, r0) => { const th = -rot * Math.PI / 3, c = Math.cos(th), s = Math.sin(th), o = cellToWorld(q0, r0); return (x, z) => [o.x + x * c - z * s, o.z + x * s + z * c]; };
   const mv2Area = I => { const k = I.m.k || 0, out = []; for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) if (mv2HexDist(q, r) <= k) { let [a, b] = [q, r]; for (let i = 0; i < (I.rot || 0) % 6; i++) [a, b] = [a + b, -a]; out.push([a + I.q, b + I.r]); } return out; };
+  // Wat past waarop (aansluittabel in de Raatmaker): module A staat op vak (0,0) zonder draaiing, module B op het buurvak
+  // over zijde z van A, in draaiing rot. Per zijde de randen van A (mv2Randen) en de draaiingen van B die passen: op elke
+  // verdieping waar een van beide een pad of opening heeft, hebben beide er een en raken ze elkaar. Alleen modules van één vak.
+  // ra, rb: mv2Randen(A), mv2Randen(B). Geeft [{ z, mijn: [{ li, soort, bits }], rots: [..] }] voor de zijden van A met een rand.
+  function mv2Past(ra, rb) {
+    const A = R * SQ3 / 2, c = cellToWorld(0, 0), sl = p => Math.round(p[0] * 20) + ',' + Math.round(p[1] * 20), key = (a, b) => (sl(a) < sl(b) ? sl(a) + '|' + sl(b) : sl(b) + '|' + sl(a));
+    const wereld = (rand, rot, q, r) => { const tf = mv2Tf(rot, q, r); return rand.map(x => { const a = tf(...x.p0), b = tf(...x.p1); return { key: key(a, b), a, li: x.li, bits: x.seg, soort: x.soort }; }); };
+    const wa = wereld(ra, 0, 0, 0), wb = []; const uit = [];
+    for (let z = 0; z < 6; z++) { const f = FRAMES[z], a = [c.x + f.nx * A - f.tx * R / 2, c.z + f.nz * A - f.tz * R / 2], b = [c.x + f.nx * A + f.tx * R / 2, c.z + f.nz * A + f.tz * R / 2], k = key(a, b);
+      const richt = e => (Math.hypot(e.a[0] - a[0], e.a[1] - a[1]) < 0.1 ? e.bits : e.bits.split('').reverse().join(''));
+      const mijn = wa.filter(e => e.key === k); if (!mijn.length) continue;
+      const rots = [];
+      for (let rot = 0; rot < 6; rot++) { const zij = (wb[z * 6 + rot] || (wb[z * 6 + rot] = wereld(rb, rot, NEIGH[z][0], NEIGH[z][1]))).filter(e => e.key === k);
+        const lis = new Set([...mijn, ...zij].map(e => e.li)); let ok = true;
+        for (const li of lis) { const m1 = mijn.find(e => e.li === li), n1 = zij.find(e => e.li === li); if (!m1 || !n1) { ok = false; break; } const bm = richt(m1), bn = richt(n1); if (![...bm].some((ch, i) => ch === '1' && bn[i] === '1')) { ok = false; break; } }
+        if (ok) rots.push(rot); }
+      uit.push({ z, mijn: mijn.map(e => ({ li: e.li, soort: e.soort, bits: richt(e) })), rots }); }
+    return uit;
+  }
   const modGroups = new Map();   // instantie → { group, col, roofed }
   const modCols = new Map();     // 'q,r' → [col] voor de botsing
   const modCellSet = new Set();  // vakken die door een module v2 bezet zijn (op de grond)
