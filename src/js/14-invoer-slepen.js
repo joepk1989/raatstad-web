@@ -150,7 +150,7 @@
     e.preventDefault();
     const d = e.deltaY || e.deltaX;   // Shift+wiel geeft in sommige browsers deltaX
     if (roadDrag.on && roadDrag.vp) { wheelAcc += d; const now = performance.now(); if (Math.abs(wheelAcc) < 40 || now - wheelT < 120) return; roadHeightStep(wheelAcc < 0 ? 1 : -1); wheelAcc = 0; wheelT = now; return; }   // tijdens het slepen van een weg: hoger of lager
-    if (tool === 'module' && mode === 'build' && e.ctrlKey) {   // Ctrl+wiel: de laag kiezen waarop de module komt (zoals de laagkiezer, 15d)
+    if (mode === 'build' && !roadDrag.on && e.ctrlKey) {   // Ctrl+wiel: de laag kiezen (zoals de laagkiezer/Page Up/Down, 15d) — bij elk gereedschap: een module op die laag, of een blok/loopdek/trap/… op hoogte (vulBlokken, 05)
       wheelAcc += d;
       const now = performance.now();
       if (Math.abs(wheelAcc) < 40 || now - wheelT < 90) return;
@@ -668,8 +668,10 @@
       }
       if (top && baseOf(top) === toolBase(T) && !(T === 'heuvel' && terrOnly(q, r))) continue;
       if (canPlace(q, r, T)) continue;
-      // Loopdek over een leeg vak heen slepen: sluit vanzelf aan op de hoogte van een buur (loopdekStuk, 05)
-      const stuk = T === 'looppad' && !st.length ? loopdekStuk(q, r) : itemsFor(q, r, T, 0);
+      // Over een leeg vak heen slepen: op hoogte aansluiten zoals bij één klik (vulBlokken/metVulling, 05) — een
+      // gekozen laag, of voor Loopdek een buur die er al op uitkomt
+      const n = st.length ? 0 : vulBlokken(q, r, T); if (n === null) continue;
+      const stuk = metVulling(itemsFor(q, r, T, 0), n);
       if (columnTop(q, r) + stuk.reduce((s, t) => s + TY(t).h, 0) > MAX_H + 0.01) continue;
       const y0 = columnTop(q, r);
       D.prior.set(k, st.length ? st.slice() : null);
