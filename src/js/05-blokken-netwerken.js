@@ -25,12 +25,11 @@
     });
     return out;
   }
-  // ---------- Loopdek (vroeger "looppad") vanzelf op hoogte: aansluiten op een helling, trap of een ander loopdek ----------
-  // Sta je met het gereedschap Loopdek op een LEEG vak, dan kijkt hij bij de zes buurvakken of een van hen er op een
-  // bepaalde hoogte op uitkomt (het boveneind van een helling/trap/trappad/tribune/opgang in die richting, of een loopdek
-  // dat er al ligt: die is altijd aan alle kanten open). De hoogste zo'n hoogte wordt gebruikt: eronder komen vanzelf
-  // blokken, erboven het loopdek. Zo sluit een loopdek altijd meteen aan, en bouw je in één klik per vak een gelaagde
-  // loopstad: blok-voor-blok omhoog via een helling, of een heel dek verder uitbreiden naast wat er al ligt.
+  // ---------- Op hoogte bouwen zonder zelf te stapelen: een gekozen laag, of (Loopdek) een buur die er op uitkomt ----------
+  // Loopdek sluit vanzelf aan op een buurvak: het boveneind van een helling/trap/trappad/tribune/opgang in die richting,
+  // of een ander loopdek dat er al ligt (altijd aan alle kanten open). De hoogste zo'n hoogte van de zes buren wordt
+  // gebruikt. Voor alle stapelbare soorten (Ctrl+scrollen, of de laagkiezer rechts, `hudLayer()`) geldt hetzelfde idee,
+  // maar dan met de hoogte die je zelf kiest in plaats van een buur: dan kun je ook ergens los op hoogte beginnen.
   function loopdekHoogte(q, r) {
     let best = 0;
     for (let k = 0; k < 6; k++) {
@@ -43,13 +42,21 @@
     }
     return best;
   }
-  // De blokken die voor dit vak op de stapel komen: gewoon een loopdek, of (op een leeg vak, met een passende buur)
-  // eerst blok tot de goede hoogte en dan het loopdek erbovenop.
-  function loopdekStuk(q, r) {
-    if (stackOf(q, r).length) return ['looppad'];
-    const h = loopdekHoogte(q, r);
-    return h ? [...Array(Math.round(h / 3)).fill('blok'), 'looppad'] : ['looppad'];
+  // Hoeveel blok er op een LEEG vak onder een soort t moet, zodat hij op de goede hoogte komt: eerst een gekozen laag
+  // (Ctrl+scrollen of de laagkiezer), anders (alleen voor Loopdek) een buur die er al op uitkomt. Geeft 0 als er
+  // niets automatisch hoeft (gewoon op de grond, geen hoogte gekozen/gevonden, of deze soort mag niet op blok staan,
+  // RULES) — dan gaat het gewoon door als vanouds. Geeft null bij een duidelijke fout: er was wél een hoogte, maar
+  // die zou boven de 150 m komen (MAX_H). t is het gereedschap of de blokcode (helling3 mag ook).
+  function vulBlokken(q, r, t) {
+    if (stackOf(q, r).length || !RULES[baseOf(t)].includes('blok')) return 0;
+    const lv = hudLayer(), h = lv !== null ? lv * MV2.LV_H : baseOf(t) === 'looppad' ? loopdekHoogte(q, r) : 0;
+    if (!h) return 0;
+    if (h + TY(t).h > MAX_H + 0.01) return null;
+    return Math.round(h / 3);
   }
+  // De blokken die voor dit vak op de stapel komen, met automatisch blok eronder als vulBlokken dat aangeeft. items is
+  // wat itemsFor(q, r, t, dir) zou geven (zonder het vak alvast te veranderen); n is het resultaat van vulBlokken.
+  const metVulling = (items, n) => n ? [...Array(n).fill('blok'), ...items] : items;
   function pathHas(q, r, y, side) { const f = pathIfs.get(lk(q, r, y)); return !!f && ((f.sides >> side) & 1) === 1; }
   function computePathLinks() {
     const ifs = new Map();

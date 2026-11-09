@@ -299,15 +299,17 @@
     }
     // Verlagen op een heuvel: één verhoging eraf
     if (T === 'kuil' && terrOnly(q, r)) { st0.pop(); if (!st0.length) cells.delete(key(q, r)); rebuildAround(q, r); terrainChanged([[q, r]]); changed(); toast(terrN(q, r) ? 'Verlaagd tot ' + terrN(q, r) * 3 + ' m' : 'Weer op straatniveau', 900); return; }
-    // Loopdek op een leeg vak naast een helling/trap/opgang (of een ander loopdek) op hoogte: vanzelf aansluiten
-    // (loopdekHoogte/loopdekStuk, 05) in plaats van er eerst zelf blokken onder te moeten stapelen
-    if (T === 'looppad' && !st0.length) {
-      const h = loopdekHoogte(q, r);
-      if (h) {
-        const why = canPlace(q, r, 'looppad'); if (why) return toast(why);
-        if (h + TY('looppad').h > MAX_H + 0.01) return toast('Maximaal ' + MAX_H + ' meter hoog');
-        cells.set(key(q, r), loopdekStuk(q, r)); rebuildAround(q, r); changed(); people.onPlaced(q, r, 0, h + 3);
-        toast('Loopdek aangesloten op ' + h + ' m', 1800);
+    // Op een leeg vak op hoogte bouwen zonder zelf eerst blok te stapelen: een gekozen laag (Ctrl+scrollen of de
+    // laagkiezer rechts), of voor Loopdek een buur (helling/trap/opgang/loopdek) die er al op uitkomt
+    // (vulBlokken/loopdekHoogte, 05).
+    if (!st0.length) {
+      const n = vulBlokken(q, r, tool);
+      if (n === null) return toast('Maximaal ' + MAX_H + ' meter hoog');
+      if (n) {
+        const why = canPlace(q, r, tool); if (why) return toast(why);
+        cells.set(key(q, r), metVulling(itemsFor(q, r, tool, DIRECTIONAL.has(T) ? viewDirIndex() : 0), n));
+        rebuildAround(q, r); changed(); people.onPlaced(q, r, 0, n * 3 + TY(T).h);
+        toast(TYPES[T].name + ' aangesloten op ' + n * 3 + ' m', 1800);
         return;
       }
     }
@@ -471,7 +473,7 @@
   let previewActive = false, previewKey = '';
   function showPreview(q, r, valid) {
     {
-    const items = itemsFor(q, r, tool, DIRECTIONAL.has(tool) ? viewDirIndex() : 0);
+    const items = metVulling(itemsFor(q, r, tool, DIRECTIONAL.has(tool) ? viewDirIndex() : 0), vulBlokken(q, r, tool) || 0);
     const k = key(q, r), had = cells.has(k), st = had ? cells.get(k) : [];
     const pk = [k, items.join('+'), st.length, valid, mode].join('|');
     if (pk === previewKey) return;
@@ -580,14 +582,16 @@
       ghost.position.set(x, colTopW(q, r) - TY(t).h - 0.02, z); ghost.scale.setScalar(1.05);
     } else {
       const [q, r] = res.place; const { x, z } = cellToWorld(q, r);
-      const valid = !canPlace(q, r, tool);
+      // Op hoogte bouwen (Ctrl+scrollen/laagkiezer, of Loopdek naast een buur): het voorbeeld staat net zo hoog
+      const nVul = vulBlokken(q, r, tool), teHoog = nVul === null, n = nVul || 0;
+      const valid = !canPlace(q, r, tool) && !teHoog;
       showPreview(q, r, valid);
       previewActive = true;
       ghost.geometry = geoFor(baseOf(tool)); ghost.material = ghostNone;
-      ghost.position.set(x, colTopW(q, r) + 0.01, z); ghost.scale.setScalar(1.01);
+      ghost.position.set(x, colTopW(q, r) + n * 3 + 0.01, z); ghost.scale.setScalar(1.01);
       if (DIRECTIONAL.has(tool)) {
         const f = FRAMES[viewDirIndex()];
-        ghostArrow.position.set(x, colTopW(q, r) + 3.4, z); ghostArrow.rotation.y = -Math.atan2(f.nz, f.nx);
+        ghostArrow.position.set(x, colTopW(q, r) + n * 3 + 3.4, z); ghostArrow.rotation.y = -Math.atan2(f.nz, f.nx);
         ghostArrow.material = valid ? ghostMat : ghostBad; ghostArrow.visible = true;
       }
     }
