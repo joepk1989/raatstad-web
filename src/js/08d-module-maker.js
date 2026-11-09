@@ -50,11 +50,12 @@
       brush: '<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><path d="M12 12l7.8-4.5M12 12v9M12 12L4.2 7.5" opacity=".5"/>',
       hexramp: '<path d="M3 17L21 7v10z"/><path d="M3 17h18M7 15l10-5" opacity=".5"/><path d="M5 12l4-2M9 10l-1 3" opacity=".8"/>',
       grid: '<path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18"/>',
+      pad: '<path d="M5 21L10 3M19 21L14 3"/><path d="M12 5v2.5M12 10.5V13M12 16v2.5" opacity=".7"/>',
     };
     const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
     const TOOLS = [
       ['select', 'Kiezen (V): klik of sleep een rechthoek; sleep om te verplaatsen, Q/E draait, Ctrl+C/V kopieert', 'V'], ['hand', 'Schuiven (H)', 'H'],
-      ['floor', 'Vloer (F): schilder driehoeken; rechtermuisknop wist', 'F'], ['fill', 'Vullen (G): vult een ruimte tot aan de muren met vloer; rechtermuisknop maakt leeg', 'G'], ['solid', 'Massief (Y): maakt een ruimte dicht van de vloer tot de verdieping erboven (opgevuld plateau), of schilder pijlers met het penseel; rechtermuisknop haalt weg', 'Y'], ['wall', 'Muur (W): sleep van punt naar punt langs het raster', 'W'], ['room', 'Kamer (M): muren rondom een heel vak', 'M'],
+      ['floor', 'Vloer (F): schilder driehoeken; rechtermuisknop wist', 'F'], ['fill', 'Vullen (G): vult een ruimte tot aan de muren met vloer; rechtermuisknop maakt leeg', 'G'], ['solid', 'Massief (Y): maakt een ruimte dicht van de vloer tot de verdieping erboven (opgevuld plateau), of schilder pijlers met het penseel; rechtermuisknop haalt weg', 'Y'], ['pad', 'Pad (A): sleep een hartlijn tussen vaste punten (midden van een zijde, midden van een vak, of een rasterpunt); er komt een strook met strakke randen', 'A'], ['wall', 'Muur (W): sleep van punt naar punt langs het raster', 'W'], ['room', 'Kamer (M): muren rondom een heel vak', 'M'],
       ['door', 'Deur (D): klik op een muur', 'D'], ['window', 'Raam (R): klik op een muur', 'R'], ['gate', 'Poort (P): klik op een muur', 'P'], ['open', 'Open doorgang (O): klik op een muur', 'O'], ['close', 'Dicht (C): klik op een muur om de opening weg te halen', 'C'],
       ['stair', 'Trap (T): sleep van onderaan omhoog, in een van zes richtingen', 'T'], ['ustair', 'Bordestrap (U): sleep de eerste steek; op het bordes keer je en loopt de tweede steek ernaast terug omhoog', 'U'], ['spiral', 'Wenteltrap (J): klik op een rasterpunt (het midden van de trap); sleep naar de kant waar je onderaan instapt', 'J'], ['ramp', 'Helling (L): trek beneden de onderrand, dan boven de bovenrand', 'L'], ['hexramp', 'Schans (S): het hele vak wordt een helling naar de verdieping erboven; klik bij de zijde waar je onderaan instapt', 'S'],
       ['roof', 'Dak (K): klik op een vak; nog eens voor een plat dak, nog eens om weg te halen', 'K'], ['object', 'Voorwerp (B): klik om neer te zetten; klik erop om te draaien', 'B'],
@@ -63,7 +64,7 @@
     { const vw = $('view'), st = $('stage'); if (vw && st) { vw.classList.add('mm-viewtools'); st.appendChild(vw); } }
     const toolBtns = {};
     // korte naam onder elk icoon, en groepen (kiezen · vloer · muren en openingen · trappen · dak en voorwerpen · gum)
-    const SHORT = { select: 'Kies', hand: 'Schuif', floor: 'Vloer', fill: 'Vul', solid: 'Massief', wall: 'Muur', room: 'Kamer', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open', close: 'Dicht', stair: 'Trap', ustair: 'Bordes', spiral: 'Wentel', ramp: 'Helling', hexramp: 'Schans', roof: 'Dak', object: 'Ding', erase: 'Gum' };
+    const SHORT = { select: 'Kies', hand: 'Schuif', floor: 'Vloer', fill: 'Vul', solid: 'Massief', pad: 'Pad', wall: 'Muur', room: 'Kamer', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open', close: 'Dicht', stair: 'Trap', ustair: 'Bordes', spiral: 'Wentel', ramp: 'Helling', hexramp: 'Schans', roof: 'Dak', object: 'Ding', erase: 'Gum' };
     const GROUP_START = new Set(['floor', 'wall', 'stair', 'roof', 'erase']);
     for (const [k, title, key] of TOOLS) {
       if (GROUP_START.has(k)) { const s = document.createElement('span'); s.className = 'mm-sep'; s.setAttribute('aria-hidden', 'true'); $('tools').appendChild(s); }
@@ -209,6 +210,18 @@
       E.lv = R0.lv; E.rLaag = null; snap(); E.m.lv[R0.lv].s.push({ k: 'plaat', a: R0.a, d: 0, n: 1, w: 2, p: polys }); changed(); renderCtx();
       const pr = Math.round(H / Math.max(len, 0.01) * 100); say('Schans geplaatst · ' + len.toFixed(1).replace('.', ',') + ' m lang · ' + pr + '% steil' + (pr > 12 ? ' (steil om te lopen)' : ''), 2500);
     }
+    function padVoorbeeld(D) {   // gele ringen op de vaste punten, de strook die er komt (gestippeld), de hartlijn
+      const in3 = E.vm === '3d', y = in3 ? lvY() : undefined, S = (x, z) => toS(x, z, y); ctx.save();
+      const hv = E.hover && !E.pan ? padVang(...E.hover) : null;
+      for (const p of padPunten()) { const s2 = S(p[0], p[1]), aan = (hv && Math.hypot(hv[0] - p[0], hv[1] - p[1]) < 0.01) || (D && (Math.hypot(D.a[0] - p[0], D.a[1] - p[1]) < 0.01 || Math.hypot(D.b[0] - p[0], D.b[1] - p[1]) < 0.01)); ctx.beginPath(); ctx.arc(s2[0], s2[1], aan ? 8 : 5.5, 0, Math.PI * 2); ctx.lineWidth = aan ? 3 : 2; ctx.strokeStyle = '#f2b233'; ctx.stroke(); }
+      if (hv && !D) { const s2 = S(hv[0], hv[1]); ctx.beginPath(); ctx.arc(s2[0], s2[1], 3.5, 0, Math.PI * 2); ctx.fillStyle = '#f2b233'; ctx.fill(); }
+      if (D && Math.hypot(D.b[0] - D.a[0], D.b[1] - D.a[1]) > 0.3) {
+        for (const H of mv2PadStukken([D.a, D.b], E.pw || 4.5)) { let pl = [[D.a[0] - 30, D.a[1] - 30], [D.a[0] + 30, D.a[1] - 30], [D.a[0] + 30, D.a[1] + 30], [D.a[0] - 30, D.a[1] + 30]]; for (const h of H) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) break; } if (pl.length < 3) continue;
+          ctx.beginPath(); pl.forEach((q, n) => { const s2 = S(q[0], q[1]); n ? ctx.lineTo(s2[0], s2[1]) : ctx.moveTo(s2[0], s2[1]); }); ctx.closePath(); ctx.fillStyle = 'rgba(242,178,51,0.22)'; ctx.fill(); }
+        const a2 = S(D.a[0], D.a[1]), b2 = S(D.b[0], D.b[1]); ctx.setLineDash([8, 6]); ctx.strokeStyle = '#f2b233'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(a2[0], a2[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.restore();
+    }
     function hellingVoorbeeld(D) {
       const in3 = E.vm === '3d', H = MV2.LV_H, lijn = (a, b, y, kleur, stip) => { const p = toS(...P(...a), in3 ? y : undefined), q = toS(...P(...b), in3 ? y : undefined); ctx.save(); ctx.strokeStyle = kleur; ctx.lineWidth = 4; if (stip) ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = kleur; for (const s2 of [p, q]) { ctx.beginPath(); ctx.arc(s2[0], s2[1], 5, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); };
       if (E.rLaag) lijn(E.rLaag.a, E.rLaag.b, E.rLaag.lv * H + 0.03, '#f2b233', true);
@@ -320,6 +333,9 @@
     const cellAt = (x, z) => mv2CellOf(x, z);
     const lvl = () => E.m.lv[E.lv];
     // ---------- geschiedenis ----------
+    // Pad: de vaste punten zijn het midden van elk vak en het midden van elke zijde; elders het dichtstbijzijnde rasterpunt
+    const padPunten = () => { const k = E.m.k || 0, uit = [], A = R * SQ3 / 2; for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) { if (mv2HexDist(q, r) > k) continue; const c = mv2CellXZ(q, r); uit.push(c); for (const f of FRAMES) { const p = [c[0] + f.nx * A, c[1] + f.nz * A]; if (!uit.some(u => Math.hypot(u[0] - p[0], u[1] - p[1]) < 0.01)) uit.push(p); } } return uit; };
+    const padVang = (x, z) => { let best = null, bd = 1.3; for (const p of padPunten()) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = p; } } if (best) return [+best[0].toFixed(4), +best[1].toFixed(4)]; const v = vertexAt(x, z), q = P(v[0], v[1]); return [+q[0].toFixed(4), +q[1].toFixed(4)]; };
     const randenNu = () => { const sl = E.undo.length + '|' + E.redo.length + '|' + (E.m && E.m.id); if (!E._randen || E._randen.sl !== sl) E._randen = { sl, R: E.m ? mv2Randen(E.m) : [] }; return E._randen.R; };   // aansluiten aan de rand (08c)
     const snap = () => { E.check = null; E.undo.push(JSON.stringify(E.m)); if (E.undo.length > 80) E.undo.shift(); E.redo = []; E.dirty = true; };
     const undo = () => { if (E.rLaag) { hellingAf(); return; } if (!E.undo.length) return; E.sel = null; E.redo.push(JSON.stringify(E.m)); E.m = mv2Fix(JSON.parse(E.undo.pop())); E.lv = Math.min(E.lv, E.m.lv.length - 1); changed(); say('Ongedaan gemaakt', 900); };
@@ -350,6 +366,8 @@
       if (E.tool === 'floor') { title.textContent = 'Vloer'; mk(MV2.floors, E.fmat, k => { E.fmat = k; }); mk(BRUSH_LAB, E.brush, k => { E.brush = k; }); mk({ weg: 'Hele vloer van deze verdieping weg' }, '', () => wegAlleVloer()); hint.textContent = 'Penseel wisselen kan ook met N. Schilder driehoeken. Op een verdieping wordt de vloer ook het plafond eronder. Rechtermuisknop wist.'; }
       else if (E.tool === 'solid') { title.textContent = 'Massief'; mk({ ruimte: 'Ruimte vullen', penseel: 'Penseel (pijler)' }, E.vmode, k => { E.vmode = k; }); mk(Object.fromEntries(Object.entries(MV2.walls).filter(([k]) => !['glass', 'curtain', 'hedge', 'fence'].includes(k))), E.vmat, k => { E.vmat = k; }); if (E.vmode === 'penseel') mk(BRUSH_LAB, E.brush, k => { E.brush = k; });
         hint.textContent = E.vmode === 'ruimte' ? 'Klik in een holle ruimte: alles tot aan de muren (ook schuine wanden) wordt dicht, van deze vloer tot de verdieping erboven. Ligt erboven een vloer, dan alleen onder die vloer (een opening blijft open). Rechtermuisknop maakt de ruimte weer hol.' : 'Schilder driehoeken massief, één verdieping hoog: een vak in beton is een pijler (op elke verdieping herhalen voor een hogere). Penseel wisselen met N; rechtermuisknop haalt weg.'; }
+      else if (E.tool === 'pad') { title.textContent = 'Pad'; mk({ 4.5: 'Pad · 4,5 m', 2.25: 'Smal · 2,25 m' }, String(E.pw || 4.5), k => { E.pw = +k; }); mk(MV2.floors, E.pmat || 'hexsteen', k => { E.pmat = k; });
+        hint.textContent = 'Sleep een hartlijn: van het midden van een zijde naar het midden van het vak, of naar een andere zijde (gele ringen; elders springt de muis naar het dichtstbijzijnde rasterpunt). Er komt een strook met strakke randen; driehoeken langs de rand worden doorgeknipt, met de vloer die er lag aan de overkant. Een bocht teken je in twee stukken: zijde → midden → zijde. Volgens de afspraak sluit een pad van 4,5 m dat in het midden van een zijde uitkomt op elke buurmodule aan. Weghalen: Vloer of Gum.'; }
       else if (E.tool === 'fill') { title.textContent = 'Vullen'; mk(MV2.floors, E.fmat, k => { E.fmat = k; }); hint.textContent = 'Klik in een ruimte: alle driehoeken tot aan de muren (en de rand van het gebied) krijgen deze vloer.'; }
       else if (E.tool === 'room') { title.textContent = 'Kamer'; mk(MV2.walls, E.wmat, k => { E.wmat = k; }); hint.textContent = 'Klik op een vak: er komen muren op alle zes zijden. Bestaande muren blijven staan.'; }
       else if (E.tool === 'wall') { title.textContent = 'Muur'; mk({ vol: 'Hele hoogte · 3 m', half: 'Halve hoogte · 1,5 m', laag: 'Laag muurtje · 1 m' }, E.wh || 'vol', k => { E.wh = k; }); mk(MV2.walls, E.wmat, k => { E.wmat = k; }); hint.textContent = 'Sleep van rasterpunt naar rasterpunt. Kies de hoogte: een halve wand (1,5 m) of een laag muurtje (1 m) is een borstwering of afscheiding zonder ramen of deuren. Haag en hek zijn laag; glas is een glaswand. Een muur op een bestaande muur wisselt het materiaal en de hoogte.'; }
@@ -792,6 +810,7 @@
         E.drag = { kind: 'marq', s0: [sx, sy], s1: [sx, sy], add }; draw(); return;
       }
       if (E.tool === 'floor') { snap(); paintFloor(x, z, right); E.drag = { kind: 'floor', erase: right }; changed(); return; }
+      if (E.tool === 'pad') { if (right) return; const a = padVang(x, z); E.drag = { kind: 'pad', a, b: a }; draw(); return; }
       if (E.tool === 'fill') { snap(); const n = fillFrom(x, z, right); changed(); say(n ? n + ' driehoeken' : 'Niets gevuld', 900); return; }
       if (E.tool === 'solid') {
         snap();
@@ -839,6 +858,7 @@
             say(`${n} ${n === 1 ? 'zijde' : 'zijden'} · ${f(len)} m · ${u ? '2 × 8' : '16'} treden van ${Math.round(run * 100)} cm · ${run < 0.25 ? 'te steil' : run > 0.5 ? 'erg flauw' : 'goede trap'}${up ? ' · rood: gat in de vloer erboven' : ' · nog geen vloer erboven'}`, 1500);
           } }
         else if (E.drag.kind === 'erase') { if (eraseAt(x, z, true)) dirty3(); }
+        else if (E.drag.kind === 'pad') { E.drag.b = padVang(x, z); const l = Math.hypot(E.drag.b[0] - E.drag.a[0], E.drag.b[1] - E.drag.a[1]); say('Pad · ' + l.toFixed(2).replace('.', ',') + ' m lang · ' + String(E.pw || 4.5).replace('.', ',') + ' m breed', 1200); }
         else if (E.drag.kind === 'rlijn') { E.drag.b = vertexAt(x, z); const l = Math.hypot(P(...E.drag.b)[0] - P(...E.drag.a)[0], P(...E.drag.b)[1] - P(...E.drag.a)[1]); say((E.rLaag ? 'Bovenrand' : 'Onderrand') + ' · ' + l.toFixed(2).replace('.', ',') + ' m breed', 1200); }
         else if (E.drag.kind === 'selmove') { if (E.drag.free) { E.drag.fx = x - E.drag.aw[0]; E.drag.fz = z - E.drag.aw[1]; } else { const v = vertexAt(x, z); E.drag.di = v[0] - E.drag.a[0]; E.drag.dj = v[1] - E.drag.a[1]; } }
         else if (E.drag.kind === 'marq') E.drag.s1 = [sx, sy];
@@ -855,6 +875,7 @@
       else if (D.kind === 'stair') { snap(); lvl().s.push(newStair(Object.assign({}, D, { n: D.rij ? trapN() : 3 }))); changed(); say(E.tool === 'ramp' ? 'Helling geplaatst' : 'Trap geplaatst · sleep voor een andere lengte of richting', 1200); }
       else if (D.kind === 'spiral') { snap(); lvl().s.push(newSpiral(D)); changed(); say('Wenteltrap geplaatst', 900); }
       else if (D.kind === 'rlijn') hellingLijn(D);
+      else if (D.kind === 'pad') { if (Math.hypot(D.b[0] - D.a[0], D.b[1] - D.a[1]) < 0.5) { say('Sleep van punt naar punt', 1000); draw(); } else { snap(); const n = mv2PadLeggen(E.m, E.lv, [D.a, D.b], E.pw || 4.5, E.pmat || 'hexsteen'); if (!n) E.undo.pop(); changed(); say(n ? 'Pad gelegd · ' + n + ' driehoeken' : 'Hier lag het pad al', 1200); } }
       else if (D.kind === 'selmove') { if (D.free) { if (D.fx || D.fz) selMoveFree(D.fx, D.fz); else draw(); } else if (D.di || D.dj) selMove(D.di, D.dj); else draw(); }
       else if (D.kind === 'marq') { if (Math.hypot(D.s1[0] - D.s0[0], D.s1[1] - D.s0[1]) < 5) { if (!D.add) E.sel = selEmpty(); } else { const R2 = selRect(D.s0, D.s1); if (D.add) { const S = sel(); for (const kk of ['f', 'w', 's', 'o', 'r']) for (const v of R2[kk]) S[kk].add(v); } else E.sel = R2; } renderCtx(); draw(); if (selCount(sel())) say(selSay(), 1200); }
       else if (D.kind === 'obj') { const L = lvl();
@@ -1078,7 +1099,8 @@
       if (E.tool === 'select') selPaint();
       // voorbeeld van wat je doet
       const hv = E.hover, D = E.drag;
-      if (E.tool === 'ramp' && (E.rmode || 'lijnen') === 'lijnen') { hellingVoorbeeld(D && D.kind === 'rlijn' ? D : null); return; }   // helling met twee lijnen: alleen de lijnen
+      if (E.tool === 'ramp' && (E.rmode || 'lijnen') === 'lijnen') { hellingVoorbeeld(D && D.kind === 'rlijn' ? D : null); return; }
+      if (E.tool === 'pad') { padVoorbeeld(D && D.kind === 'pad' ? D : null); return; }   // helling met twee lijnen: alleen de lijnen
       if (D && D.kind === 'wall' && D.n > 0) { for (const [i, j, d] of segsBetween(D.a, D.d, D.n)) wallLine(wallKey(i, j, d), { m: E.wmat, o: '' }, false); }
       else if (D && D.kind === 'stair') { stairPreviewCover(D.n > 0 ? newStair(D) : newStair(Object.assign({}, D, { n: D.rij ? trapN() : 3 }))); }
       else if (D && D.kind === 'spiral') stairPreviewCover(newSpiral(D));
