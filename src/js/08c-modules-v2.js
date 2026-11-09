@@ -272,6 +272,32 @@
       const r = v => Math.round(v * 1e5) / 1e5; return [r(nx), r(nz), r(A[0] * nx + A[1] * nz)]; };
     return Array.isArray(k[0]) ? k.map(een) : een(k);
   }
+  // ---------- Helling met twee lijnen en trap langs een pad (gereedschappen Helling en Trap; ook de recepten van 08m2) ----------
+  // mv2HellingLijnen: onderrand A–B op de vloer van verdieping li en bovenrand C–D 3 m hoger (rasterpunten [i, j]); daartussen een
+  // vrije helling (k 'plaat'). Niet evenwijdige randen: twee platte driehoeken. Geeft { S, len } of { fout }.
+  function mv2HellingLijnen(m, li, onder, boven, mat) {
+    const ts = mv2Ts(m), H = MV2.LV_H, P = q => mv2P(q[0], q[1], ts), a0 = P(onder[0]), b0 = P(onder[1]), A = P(boven[0]), B = P(boven[1]);
+    let c = A, d = B;   // bovenrand in dezelfde volgorde als de onderrand, zodat het vlak niet gedraaid is
+    const kruis = (p, q, r, s2) => { const o = (u, v, w) => Math.sign((v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0])); return o(p, q, r) * o(p, q, s2) < 0 && o(r, s2, p) * o(r, s2, q) < 0; };
+    if (Math.hypot(a0[0] - B[0], a0[1] - B[1]) + Math.hypot(b0[0] - A[0], b0[1] - A[1]) < Math.hypot(a0[0] - A[0], a0[1] - A[1]) + Math.hypot(b0[0] - B[0], b0[1] - B[1]) || kruis(a0, A, b0, B)) { c = B; d = A; }
+    const r3 = v => Math.round(v * 1000) / 1000, pt = (p, y) => [r3(p[0]), r3(p[1]), y];
+    const lo = [pt(a0, 0), pt(b0, 0)], hi = [pt(d, H), pt(c, H)];   // omtrek: a0 → b0 → d → c
+    const ex = b0[0] - a0[0], ez = b0[1] - a0[1], fx = d[0] - c[0], fz = d[1] - c[1], par = Math.abs(ex * fz - ez * fx) / ((Math.hypot(ex, ez) * Math.hypot(fx, fz)) || 1) < 0.01;
+    const vl = [lo[0], lo[1], hi[0], hi[1]], opp = Math.abs(vl.reduce((s2, p, i) => { const q = vl[(i + 1) % 4]; return s2 + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+    if (opp < 0.5) return { fout: 'De twee lijnen liggen op elkaar: trek de bovenrand verder weg' };
+    const polys = par ? [vl] : [[lo[0], lo[1], hi[0]], [lo[0], hi[0], hi[1]]];
+    const mid = p => [(p[0][0] + p[1][0]) / 2, (p[0][1] + p[1][1]) / 2], m0 = mid(lo), m1 = mid(hi), len = Math.hypot(m1[0] - m0[0], m1[1] - m0[1]);
+    while (m.lv.length <= li + 1) m.lv.push(mv2Level());
+    const S = { k: 'plaat', a: onder[0].slice(), d: 0, n: 1, w: 2, p: polys }; if (mat) S.m = mat; m.lv[li].s.push(S); return { S, len };
+  }
+  // mv2TrapLangs: een rechte trap van punt A naar punt B (bijv. van het midden van een zijde naar het midden van het vak), in de
+  // dichtstbijzijnde van de twaalf richtingen (ook dwars op de zijden, de looprichting van een pad), 'breedte' breed, 3 m omhoog.
+  function mv2TrapLangs(m, li, A, B, breedte) {
+    const ts = mv2Ts(m), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (l < ts) return null;
+    let d = 0, best = -2; MV2.DIR12.forEach((D, k) => { const dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), c = ((B[0] - A[0]) * dx + (B[1] - A[1]) * dz) / (l * dl); if (c > best) { best = c; d = k; } });
+    const i = Math.round(A[0] / (ts * SQ3 / 2)), j = Math.round(A[1] / ts - i / 2), S = { k: 'stair', a: [i, j], d, n: Math.max(1, Math.round(l / ts)), w: breedte };
+    while (m.lv.length <= li + 1) m.lv.push(mv2Level()); m.lv[li].s.push(S); return S;
+  }
   // ---------- Pad leggen (gereedschap Pad in de Raatmaker; ook de paden uit de Modulekaart worden zo gemaakt) ----------
   // Een strook van 'breedte' langs de hartlijn door de knopen ([x, z] in meters), met een twaalfhoekige kop op elke knoop
   // (vlakke kanten om de 30°: in de zes looprichtingen sluit de kop precies op de strook aan, en een bocht krijgt een schuine
@@ -401,6 +427,7 @@
     // onderkant: die liggen al in de vloer en het plafond, en twee vlakken op dezelfde plek flikkeren (z-fighting).
     const randVlak = (mat, a, b, y0, y1, c) => {
       let A = tfp(a), B = tfp(b); const C = tfp(c); if ((C[0] - A[0]) * -(B[1] - A[1]) + (C[1] - A[1]) * (B[0] - A[0]) > 0) [A, B] = [B, A];   // normaal (−dz, dx) moet van c af wijzen
+      { const ex = B[0] - A[0], ez = B[1] - A[1], l0 = Math.hypot(ex, ez) || 1, ix = ez / l0 * 0.002, iz = -ex / l0 * 0.002; A = [A[0] + ix, A[1] + iz]; B = [B[0] + ix, B[1] + iz]; }   // 2 mm naar binnen: nooit in het vlak van een trap of wand die precies op de rand staat
       const l = Math.hypot(B[0] - A[0], B[1] - A[1]), g = new THREE.BufferGeometry(), u0 = (A[0] + A[1]) * 0.5;
       g.setAttribute('position', new THREE.Float32BufferAttribute([A[0], y0, A[1], B[0], y0, B[1], B[0], y1, B[1], A[0], y0, A[1], B[0], y1, B[1], A[0], y1, A[1]], 3));
       g.setAttribute('uv', new THREE.Float32BufferAttribute([u0, y0, u0 + l, y0, u0 + l, y1, u0, y0, u0 + l, y1, u0, y1], 2)); g.computeVertexNormals(); put(mat, g);
@@ -453,10 +480,13 @@
       for (const id in L.f) {
         const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); let mat = L.f[id];
         if (!mv2InArea(m, (v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3)) continue;
-        { const kn = mv2Knip(L, id, v);   // afgeknipte driehoek: alleen het stuk binnen de knip, met zijn eigen randen
+        { let kn = mv2Knip(L, id, v);   // afgeknipte driehoek: alleen het stuk binnen de knip, met zijn eigen randen
+          let gatK = null;   // ook een geknipte driehoek (en zijn overkant) wijkt voor het trapgat
+          if (kn && holes.length) { let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
+            if (hk) { if (!hk.keep) continue; gatK = hk.keep; kn = mv2ClipKeep(kn, gatK); if (kn.length < 3) kn = [[0, 0], [0, 0]]; } }
           if (kn) { const top = lifted ? y0 + 0.02 : 0.05; for (const T of mv2Fan(kn)) { (byMat[mat] || (byMat[mat] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
             for (let n = 0; n < kn.length; n++) { const k = eid(kn[n], kn[(n + 1) % kn.length]); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); }
-            for (const pl of mv2KnipRest(L, id, v)) { const m2 = L.f2[id]; for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }   // de overkant: tweede materiaal
+            for (const pl0 of mv2KnipRest(L, id, v)) { const pl = gatK ? mv2ClipKeep(pl0, gatK) : pl0; if (pl.length < 3) continue; const m2 = L.f2[id]; for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }   // de overkant: tweede materiaal
               for (let n = 0; n < pl.length; n++) { const k = eid(pl[n], pl[(n + 1) % pl.length]); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); } }
             continue; } }
         if (holes.length) {   // trapgat: de driehoek valt weg, maar het stuk naast de trap blijft liggen (tot de bovenste tree)

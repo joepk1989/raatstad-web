@@ -15,6 +15,8 @@
     'Fietspad · recht', 'Fietspad · met voetpad', 'Fietspad · flauwe bocht', 'Fietspad · Y-splitsing',
     'Steeg · pad tussen muren', 'Steeg · overdekte doorgang',
     'Plein · zeshoek met boom', 'Plein · bankjes langs de rand', 'Plein · speelplek met zandbak', 'Plein · waterplein met stapstenen'];
+  // portie 2: omhoog (plateaus met een pad op 3 m, een helling en een trap van 0 naar 3 m)
+  const PADEN_2 = ['Plateau · pad recht', 'Plateau · pad flauwe bocht', 'Plateau · pad Y-splitsing', 'Plateau · pad met leuning', 'Helling · pad omhoog', 'Trap · pad omhoog'];
   const PAD_A = R * SQ3 / 2, padZij = k => [+(PAD_A * Math.cos(-k * Math.PI / 3)).toFixed(4), +(PAD_A * Math.sin(-k * Math.PI / 3)).toFixed(4)];   // midden van zijde k (zoals FRAMES)
   const padRing = (r, k) => [+(r * Math.cos(-k * Math.PI / 3)).toFixed(4), +(r * Math.sin(-k * Math.PI / 3)).toFixed(4)];   // punt op afstand r richting zijde k (r = 3,897: een rasterpunt)
   function padModule(sk) {
@@ -30,6 +32,29 @@
     const banken = () => { const gezien = []; for (const v of vlak.filter(v => v.kleur === '#966c46' && v.soort === 0)) { const c = midden(v); if (gezien.some(g => Math.hypot(g[0] - c[0], g[1] - c[1]) < 1)) continue; gezien.push(c);
       let la = 0, ang = 0; for (let i = 0; i < v.pts.length; i++) { const a = v.pts[i], q = v.pts[(i + 1) % v.pts.length], l = Math.hypot(q[0] - a[0], q[1] - a[1]); if (l > la) { la = l; ang = Math.atan2(q[1] - a[1], q[0] - a[0]); } } ding('bench', c[0], c[1], -ang); } };
     const n = sk.n, padZ = zijden([1]), fietsZ = zijden([2]);
+    const rasterpunt = q => { const i = Math.round(q[0] / (ts * SQ3 / 2)); return [i, Math.round(q[1] / ts - i / 2)]; };
+    const opZij = (k, t) => { const f = FRAMES[k], c = padZij(k); return [c[0] + f.tx * t, c[1] + f.tz * t]; };   // punt op zijde k, t meter van het midden
+    const massiefOveral = li => { while (m.lv.length <= li) m.lv.push(mv2Level()); const L = m.lv[li]; L.v = L.v || {}; for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) for (const t of [0, 1]) { const v = mv2TriVerts(i, j, t, ts); if (mv2InArea(m, (v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3)) L.v[i + ',' + j + ',' + t] = 'breuksteen'; } };   // Massief · ruimte vullen in een leeg vak
+    if (/^(Plateau · pad|Helling · pad omhoog|Trap · pad omhoog)/.test(n)) {
+      const hoog = (sk.a || []).filter(x => x[2] === 1).map(x => [(6 - x[0]) % 6, x[1]]), lageZ = hoog.filter(x => x[1] < 1.5).map(x => x[0]), hogeZ = hoog.filter(x => x[1] >= 1.5).map(x => x[0]);
+      if (/^Plateau/.test(n)) {   // Massief (0–3 m), gras op 3 m, de paden op 3 m
+        massiefOveral(0); b.cell(1, 0, 0, 'grass'); for (const k of hogeZ) mv2PadLeggen(m, 1, [padZij(k), [0, 0]], 4.5, 'hexsteen');
+        if (/leuning/.test(n)) for (const z of [-2.25, 2.25]) b.wline(1, -PAD_A, z, 3, 8, 'fence');   // Muur · hek langs beide kanten van het pad
+      } else if (/^Helling/.test(n)) {   // Helling · twee lijnen: onderrand midden op de lage zijde (0 m), bovenrand midden op de hoge zijde (3 m)
+        b.cell(0, 0, 0, 'grass'); const lo = lageZ[0], hi = hogeZ[0];
+        mv2HellingLijnen(m, 0, [rasterpunt(opZij(lo, -2.25)), rasterpunt(opZij(lo, 2.25))], [rasterpunt(opZij(hi, -2.25)), rasterpunt(opZij(hi, 2.25))], 'hexsteen');
+      } else {   // Trap · pad omhoog: pad naar het midden, trap langs het pad 5,63 m lang omhoog, dan een steiger (muren + massief) met het pad op 3 m
+        b.cell(0, 0, 0, 'grass'); const lo = lageZ[0], hi = hogeZ[0], f = FRAMES[hi], top = [f.nx * 5.625, f.nz * 5.625];   // trap van 5,63 m: treden van 35 cm
+        mv2PadLeggen(m, 0, [padZij(lo), [0, 0]], 4.5, 'hexsteen'); mv2TrapLangs(m, 0, [0, 0], top, 4.5);
+        const x0 = 5.846, z = 2.25;   // de steiger: van het rasterpunt op 5,85 m tot de zijde, 4,5 m breed (dwars op de zijde: hier zijde 0)
+        if (hi === 0) { b.wline(0, x0, -z, 3, 1, 'breuksteen'); b.wline(0, x0, z, 3, 1, 'breuksteen'); b.line(0, x0, -z, 1, 4, 'breuksteen');   // Muur: twee zijmuren en de kopmuur
+          const L0 = m.lv[0]; L0.v = L0.v || {}; L0.vk = L0.vk || {};   // Massief · ruimte vullen binnen de muren (geknipt langs de zijmuren)
+          for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) for (const t of [0, 1]) { const v = mv2TriVerts(i, j, t, ts); if (!mv2InArea(m, (v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3)) continue; if (Math.min(...v.map(q => q[0])) < x0 - 1e-6) continue; const zs = v.map(q => q[1]); if (Math.min(...zs) >= z - 1e-9 || Math.max(...zs) <= -z + 1e-9) continue;
+            const id = i + ',' + j + ',' + t, K = []; if (Math.max(...zs) > z + 1e-9) K.push([0, -1, -z]); if (Math.min(...zs) < -z - 1e-9) K.push([0, 1, -z]); L0.v[id] = 'breuksteen'; if (K.length) L0.vk[id] = K.length === 1 ? K[0] : K; } }
+        mv2PadLeggen(m, 1, [[f.nx * 3.897, f.nz * 3.897], padZij(hi)], 4.5, 'hexsteen');   // Pad op 3 m, over de trap heen tot de zijde
+      }
+      return b;
+    }
     if (/^Plein/.test(n)) {
       b.cell(0, 0, 0, 'hexsteen');   // Vloer · heel vak
       if (/zandbak/.test(n)) { b.hex(0, 0, 0, 4.5 + 0.01, 'wood'); b.hex(0, 0, 0, 2.25 + 0.01, 'zand'); }   // zandbak: zeshoek-penseel 4,5 m hout (de rand), daarin 2,25 m zand
@@ -57,21 +82,22 @@
     return b;
   }
   // in de standaardbibliotheek (Standaard terugzetten); bij het eerste laden van 08e bestaat SKP_MODS nog niet: dan later
-  function libPaden(add) { let L; try { L = SKP_MODS.mods; } catch (e) { return; } for (const n of PADEN_1) { const sk = L.find(x => x.n === n); if (sk) add(padModule(sk)); } }
+  function libPaden(add) { let L; try { L = SKP_MODS.mods; } catch (e) { return; } for (const n of [...PADEN_1, ...PADEN_2]) { const sk = L.find(x => x.n === n); if (sk) add(padModule(sk)); } }
   try {
     const base = n => (n || '').replace(/( · \d+[Lv])+$/, '');
     // eenmalig toevoegen aan de bewaarde bibliotheek (lib21)
     if (!localStorage.getItem('raatstad-lib21')) {
       const have = new Set(modules.map(m => base(m.name))); let n = 0;
-      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 23; modules.push(m); n++; }
-      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1'); localStorage.setItem('raatstad-paden-lib', '23');
+      for (const m of libStandard()) if (m.cat === 'Paden' && !have.has(base(m.name))) { m.lib = 24; modules.push(m); n++; }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib21', '1'); localStorage.setItem('raatstad-paden-lib', '24');
     }
     // een nieuwe versie van de paden (PAD_LIB): de paden uit de Modulekaart in de bewaarde bibliotheek vervangen; geplaatste
     // exemplaren gaan mee. 22: strakke randen (gereedschap Pad); 23: doodlopend tot aan de boom, vijver met stapstenen, zandbak in zand
-    const PAD_LIB = 23;
+    const PAD_LIB = 24;   // 24: portie 2 (plateaus met een pad, helling en trap omhoog)
     if ((+localStorage.getItem('raatstad-paden-lib') || 0) < PAD_LIB) {
       const nieuw = new Map(libStandard().filter(m => m.cat === 'Paden').map(m => [base(m.name), m])); let n = 0;
-      modules.forEach((m, i) => { const N = m.bron === 'modulekaart' && nieuw.get(base(m.name)); if (!N) return; N.id = m.id; N.lib = PAD_LIB; modules[i] = N; n++; });
+      modules.forEach((m, i) => { const N = m.bron === 'modulekaart' && nieuw.get(base(m.name)); if (!N) return; N.id = m.id; N.lib = PAD_LIB; modules[i] = N; nieuw.delete(base(m.name)); n++; });
+      for (const N of nieuw.values()) { N.lib = PAD_LIB; modules.push(N); n++; }   // nieuwe paden (een nieuwe portie) erbij
       if (n) saveMods(); localStorage.setItem('raatstad-paden-lib', String(PAD_LIB));
     }
   } catch (e) { /* geen opslag */ }

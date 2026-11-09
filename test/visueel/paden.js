@@ -1,5 +1,5 @@
-// Paden uit de Modulekaart als Raatmaker-modules (portie 1, 08m2-paden.js): de 21 nieuwe grondstukken (pad, fietspad,
-// steeg, plein) staan in de bibliotheek onder Paden, sluiten aan volgens de afspraak (mv2Randen: pad 4,5 m in het midden
+// Paden uit de Modulekaart als Raatmaker-modules (08m2-paden.js): portie 1, de 21 grondstukken (pad, fietspad, steeg,
+// plein), en portie 2, 6 stukken omhoog (plateaus met een pad op 3 m, helling en trap; je loopt ze op) staan in de bibliotheek onder Paden, sluiten aan volgens de afspraak (mv2Randen: pad 4,5 m in het midden
 // van de zijde, of een hele zijde), de controle van de Raatmaker vindt niets, een bestaande bibliotheek krijgt ze één keer
 // (lib21), oude paden worden vervangen door de strakke (lib22), en een klein padennet in de stad. Screenshots: paden_stad.png, paden_raatmaker.png
 const { open, OUT, testModules } = require('./helper');
@@ -8,7 +8,7 @@ const { open, OUT, testModules } = require('./helper');
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(36), typeof info === 'string' ? info : JSON.stringify(info)); };
   const lijst = () => p.evaluate(() => window.__mods.filter(m => m.cat === 'Paden').map(m => m.name));
-  const L1 = await lijst(); zeg(L1.length === 21, 'in de bibliotheek onder Paden', L1.length + ' modules');
+  const AANTAL = 27; const L1 = await lijst(); zeg(L1.length === AANTAL, 'in de bibliotheek onder Paden', L1.length + ' modules');
   const R = await p.evaluate(() => window.__mods.filter(m => m.cat === 'Paden').map(m => ({ n: m.name, r: window.__mv2.mv2Randen(m).map(x => x.soort) })));
   const fout = R.filter(x => x.r.some(s => s === 'anders' || s === 'deur')), pad = R.filter(x => /^(Pad|Fietspad|Steeg)/.test(x.n)).every(x => x.r.includes('pad')), plein = R.filter(x => /^Plein/.test(x.n)).every(x => x.r.filter(s => s === 'heel').length === 6);
   zeg(!fout.length && pad && plein, 'randen volgens de afspraak', fout.map(x => x.n + ' ' + x.r.join(',')).join(' | ') || 'paden: 4,5 m in het midden · pleinen: zes hele zijden');
@@ -16,6 +16,14 @@ const { open, OUT, testModules } = require('./helper');
   await p.evaluate(() => window.__SC().openSchets()); await p.waitForTimeout(1500);
   const chk = await p.evaluate(() => { const E = window.__MME, slecht = []; for (const m of window.__mods.filter(m => m.cat === 'Paden')) { E.load(m, null); const r = E.checkModule(); const n = [...r.bad.values()].reduce((s, S) => s + S.size, 0); if (n || r.marks.length) slecht.push(m.name + ': ' + n + ' / ' + r.marks.map(q => q.msg).join(';')); } return slecht; });
   zeg(!chk.length, 'controle van de Raatmaker', chk.join(' | ') || 'alles in orde');
+  // portie 2: omhoog lopen over de trap en de helling, van de lage naar de hoge zijde (3 m)
+  for (const n of ['Trap · pad omhoog', 'Helling · pad omhoog']) {
+    await p.evaluate(n => { const E = window.__MME; E.load(window.__mods.find(m => m.name.startsWith(n)), null); E.lv = 0; }, n); await p.keyboard.press('Digit3'); await p.waitForTimeout(400); await p.keyboard.press('Digit4'); await p.waitForTimeout(600);
+    await p.evaluate(() => { const W = window.__MME.walk; W.x = -7.2; W.z = 0; W.y = 0; W.vy = 0; W.yaw = -Math.PI / 2; W.pitch = 0; }); await p.waitForTimeout(300);
+    await p.keyboard.down('KeyW'); let top = 0, e; for (let t = 0; t < 80; t++) { await p.waitForTimeout(250); e = await p.evaluate(() => { const W = window.__MME.walk; return { x: +W.x.toFixed(2), y: +W.y.toFixed(2) }; }); top = Math.max(top, e.y); if (e.x > 7.3) break; } await p.keyboard.up('KeyW');
+    await p.screenshot({ path: OUT + '/paden_' + (n.startsWith('Trap') ? 'trap' : 'helling') + '_lopen.png' }); await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    zeg(e.x > 7.3 && top > 2.9, 'omhoog lopen: ' + n, { hoogst: top, eind: e }); }
+  await p.keyboard.press('Digit2');
   const cat = await p.evaluate(() => [...document.querySelectorAll('#mm_cat option')].map(o => o.value).includes('Paden')); zeg(cat, 'categorie Paden in de Raatmaker', cat);
   await p.evaluate(() => { const E = window.__MME; E.load(window.__mods.find(m => m.name.startsWith('Steeg · overdekte doorgang')), null); E.lv = 0; E.lagen = 'boven'; E.th = 0.6; E.ph = 0.7; }); await p.keyboard.press('Digit3'); await p.waitForTimeout(900);
   await p.mouse.move(5, 5); await p.screenshot({ path: OUT + '/paden_raatmaker.png' });
@@ -31,12 +39,12 @@ const { open, OUT, testModules } = require('./helper');
   await p.evaluate(() => { const L = window.__mods; for (let i = L.length - 1; i >= 0; i--) if (L[i].cat === 'Paden') L.splice(i, 1); window.__saveMods(); localStorage.removeItem('raatstad-lib21'); });
   await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await testModules(p);
   const L2 = await lijst(); await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); const L3 = await lijst();
-  zeg(L2.length === 21 && L3.length === 21, 'bestaande bibliotheek: één keer erbij', L2.length + ' → na nog eens laden ' + L3.length);
+  zeg(L2.length === AANTAL && L3.length === AANTAL, 'bestaande bibliotheek: één keer erbij', L2.length + ' → na nog eens laden ' + L3.length);
   // lib22: een bibliotheek met de oude (rafelige) paden krijgt één keer de nieuwe, met strakke randen (gereedschap Pad)
   await p.evaluate(() => { for (const m of window.__mods) if (m.cat === 'Paden') for (const L of m.lv) { delete L.fk; delete L.f2; } window.__saveMods(); localStorage.removeItem('raatstad-paden-lib'); });
   await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); await p.evaluate(() => document.querySelector('#welcomeGo')?.click());
-  const l22 = await p.evaluate(() => { const P = window.__mods.filter(m => m.cat === 'Paden'); return { n: P.length, strak: P.filter(m => Object.keys(m.lv[0].fk || {}).length).length, lib: [...new Set(P.map(m => m.lib))] }; });
-  zeg(l22.n === 21 && l22.strak >= 17 && l22.lib.join() === '23', 'oude paden vervangen door de nieuwe (versie 23)', l22);
+  const l22 = await p.evaluate(() => { const P = window.__mods.filter(m => m.cat === 'Paden'); return { n: P.length, strak: P.filter(m => m.lv.some(L => Object.keys(L.fk || {}).length)).length, lib: [...new Set(P.map(m => m.lib))] }; });
+  zeg(l22.n === AANTAL && l22.strak >= 20 && l22.lib.join() === '24', 'oude paden vervangen door de nieuwe (versie 24)', l22);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();
