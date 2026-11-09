@@ -377,7 +377,7 @@
     // ---------- bewerkingen ----------
     function paintFloor(x, z, erase) {
       const L = lvl(), list = brushTris(x, z).filter(okTri); let n = 0;
-      for (const id of list) { const k = id.join(','); if (L.fk && L.fk[k]) { delete L.fk[k]; n++; } if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } }   // een afgeknipte driehoek (fk) wordt weer heel
+      for (const id of list) { const k = id.join(','); if (L.fk && L.fk[k]) { delete L.fk[k]; if (L.f2) delete L.f2[k]; n++; } if (erase) { if (L.f[k]) { delete L.f[k]; n++; } } else if (L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } }   // een afgeknipte driehoek (fk) wordt weer heel
       return n;
     }
     // ---------- massief (L.v): dichte zuilen van deze vloer tot de verdieping erboven ----------
@@ -447,11 +447,11 @@
     function fillFrom(x, z, erase) {   // vloer: dezelfde ruimte als Massief (ook tot aan wanden die dwars door driehoeken lopen)
       const L = lvl(), Rz = ruimteZoeken(x, z, false); if (!Rz) return 0; let n = 0;
       for (const [k, P] of Rz.kant) {
-        if (erase) { if (Rz.seen.has(k) && L.f[k]) { delete L.f[k]; if (L.fk) delete L.fk[k]; n++; } continue; }
+        if (erase) { if (Rz.seen.has(k) && L.f[k]) { delete L.f[k]; if (L.fk) delete L.fk[k]; if (L.f2) delete L.f2[k]; n++; } continue; }
         const { knip, leeg } = knipVoor(k, P, Rz.pm); if (leeg) continue;
         if (knip.length && L.f[k]) { if (Rz.seen.has(k) && L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } continue; }   // doormidden gesneden en al vloer: de vloer aan de andere kant blijft
         if (L.f[k] !== E.fmat || (knip.length && !(L.fk && L.fk[k]))) n++;
-        L.f[k] = E.fmat; if (knip.length) { if (!L.fk) L.fk = {}; L.fk[k] = knip.length === 1 ? knip[0] : knip; } else if (L.fk && L.fk[k]) { delete L.fk[k]; n++; }
+        L.f[k] = E.fmat; if (L.f2) delete L.f2[k]; if (knip.length) { if (!L.fk) L.fk = {}; L.fk[k] = knip.length === 1 ? knip[0] : knip; } else if (L.fk && L.fk[k]) { delete L.fk[k]; n++; }
       }
       return n;
     }
@@ -553,7 +553,7 @@
     function wegAlleVloer() {
       if (!E.m) return; const L = lvl(), n = Object.keys(L.f).length;
       if (!n) { say('Op deze verdieping ligt geen vloer', 1400); return; }
-      snap(); L.f = {}; delete L.fk; changed(); say(n + ' vloerdriehoeken weggehaald · Ctrl+Z zet ze terug', 2200);
+      snap(); L.f = {}; delete L.fk; delete L.f2; changed(); say(n + ' vloerdriehoeken weggehaald · Ctrl+Z zet ze terug', 2200);
     }
     E.wegAlleVloer = wegAlleVloer;
     E.trapHover = trapHover; E.trapUit = trapUit; E.trapDekking = S => { const g = stairGeom(S); return coverTris(g.poly).map(C => { const cx = (C.v[0][0] + C.v[1][0] + C.v[2][0]) / 3 - g.a[0], cz = (C.v[0][1] + C.v[1][1] + C.v[2][1]) / 3 - g.a[1]; return { fr: +C.fr.toFixed(3), lat: +(cx * g.nx + cz * g.nz - (S.off || 0)).toFixed(3) }; }); }; E.eraseAt = eraseAt; E.eraseTarget = eraseTarget; E.load = (m, i) => loadModule(m, i);   // voor tests
@@ -569,13 +569,14 @@
     const cellStep = (di, dj) => { const n = Math.round(R / ts()); return (di - dj) % (3 * n) === 0 && (di + 2 * dj) % (3 * n) === 0 ? [(di - dj) / (3 * n), (di + 2 * dj) / (3 * n)] : null; };   // verplaatsing in hele vakken, of null
     function selClip(S = sel()) {
       const L = E.m.lv[S.lv];
-      return { f: [...S.f].filter(id => L.f[id]).map(id => [...id.split(',').map(Number), L.f[id]]), v: [...(S.v || [])].filter(id => L.v && L.v[id]).map(id => [...id.split(',').map(Number), L.v[id]]), w: [...S.w].filter(id => L.w[id]).map(id => [...id.split(',').map(Number), JSON.parse(JSON.stringify(L.w[id]))]),
+      return { f: [...S.f].filter(id => L.f[id]).map(id => [...id.split(',').map(Number), L.f[id], ...(L.fk && L.fk[id] ? [JSON.parse(JSON.stringify(L.fk[id])), (L.f2 && L.f2[id]) || null] : [])]), v: [...(S.v || [])].filter(id => L.v && L.v[id]).map(id => [...id.split(',').map(Number), L.v[id]]), w: [...S.w].filter(id => L.w[id]).map(id => [...id.split(',').map(Number), JSON.parse(JSON.stringify(L.w[id]))]),
         s: [...S.s].filter(i => L.s[i]).map(i => JSON.parse(JSON.stringify(L.s[i]))), o: [...S.o].filter(i => L.o[i]).map(i => Object.assign({}, L.o[i])), r: [...S.r].filter(k => L.r[k]).map(k => [...k.split(',').map(Number), L.r[k]]) };
     }
-    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) { delete L.f[id]; if (L.fk) delete L.fk[id]; } for (const id of S.v || []) { if (L.v) delete L.v[id]; if (L.vk) delete L.vk[id]; } for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
+    function selRemove(S = sel()) { const L = E.m.lv[S.lv]; for (const id of S.f) { delete L.f[id]; if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; } for (const id of S.v || []) { if (L.v) delete L.v[id]; if (L.vk) delete L.vk[id]; } for (const id of S.w) delete L.w[id]; for (const k of S.r) delete L.r[k]; L.s = L.s.filter((_, i) => !S.s.has(i)); L.o = L.o.filter((_, i) => !S.o.has(i)); }
     function clipInsert(c, li = E.lv) {
       while (E.m.lv.length <= li) E.m.lv.push(mv2Level()); const L = E.m.lv[li], S = selEmpty(li);
-      for (const [i, j, t, mat] of c.f) { const id = i + ',' + j + ',' + t; if (!okTri([i, j, t])) continue; L.f[id] = mat; S.f.add(id); }
+      for (const [i, j, t, mat, kn, m2] of c.f) { const id = i + ',' + j + ',' + t; if (!okTri([i, j, t])) continue; L.f[id] = mat; S.f.add(id);
+        if (kn) { (L.fk || (L.fk = {}))[id] = kn; if (m2) (L.f2 || (L.f2 = {}))[id] = m2; else if (L.f2) delete L.f2[id]; } else { if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; } }
       for (const [i, j, t, mat] of c.v || []) { const id = i + ',' + j + ',' + t; if (!okTri([i, j, t])) continue; if (!L.v) L.v = {}; L.v[id] = mat; S.v.add(id); }
       for (const [i, j, d, Wd] of c.w) { const id = wallKey(i, j, d), [a, b] = segOf(i, j, d); if (!mv2NearArea(E.m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue; L.w[id] = Wd; S.w.add(id); }
       for (const [q, r, kind] of c.r) { if (mv2HexDist(q, r) > (E.m.k || 0)) continue; const k = q + ',' + r; L.r[k] = kind; S.r.add(k); }
@@ -586,7 +587,7 @@
     // verschuiven over (di, dj) rasterstappen: wat bij een heel vak hoort (dak, schans) blijft staan als het geen hele vakken zijn
     function clipShift(c, di, dj) {
       const cs = cellStep(di, dj), off = P(di, dj), off0 = P(0, 0), ox = off[0] - off0[0], oz = off[1] - off0[1], stay = { f: [], v: [], w: [], s: [], o: [], r: [] };
-      const out = { f: c.f.map(([i, j, t, m]) => [i + di, j + dj, t, m]), v: (c.v || []).map(([i, j, t, m]) => [i + di, j + dj, t, m]), w: c.w.map(([i, j, d, W2]) => [i + di, j + dj, d, W2]), o: c.o.map(o => Object.assign({}, o, { x: Math.round((o.x + ox) * 1000) / 1000, z: Math.round((o.z + oz) * 1000) / 1000 })), s: [], r: [] };
+      const out = { f: c.f.map(([i, j, t, m, kn, m2]) => [i + di, j + dj, t, m, ...(kn ? [mv2KnipTf(kn, (x, z) => [x + ox, z + oz]), m2] : [])]), v: (c.v || []).map(([i, j, t, m]) => [i + di, j + dj, t, m]), w: c.w.map(([i, j, d, W2]) => [i + di, j + dj, d, W2]), o: c.o.map(o => Object.assign({}, o, { x: Math.round((o.x + ox) * 1000) / 1000, z: Math.round((o.z + oz) * 1000) / 1000 })), s: [], r: [] };
       for (const St of c.s) { if (St.k === 'plaat') { out.s.push(Object.assign({}, St, { a: [St.a[0] + di, St.a[1] + dj], p: St.p.map(pl => pl.map(p => [p[0] + ox, p[1] + oz, p[2]])) })); continue; } if (St.k === 'hexramp') { if (cs) out.s.push(Object.assign({}, St, { q: (St.q || 0) + cs[0], r: (St.r || 0) + cs[1] })); else stay.s.push(St); } else out.s.push(Object.assign({}, St, { a: [St.a[0] + di, St.a[1] + dj] })); }
       for (const R0 of c.r) { if (cs) out.r.push([R0[0] + cs[0], R0[1] + cs[1], R0[2]]); else stay.r.push(R0); }
       return { out, stay };
@@ -596,7 +597,7 @@
       k = ((k % 6) + 6) % 6; const rotI = ([i, j]) => { let a = i - pv[0], b = j - pv[1]; for (let n = 0; n < k; n++) [a, b] = [-b, a + b]; return [a + pv[0], b + pv[1]]; };
       const pw = P(pv[0], pv[1]), ang = k * Math.PI / 3, cs = Math.cos(ang), sn = Math.sin(ang), rotW = (x, z) => [pw[0] + (x - pw[0]) * cs - (z - pw[1]) * sn, pw[1] + (x - pw[0]) * sn + (z - pw[1]) * cs];
       const n0 = Math.round(R / ts()), pc = cellStep(pv[0], pv[1]), stay = { f: [], v: [], w: [], s: [], o: [], r: [] }, out = { f: [], v: [], w: [], s: [], o: [], r: [] };
-      for (const [i, j, t, m] of c.f) { const V = triVertsIdx(i, j, t).map(rotI).map(([a, b]) => P(a, b)), cx = (V[0][0] + V[1][0] + V[2][0]) / 3, cz = (V[0][1] + V[1][1] + V[2][1]) / 3; out.f.push([...triAt(cx, cz), m]); }
+      for (const [i, j, t, m, kn, m2] of c.f) { const V = triVertsIdx(i, j, t).map(rotI).map(([a, b]) => P(a, b)), cx = (V[0][0] + V[1][0] + V[2][0]) / 3, cz = (V[0][1] + V[1][1] + V[2][1]) / 3; out.f.push([...triAt(cx, cz), m, ...(kn ? [mv2KnipTf(kn, rotW), m2] : [])]); }
       for (const [i, j, t, m] of c.v || []) { const V = triVertsIdx(i, j, t).map(rotI).map(([a, b]) => P(a, b)); out.v.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(rotI([i, j]), rotI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) { const [x, z] = rotW(o.x, o.z); out.o.push(Object.assign({}, o, { x: Math.round(x * 1000) / 1000, z: Math.round(z * 1000) / 1000, rot: ((o.rot || 0) + ang) % (Math.PI * 2) })); }
@@ -609,7 +610,7 @@
     function clipMirror(c, axis, pv) {
       const mI = ([i, j]) => { const a = i - pv[0], b = j - pv[1]; return [a + pv[0], -a - b + pv[1]]; };
       const pw = P(pv[0], pv[1]), pc = cellStep(pv[0], pv[1]), D6 = [5, 4, 3, 2, 1, 0], stay = { f: [], v: [], w: [], s: [], o: [], r: [] }, out = { f: [], v: [], w: [], s: [], o: [], r: [] };
-      for (const [i, j, t, m] of c.f) { const V = triVertsIdx(i, j, t).map(mI).map(([a, b]) => P(a, b)); out.f.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m]); }
+      for (const [i, j, t, m, kn, m2] of c.f) { const V = triVertsIdx(i, j, t).map(mI).map(([a, b]) => P(a, b)); out.f.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m, ...(kn ? [mv2KnipTf(kn, (x, z) => [x, 2 * pw[1] - z]), m2] : [])]); }
       for (const [i, j, t, m] of c.v || []) { const V = triVertsIdx(i, j, t).map(mI).map(([a, b]) => P(a, b)); out.v.push([...triAt((V[0][0] + V[1][0] + V[2][0]) / 3, (V[0][1] + V[1][1] + V[2][1]) / 3), m]); }
       for (const [i, j, d, W2] of c.w) { const D = MV2.DIRW[d], key = keyFromSeg(mI([i, j]), mI([i + D[0], j + D[1]])); if (key) out.w.push([...key.split(',').map(Number), W2]); }
       for (const o of c.o) out.o.push(Object.assign({}, o, { z: Math.round((2 * pw[1] - o.z) * 1000) / 1000, rot: -(o.rot || 0) }));
@@ -970,7 +971,7 @@
       // verdieping eronder: vaag
       if (E.lv > 0) { const U = m.lv[E.lv - 1]; ctx.globalAlpha = 0.35; for (const id in U.f) tri(id, COL[U.f[id]] || '#888'); ctx.globalAlpha = 1; for (const id in U.w) wallLine(id, U.w[id], true); }
       // huidige verdieping
-      for (const id in L.f) tri(id, COL[L.f[id]] || '#888');
+      for (const id in L.f) { const kn = L.fk && L.fk[id]; tri(id, COL[L.f[id]] || '#888', kn); if (kn && L.f2 && L.f2[id]) for (const pl of mv2KnipRest(L, id, mv2TriVerts(...id.split(',').map(Number), t))) { ctx.beginPath(); pl.forEach((p, n) => { const S5 = toS(p[0], p[1]); n ? ctx.lineTo(S5[0], S5[1]) : ctx.moveTo(S5[0], S5[1]); }); ctx.closePath(); ctx.fillStyle = COL[L.f2[id]] || '#888'; ctx.fill(); } }   // afgeknipt: het deel binnen de knip, en de overkant in het tweede materiaal
       for (const id in L.v || {}) { const kn = L.vk && L.vk[id]; tri(id, COL[L.v[id]] || '#999', kn); tri(id, 'rgba(0,0,0,0.3)', kn); }   // afgeknipt: alleen het deel tot aan de wand   // massief: muurkleur, donkerder
       for (const id in L.r) { const [q, r] = id.split(',').map(Number); roofDraw(q, r, L.r[id], false); }
       for (const S of L.s) stairDraw(S, false);
@@ -1332,6 +1333,7 @@
         const nf = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), mat = L.f[id]; const I2 = i * f, J = j * f; if (f === 2) { if (!t) [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]].forEach(k => { nf[k.join(',')] = mat; }); else [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]].forEach(k => { nf[k.join(',')] = mat; }); } else nf[id] = mat; } L.f = nf;
         if (L.v && f === 2) { const nv = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), v = L.v[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nv[k.join(',')] = v; }); } L.v = nv; if (L.vk) { const nk = {}; for (const id in L.vk) { const [i, j, t] = id.split(',').map(Number), h = L.vk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = h; }); } L.vk = nk; } }   // massief mee splitsen (afknip in meters blijft gelden)
         if (L.fk && f === 2) { const nk = {}; for (const id in L.fk) { const [i, j, t] = id.split(',').map(Number), v = L.fk[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { nk[k.join(',')] = v; }); } L.fk = nk; }   // vloersoort per driehoek mee splitsen
+        if (L.f2 && f === 2) { const n2 = {}; for (const id in L.f2) { const [i, j, t] = id.split(',').map(Number), v = L.f2[id], I2 = i * 2, J = j * 2; (t ? [[I2 + 1, J, 1], [I2, J + 1, 1], [I2 + 1, J + 1, 1], [I2 + 1, J + 1, 0]] : [[I2, J, 0], [I2 + 1, J, 0], [I2, J + 1, 0], [I2, J, 1]]).forEach(k => { n2[k.join(',')] = v; }); } L.f2 = n2; }
         const nw = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; for (let s = 0; s < f; s++) nw[wallKey(i * f + D[0] * s, j * f + D[1] * s, d)] = Object.assign({}, L.w[id]); } L.w = nw;
         for (const S of L.s) { S.a = [S.a[0] * f, S.a[1] * f]; S.n = S.n * f; }
       }

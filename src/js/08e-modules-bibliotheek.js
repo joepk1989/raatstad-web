@@ -448,4 +448,4 @@
   } catch (e) { /* geen opslag */ }
   // voor de tests (bibliotheekcontrole): de rekenhulpen van modules v2
   window.__mv2thumb = (m, rot, px) => mv2Thumb(m, rot, px);
-  window.__mv2 = { mv2FloorPolys, mv2Randen, mv2Build, mv2Tf, mv2TriVerts, mv2P, mv2Ts, mv2InArea, mv2NearArea, mv2CellXZ, modMeta, mv2StairHole, mv2ClipKeep, mv2Fan, mv2Mirror, MV2, libStandard, libBuilder };
+  window.__mv2 = { mv2FloorPolys, mv2Randen, mv2KnipRest, mv2KnipTf, mv2Build, mv2Tf, mv2TriVerts, mv2P, mv2Ts, mv2InArea, mv2NearArea, mv2CellXZ, modMeta, mv2StairHole, mv2ClipKeep, mv2Fan, mv2Mirror, MV2, libStandard, libBuilder };
