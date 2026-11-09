@@ -299,6 +299,18 @@
     }
     // Verlagen op een heuvel: één verhoging eraf
     if (T === 'kuil' && terrOnly(q, r)) { st0.pop(); if (!st0.length) cells.delete(key(q, r)); rebuildAround(q, r); terrainChanged([[q, r]]); changed(); toast(terrN(q, r) ? 'Verlaagd tot ' + terrN(q, r) * 3 + ' m' : 'Weer op straatniveau', 900); return; }
+    // Loopdek op een leeg vak naast een helling/trap/opgang (of een ander loopdek) op hoogte: vanzelf aansluiten
+    // (loopdekHoogte/loopdekStuk, 05) in plaats van er eerst zelf blokken onder te moeten stapelen
+    if (T === 'looppad' && !st0.length) {
+      const h = loopdekHoogte(q, r);
+      if (h) {
+        const why = canPlace(q, r, 'looppad'); if (why) return toast(why);
+        if (h + TY('looppad').h > MAX_H + 0.01) return toast('Maximaal ' + MAX_H + ' meter hoog');
+        cells.set(key(q, r), loopdekStuk(q, r)); rebuildAround(q, r); changed(); people.onPlaced(q, r, 0, h + 3);
+        toast('Loopdek aangesloten op ' + h + ' m', 1800);
+        return;
+      }
+    }
     const why = canPlace(q, r, tool);
     if (why) return toast(why);
     const k = key(q, r);

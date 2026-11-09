@@ -668,9 +668,12 @@
       }
       if (top && baseOf(top) === toolBase(T) && !(T === 'heuvel' && terrOnly(q, r))) continue;
       if (canPlace(q, r, T)) continue;
+      // Loopdek over een leeg vak heen slepen: sluit vanzelf aan op de hoogte van een buur (loopdekStuk, 05)
+      const stuk = T === 'looppad' && !st.length ? loopdekStuk(q, r) : itemsFor(q, r, T, 0);
+      if (columnTop(q, r) + stuk.reduce((s, t) => s + TY(t).h, 0) > MAX_H + 0.01) continue;
       const y0 = columnTop(q, r);
       D.prior.set(k, st.length ? st.slice() : null);
-      cells.set(k, st.concat(itemsFor(q, r, T, 0)));
+      cells.set(k, st.concat(stuk));
       placed.push([q, r, y0]); touched.push([q, r]);
     }
     if (!touched.length) return;
@@ -686,7 +689,7 @@
     roadDrag.on = false; roadDrag.last = null; roadDrag.roofY = null;
     if (VEC_TOOLS.has(roadDrag.tool)) return vecDragEnd();
     if (roadDrag.tool === 'module') return lineDragEnd();
-    const what = { pad: 'pad', fietspad: 'fietspad', kuil: 'uitgraving', heuvel: 'verhoging', looppad: 'looppad', tunnel: 'tunnel', water: 'gracht', meer: 'meer' }[roadDrag.tool] || 'blokken';
+    const what = { pad: 'pad', fietspad: 'fietspad', kuil: 'uitgraving', heuvel: 'verhoging', looppad: 'loopdek', tunnel: 'tunnel', water: 'gracht', meer: 'meer' }[roadDrag.tool] || 'blokken';
     if (roadDrag.count > 1) toast(`${roadDrag.count} vakken ${what} aangelegd`, 1400);
   }
   const placeBtn = document.getElementById('placeBtn');

@@ -25,6 +25,31 @@
     });
     return out;
   }
+  // ---------- Loopdek (vroeger "looppad") vanzelf op hoogte: aansluiten op een helling, trap of een ander loopdek ----------
+  // Sta je met het gereedschap Loopdek op een LEEG vak, dan kijkt hij bij de zes buurvakken of een van hen er op een
+  // bepaalde hoogte op uitkomt (het boveneind van een helling/trap/trappad/tribune/opgang in die richting, of een loopdek
+  // dat er al ligt: die is altijd aan alle kanten open). De hoogste zo'n hoogte wordt gebruikt: eronder komen vanzelf
+  // blokken, erboven het loopdek. Zo sluit een loopdek altijd meteen aan, en bouw je in één klik per vak een gelaagde
+  // loopstad: blok-voor-blok omhoog via een helling, of een heel dek verder uitbreiden naast wat er al ligt.
+  function loopdekHoogte(q, r) {
+    let best = 0;
+    for (let k = 0; k < 6; k++) {
+      const nq = q + NEIGH[k][0], nr = r + NEIGH[k][1];
+      if (!cells.has(key(nq, nr))) continue;
+      for (const f of ifacesOfColumn(nq, nr)) {
+        if (f.passive || f.y <= best) continue;
+        if ((f.sides >> ((k + 3) % 6)) & 1) best = f.y;
+      }
+    }
+    return best;
+  }
+  // De blokken die voor dit vak op de stapel komen: gewoon een loopdek, of (op een leeg vak, met een passende buur)
+  // eerst blok tot de goede hoogte en dan het loopdek erbovenop.
+  function loopdekStuk(q, r) {
+    if (stackOf(q, r).length) return ['looppad'];
+    const h = loopdekHoogte(q, r);
+    return h ? [...Array(Math.round(h / 3)).fill('blok'), 'looppad'] : ['looppad'];
+  }
   function pathHas(q, r, y, side) { const f = pathIfs.get(lk(q, r, y)); return !!f && ((f.sides >> side) & 1) === 1; }
   function computePathLinks() {
     const ifs = new Map();
