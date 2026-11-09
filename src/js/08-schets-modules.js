@@ -253,6 +253,7 @@
     void tf; return uit;
   }
   window.__aansluiten = () => showModuleGhost.aansluiten;   // voor de tests
+  window.__modRot = () => moduleRot;
   function aansluitGroep(lijst, y0) {   // gekleurde stroken net boven de rand (los van de diepte: altijd zichtbaar)
     const g = new THREE.Group();
     for (const e of lijst) { const N = e.bits.length || 1, mat = new THREE.MeshBasicMaterial({ color: e.goed ? '#3fcf6a' : '#ff4838', transparent: true, opacity: 0.95, depthTest: false });
@@ -260,7 +261,16 @@
         const l = Math.hypot(q[0] - p[0], q[1] - p[1]), box = new THREE.Mesh(new THREE.BoxGeometry(l, 0.18, 0.55), mat); box.position.set((p[0] + q[0]) / 2, e.y + 0.25 - y0, (p[1] + q[1]) / 2); box.rotation.y = -Math.atan2(q[1] - p[1], q[0] - p[0]); box.renderOrder = 8; g.add(box); } }
     return g;
   }
+  function besteDraai(mod, q0, r0, lv) {   // de draaiing waarin de module het best op de buren aansluit (meer groen, minder rood); bij gelijkspel blijft de huidige
+    const score = rot => { if (mv2CanPlace(mod, rot, q0, r0, lv)) return -1e9; const L = aansluiten(mod, rot, q0, r0, lv); return L.reduce((s, e) => s + (e.goed ? 2 : -1), 0); };
+    let best = moduleRot, bs = score(moduleRot); for (let k = 1; k < 6; k++) { const rot = (moduleRot + k) % 6, sc = score(rot); if (sc > bs) { bs = sc; best = rot; } }
+    return best;
+  }
   function showModuleGhost(q0, r0, lv = 0) {
+    if (Number.isInteger(q0) && modules[moduleSel] && modules[moduleSel].v === 2) {   // naar een nieuw vak: vanzelf goed draaien (R draait daarna nog met de hand)
+      const ak = moduleSel + ':' + (moduleMir ? 'm' : '') + ':' + q0 + ',' + r0 + ':' + lv;
+      if (ak !== showModuleGhost.autoKey) { showModuleGhost.autoKey = ak; const m0 = modules[moduleSel], m = moduleMir ? mv2Mirror(m0) : m0;
+        try { const rot = besteDraai(m, q0, r0, lv); if (rot !== moduleRot) { moduleRot = rot; showModuleGhost.autoDraai = (showModuleGhost.autoDraai || 0) + 1; if (typeof renderStrip === 'function') renderStrip(); } } catch (e) { /* geen buren of geen randen: niets */ } } }
     const mod0 = modules[moduleSel], mod = mod0 && moduleMir && mod0.v === 2 ? (showModuleGhost.mc && showModuleGhost.mc.src === mod0 && showModuleGhost.mc.sig === mod0._sig ? showModuleGhost.mc.m : (showModuleGhost.mc = { src: mod0, sig: mod0._sig, m: mv2Mirror(mod0) }).m) : mod0, kk = mod ? moduleSel + ':' + moduleRot + ':' + (moduleMir ? 'm' : '') + ':' + q0 + ',' + r0 + ':' + lv + ':' + mod.edges.length + ':' + (mod.cells || []).length + ':' + (mod.paths || []).length + ':' + (mod.tris || []).length : '';
     if (kk === moduleGhostKey) { moduleGhost.visible = !!mod; return; }
     moduleGhostKey = kk;
