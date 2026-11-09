@@ -135,7 +135,7 @@
     if (SC.on) { sculptEnd(); if (downInfo) downInfo.moved = true; }
     if (roadDrag.on) { roadDragEnd(); if (downInfo) downInfo.moved = true; }
     if (e.type === 'pointerup' && wasSingle && downInfo && !downInfo.moved && !downInfo.rotate && performance.now() - downInfo.t < 600) {
-      if (downInfo.right) eraseAt(e.clientX, e.clientY); else handleTap(e.clientX, e.clientY);
+      if (downInfo.right) eraseAt(e.clientX, e.clientY); else handleTap(e.clientX, e.clientY, e.ctrlKey);
     }
     if (pointers.size < 2) pinchPrev = null;
     if (pointers.size === 0) downInfo = null;

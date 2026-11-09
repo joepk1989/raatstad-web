@@ -50,6 +50,37 @@
   })();
   M.paverPlain = std({ color: '#8a5141' });
   M.stone = std({ color: '#bdb5a5' });
+  // Loopdek, materiaalvarianten (Ctrl+klik op een geplaatst loopdek schakelt door, zie LOOPDEK_VAR in 05): naast de
+  // klinkers (M.paver, hierboven) ook beton (een nette elevated vloer), hout (een loopbrug/vlonder-gevoel) en een
+  // stalen rooster (industrieel, passend bij een galerij door gebouwen heen).
+  M.loopBeton = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'); g.fillStyle = '#b4afa1'; g.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 500; i++) { const x = (hexH01(i, 1) * 128) | 0, y = (hexH01(i, 2) * 128) | 0, v = hexH01(i, 3); g.fillStyle = `rgba(${v > 0.5 ? '0,0,0' : '255,255,255'},${Math.abs(v - 0.5) * 0.3})`; g.fillRect(x, y, 1.3, 1.3); }
+    g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(0, 64); g.lineTo(128, 64); g.moveTo(64, 0); g.lineTo(64, 128); g.stroke();   // dilatatievoegen
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 1.4, 1 / 1.4); t.anisotropy = aniso;
+    return std({ map: t, roughness: 0.92 });
+  })();
+  M.loopHout = (() => {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 96;
+    const g = c.getContext('2d'), rows = 6, bh = c.height / rows;
+    for (let row = 0; row < rows; row++) {
+      const v = hexH01(row, 7);
+      g.fillStyle = `hsl(${26 + v * 8}, ${30 + v * 12}%, ${33 + v * 11}%)`; g.fillRect(0, row * bh, c.width, bh - 1.6);
+      g.strokeStyle = 'rgba(30,18,8,.3)'; g.lineWidth = 0.7;
+      for (let k = 0; k < 7; k++) { const x = k * c.width / 7 + (hexH01(row, k) - 0.5) * 5; g.beginPath(); g.moveTo(x, row * bh); g.lineTo(x, (row + 1) * bh - 1.6); g.stroke(); }
+    }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 0.9, 1 / 0.68); t.anisotropy = aniso;
+    return std({ map: t, roughness: 0.78 });
+  })();
+  M.loopStaal = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'); g.fillStyle = '#585f65'; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = '#363b3f'; g.lineWidth = 3; for (let i = -6; i <= 64; i += 10) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 64); g.stroke(); }
+    g.lineWidth = 2; for (let j = -6; j <= 64; j += 16) { g.beginPath(); g.moveTo(0, j); g.lineTo(64, j); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 0.32, 1 / 0.32); t.anisotropy = aniso;
+    return std({ map: t, roughness: 0.55, metalness: 0.6 });
+  })();
   M.rail = std({ color: '#3b4248', roughness: 0.5, metalness: 0.4 });
   M.hofWall = std({ color: '#93503b' });
   M.bench = std({ color: '#7a5a3c' });

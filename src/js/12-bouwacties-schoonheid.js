@@ -395,11 +395,22 @@
   }
   // Op een touchscreen eerst een voorbeeld tonen bij blokken met een richting: tik = voorbeeld, nog een tik = plaatsen
   let pendingKey = null, lastPickRes = null;
-  function handleTap(cx, cy) {
+  function handleTap(cx, cy, ctrl) {
     if (flyCam.on) return;   // cameramodus: niets bouwen of slopen
     if (tool === 'kies') { if (mode === 'build') kiesTap(cx, cy); return; }   // aanwijzen: opties voor een module of blok (15g)
     const res = pick(cx, cy); lastPickRes = res;
     if (!res) return;
+    // Ctrl+klik op een geplaatst loopdek: volgend materiaal (klinkers → beton → hout → stalen rooster → weer klinkers),
+    // in plaats van plaatsen of stapelen (LOOPDEK_VAR_NAMEN/loopdekVar, 05)
+    if (ctrl && tool === 'looppad' && mode === 'build' && res.place) {
+      const [q, r] = res.place, st = stackOf(q, r), top = st[st.length - 1];
+      if (top && baseOf(top) === 'looppad') {
+        const nv = (loopdekVar(top) + 1) % LOOPDEK_VAR_NAMEN.length;
+        st[st.length - 1] = nv ? 'looppad' + nv : 'looppad';
+        rebuildAround(q, r); changed(); toast('Loopdek: ' + LOOPDEK_VAR_NAMEN[nv], 1400);
+        return;
+      }
+    }
     if (coarse && DIRECTIONAL.has(tool) && mode === 'build') {
       const [q, r] = res.place, k = key(q, r), st = stackOf(q, r), top = st[st.length - 1];
       if (top && baseOf(top) === tool) { pendingKey = null; place(q, r); return; }

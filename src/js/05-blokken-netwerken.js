@@ -25,6 +25,12 @@
     });
     return out;
   }
+  // ---------- Loopdek: materiaal (klinkers, beton, hout, een stalen rooster) ----------
+  // Bewaard als een cijfer achter 'looppad' (looppad1, looppad2, …), net als de richting bij een helling — alleen is
+  // dit geen richting maar welk materiaal. Ctrl+klik op een geplaatst loopdek schakelt door (handleTap, 12).
+  const LOOPDEK_VAR_NAMEN = ['Klinkers', 'Beton', 'Hout', 'Stalen rooster'];
+  const loopdekVar = t => +((/\d+$/.exec(t) || ['0'])[0]) % LOOPDEK_VAR_NAMEN.length;
+  const LOOPDEK_VAR = [M.paver, M.loopBeton, M.loopHout, M.loopStaal];
   // ---------- Op hoogte bouwen zonder zelf te stapelen: een gekozen laag, of (Loopdek) een buur die er op uitkomt ----------
   // Loopdek sluit vanzelf aan op een buurvak: het boveneind van een helling/trap/trappad/tribune/opgang in die richting,
   // of een ander loopdek dat er al ligt (altijd aan alle kanten open). De hoogste zo'n hoogte van de zes buren wordt
@@ -458,7 +464,7 @@
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.solids[n], top: baseY + 3, bottom: baseY });
     });
     if (b === 'looppad' && geos.floor) {
-      addMesh(geos.floor, [M.paver, M.kerb]);
+      addMesh(geos.floor, [LOOPDEK_VAR[loopdekVar(t)], M.kerb]);
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
     }
     if (b === 'helling') {
