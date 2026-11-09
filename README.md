@@ -232,6 +232,14 @@ Afspraak voor een gelaagde stad (november 2026): een pad komt aan het **midden v
 
 In de Raatmaker laat **Controle** (Shift+C) langs elke buitenzijde van de verdieping een strook zien: groen = pad, blauw = hele zijde, oranje = deur, rood = afwijkend; de melding telt ze. In de bibliotheek (168 modules) wijken er 7 af, allemaal details (kade, steiger, woonboot, amfitheater, tankstation, twee winkelcentrum-stukken). Test: `test/visueel/mm_randen.js`.
 
+## Paden uit de Modulekaart (08m2-paden.js)
+De nieuwe padstukken uit de SketchUp-bibliotheek (Modulekaart) zijn echte Raatmaker-modules in de categorie **Paden**, op het raster van 1,125 m en volgens de afspraak voor aansluiten. Portie 1 (paden op de grond, 21 stuks): Pad (recht, flauwe en scherpe bocht, Y-splitsing, zijtak, kruising, ster, doodlopend met boom, rondgang met boom, rotonde met plantvak, bocht met bankje), Fietspad (recht, met voetpad, flauwe bocht, Y-splitsing), Steeg (pad tussen muren, overdekte doorgang) en Plein (zeshoek met boom, bankjes langs de rand, speelplek met zandbak, waterplein met stapstenen).
+- De omzetting (`padModule`) leest de vlakken uit `SKP_MODS` (kleur, hoogte, soort) en kiest per driehoek de vloer: pad → beige zeshoekstenen, fietspad → klinkers, gras, water, zand en plantvak → natuursteen, zandbakrand → hout.
+- Paden worden verbreed tot ze aan de rand **4,5 m** breed aankomen; hoeveel er bij moet wordt per stuk aan de rand gemeten (een SketchUp-pad is 3 m, een fietspad in de bocht 2,6 m). Bij fietspad met voetpad worden beide stroken 2,25 m. Een plein is tot aan de rand verhard (in SketchUp lag er een grasrand omheen).
+- Bomen en bankjes worden voorwerpen, de muren van de steeg rastermuren (0,75 m naar buiten, langs het bredere pad), de blokken van de overdekte doorgang massief met de doorgang op de begane grond en de overkapping van 3 tot 6 m.
+- Ze staan in de standaardbibliotheek (Standaard terugzetten) en komen één keer in een bewaarde bibliotheek (`raatstad-lib21`).
+Test: `test/visueel/paden.js`. Overzicht: `test/visueel/uit/paden_portie1.png`.
+
 ## Modulekaart: Diepte
 De Modulekaart (K) heeft naast **Gewoon** en **Lopen** de weergave **Diepte**: elk stuk schuin van voren, hogere vlakken hoger in beeld met een randje eronder, en een kleur per hoogte (grond blauwgrijs, 1,5 m blauwgroen, 3 m groen, 4,5 m geel, 6 m oranje, 9 m en hoger rood-oranje), met een legenda. Laag en achter wordt eerst getekend. Zo zie je bij bruggen, trappen en hellingen wat boven wat ligt. De fortpagina (Winkelcentrum) toont bij Diepte de gewone 3D-weergave. Test: `test/visueel/modulekaart_diepte.js`.
 
