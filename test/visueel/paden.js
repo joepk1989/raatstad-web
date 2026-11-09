@@ -1,7 +1,7 @@
 // Paden uit de Modulekaart als Raatmaker-modules (portie 1, 08m2-paden.js): de 21 nieuwe grondstukken (pad, fietspad,
 // steeg, plein) staan in de bibliotheek onder Paden, sluiten aan volgens de afspraak (mv2Randen: pad 4,5 m in het midden
 // van de zijde, of een hele zijde), de controle van de Raatmaker vindt niets, een bestaande bibliotheek krijgt ze één keer
-// (lib21), en een klein padennet in de stad. Screenshots: paden_stad.png, paden_raatmaker.png
+// (lib21), oude paden worden vervangen door de strakke (lib22), en een klein padennet in de stad. Screenshots: paden_stad.png, paden_raatmaker.png
 const { open, OUT, testModules } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
@@ -32,6 +32,11 @@ const { open, OUT, testModules } = require('./helper');
   await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await testModules(p);
   const L2 = await lijst(); await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); const L3 = await lijst();
   zeg(L2.length === 21 && L3.length === 21, 'bestaande bibliotheek: één keer erbij', L2.length + ' → na nog eens laden ' + L3.length);
+  // lib22: een bibliotheek met de oude (rafelige) paden krijgt één keer de nieuwe, met strakke randen (gereedschap Pad)
+  await p.evaluate(() => { for (const m of window.__mods) if (m.cat === 'Paden') for (const L of m.lv) { delete L.fk; delete L.f2; } window.__saveMods(); localStorage.removeItem('raatstad-lib22'); });
+  await p.reload({ timeout: 240000 }); await p.waitForTimeout(2500); await p.evaluate(() => document.querySelector('#welcomeGo')?.click());
+  const l22 = await p.evaluate(() => { const P = window.__mods.filter(m => m.cat === 'Paden'); return { n: P.length, strak: P.filter(m => Object.keys(m.lv[0].fk || {}).length).length, lib: [...new Set(P.map(m => m.lib))] }; });
+  zeg(l22.n === 21 && l22.strak >= 17 && l22.lib.join() === '22', 'oude paden vervangen door strakke (lib22)', l22);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
 })();
