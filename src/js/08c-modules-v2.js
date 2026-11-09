@@ -152,6 +152,7 @@
     MV2M = { fl, wl, ceiling: M.ceiling, slab: M.concrete, frame: M.alu, trim: M.trim, roof: M.roofTile, step: M.stone, rampTop: M.paverPlain, trunk: M.trunk, leaf: M.leaf, bench: M.bench, lamp: M.lampOff, lampGlow: new THREE.MeshBasicMaterial({ color: '#ffe6a8' }), water: M.water, bin: M.tlBody, metal: M.alu };
     return MV2M;
   }
+  window.__MV2M = () => mv2Mats();   // voor de tests (overlap.js: welke materialen vechten)
   // ---------- Bouwen: geometrie en botsing voor één module ----------
   // tf(x, z) zet lokale coördinaten om naar de plek in de wereld (gedraaid en verschoven). Teruggegeven worden een
   // groep (al in wereldcoördinaten), loopvlakken per verdieping (kind 'tris') en muren voor de botsing.
@@ -394,6 +395,14 @@
       const W = tf(mx, mz), W2 = tf(mx + dx / l, mz + dz / l), ang = Math.atan2(-(W2[1] - W[1]), W2[0] - W[0]);
       g.rotateY(ang); g.translate(W[0], (y0 + y1) / 2, W[1]); put(mat, g);
     };
+    // rand van een vloerplaat: één staand vlak precies op de rand, naar buiten gekeerd (van de kant van punt c af). Geen boven- en
+    // onderkant: die liggen al in de vloer en het plafond, en twee vlakken op dezelfde plek flikkeren (z-fighting).
+    const randVlak = (mat, a, b, y0, y1, c) => {
+      let A = tfp(a), B = tfp(b); const C = tfp(c); if ((C[0] - A[0]) * -(B[1] - A[1]) + (C[1] - A[1]) * (B[0] - A[0]) > 0) [A, B] = [B, A];   // normaal (−dz, dx) moet van c af wijzen
+      const l = Math.hypot(B[0] - A[0], B[1] - A[1]), g = new THREE.BufferGeometry(), u0 = (A[0] + A[1]) * 0.5;
+      g.setAttribute('position', new THREE.Float32BufferAttribute([A[0], y0, A[1], B[0], y0, B[1], B[0], y1, B[1], A[0], y0, A[1], B[0], y1, B[1], A[0], y1, A[1]], 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute([u0, y0, u0 + l, y0, u0 + l, y1, u0, y0, u0 + l, y1, u0, y1], 2)); g.computeVertexNormals(); put(mat, g);
+    };
     // plaat met een (bolle) veelhoek als bovenvlak, van yb tot yt (bordes, overloop)
     const slabPoly = (mat, P, yb, yt) => {
       const Wd = P.map(tfp), n = Wd.length, cx = Wd.reduce((s, p) => s + p[0], 0) / n, cz = Wd.reduce((s, p) => s + p[1], 0) / n, cy = (yb + yt) / 2, pos = [], v = (p, y) => [p[0], y, p[1]];
@@ -465,8 +474,11 @@
         put(Mt.fl[mat] || Mt.fl.concrete, triGeo(byMat[mat], top));
         if (lifted && mat !== 'glass' && !far) put(Mt.ceiling, triGeo(byMat[mat], y0 - MV2.FLOOR_T, false));
       }
+      // staat de vloer op massief (de verdieping eronder is daar dicht), dan is de zijkant van het massief de rand: geen randvlak
+      // ervoor, anders liggen er twee vlakken op elkaar (flikkerende streep langs de bovenrand van een plateau)
+      const Lo = li > 0 ? m.lv[li - 1] : null, opMassief = v => { if (!Lo || !Lo.v) return false; const cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3, fi = cx / (ts * SQ3 / 2), fj = cz / ts - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return !!Lo.v[i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1)]; };
       if (lifted) {   // randen van de vloerplaat: een zijkant van 22 cm waar geen buurdriehoek ligt
-        for (const mat in byMat) for (const v of byMat[mat]) for (const [p, q] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) if (edgeCnt.get(eid(p, q)) === 1) wallBox(Mt.slab, p, q, y0 - MV2.FLOOR_T, y0 + 0.02, 0.06);
+        for (const mat in byMat) for (const v of byMat[mat]) for (const [p, q] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) if (edgeCnt.get(eid(p, q)) === 1 && !opMassief(v)) randVlak(Mt.slab, p, q, y0 - MV2.FLOOR_T, y0 + 0.02, [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]);
       }
       // --- massief (L.v): dichte zuilen van deze vloer tot de verdieping erboven, bijv. een opgevuld plateau of een betonnen pijler.
       // Zijkanten alleen waar het massief ophoudt (textuur in meters, zoals muren); een bovenvlak alleen waar erboven geen vloer
@@ -543,7 +555,7 @@
           continue;
         }
         if (W.h && W.h < LH - 0.01) {   // halve wand of laag muurtje: een blok tot W.h, met een smalle afdekrand; geen opening
-          wallBox(mat, a, b, y0, y0 + W.h, T); if (!far) wallBox(Mt.trim, a, b, y0 + W.h - 0.05, y0 + W.h, T + 0.06); addWall(a, b, y0, y0 + W.h); continue;
+          wallBox(mat, a, b, y0, y0 + W.h - (far ? 0 : 0.05), T); if (!far) wallBox(Mt.trim, a, b, y0 + W.h - 0.05, y0 + W.h, T + 0.06);   /* de muur stopt waar de afdekrand begint: geen twee bovenvlakken op dezelfde hoogte */ addWall(a, b, y0, y0 + W.h); continue;
         }
         const o = W.o || '', isGlass = W.m === 'glass';
         if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
@@ -552,7 +564,7 @@
           if (o === 'window' && !isGlass) { const ow2 = Math.max(0.6, len - 0.8), g0 = (len - ow2) / 2 / len; farWin(lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.9, y0 + 2.15, T / 2 + 0.015); }
           continue;
         }
-        if (!o) { wallBox(mat, a, b, y0, y0 + LH, isGlass ? 0.06 : T); if (isGlass) { wallBox(Mt.frame, a, b, y0, y0 + 0.12, T); wallBox(Mt.frame, a, b, y0 + LH - 0.12, y0 + LH, T); } addWall(a, b, y0, y0 + LH); continue; }
+        if (!o) { wallBox(mat, a, b, y0 + (isGlass ? 0.1 : 0), y0 + LH - (isGlass ? 0.1 : 0), isGlass ? 0.06 : T); if (isGlass) {   /* glas: de randen zitten in de metalen banden */ wallBox(Mt.frame, a, b, y0, y0 + 0.12, T); wallBox(Mt.frame, a, b, y0 + LH - 0.12, y0 + LH, T); } addWall(a, b, y0, y0 + LH); continue; }
         // opening: breedte en hoogte, posten links en rechts, latei erboven, bij een raam ook een borstwering
         const ow = o === 'door' ? Math.min(1.2, len - 0.6) : o === 'window' ? Math.max(0.6, len - 0.8) : o === 'gate' ? Math.max(1.5, len - 0.5) : len - 0.3;
         const oy0 = o === 'window' ? 0.9 : 0, oy1 = o === 'door' ? 2.2 : o === 'window' ? 2.15 : o === 'gate' ? 2.8 : LH - 0.3;
@@ -560,13 +572,13 @@
         if (f0 > 0.01) { wallBox(mat, a, p0, y0, y0 + LH, T); wallBox(mat, p1, b, y0, y0 + LH, T); addWall(a, p0, y0, y0 + LH); addWall(p1, b, y0, y0 + LH); }
         if (oy1 < LH - 0.01) { wallBox(mat, p0, p1, y0 + oy1, y0 + LH, T); addWall(p0, p1, y0 + oy1, y0 + LH); }
         if (oy0 > 0.01) { wallBox(mat, p0, p1, y0, y0 + oy0, T); addWall(p0, p1, y0, y0 + oy0); }
-        if (o === 'window') { wallBox(Mt.frame, p0, p1, y0 + oy0 - 0.04, y0 + oy0 + 0.04, T + 0.1); wallBox(Mt.frame, p0, p1, y0 + oy1 - 0.04, y0 + oy1 + 0.04, T); for (const p of [p0, p1]) wallBox(Mt.frame, p, lerp(p, p === p0 ? p1 : p0, 0.04 / ow), y0 + oy0, y0 + oy1, T); wallBox(M.pane, p0, p1, y0 + oy0, y0 + oy1, 0.02); }
+        if (o === 'window') { const q0 = lerp(p0, p1, -0.01 / ow), q1 = lerp(p1, p0, -0.01 / ow); wallBox(Mt.frame, q0, q1, y0 + oy0 - 0.04, y0 + oy0 + 0.04, T + 0.1); wallBox(Mt.frame, q0, q1, y0 + oy1 - 0.04, y0 + oy1 + 0.04, T + 0.02);   /* dorpel en bovenregel 1 cm de muur in */ for (const p of [p0, p1]) { const o2 = p === p0 ? p1 : p0; wallBox(Mt.frame, lerp(p, o2, -0.01 / ow), lerp(p, o2, 0.04 / ow), y0 + oy0 + 0.04, y0 + oy1 - 0.04, T + 0.02); } wallBox(M.pane, lerp(p0, p1, 0.02 / ow), lerp(p1, p0, 0.02 / ow), y0 + oy0 + 0.02, y0 + oy1 - 0.02, 0.02); }   // kozijn 1 cm voor de muur uit; de randen van het glas zitten in het kozijn: nergens twee vlakken op elkaar
         if (o === 'door') {   // deurblad (09b): alleen in een buitenmuur (vloer aan één kant), naar binnen draaiend; deuren tussen kamers krijgen geen blad
           const mx = (p0[0] + p1[0]) / 2, mz = (p0[1] + p1[1]) / 2, nlx = -(p1[1] - p0[1]) / ow, nlz = (p1[0] - p0[0]) / ow, sA = floorAtL(mx + nlx * 0.7, mz + nlz * 0.7), sB = floorAtL(mx - nlx * 0.7, mz - nlz * 0.7);
           if (sA !== sB) { const A = tfp(p0), B = tfp(p1), tl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, Mw = tfp([mx, mz]), Nw = tfp([mx + nlx * (sA ? 1 : -1), mz + nlz * (sA ? 1 : -1)]), nl = Math.hypot(Nw[0] - Mw[0], Nw[1] - Mw[1]) || 1;
             doorsOut.push({ hx: A[0], hz: A[1], y: y0, w: tl, h: oy1, tx: (B[0] - A[0]) / tl, tz: (B[1] - A[1]) / tl, inx: (Nw[0] - Mw[0]) / nl, inz: (Nw[1] - Mw[1]) / nl, col: W.m === 'glass' || W.m === 'curtain' ? '#2b3a44' : W.m === 'wood' || W.m === 'slats' ? '#4a2e18' : '#5a3a22' }); }
-          wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.06, y0 + oy1, T + 0.08); for (const p of [p0, p1]) wallBox(Mt.trim, p, lerp(p, p === p0 ? p1 : p0, 0.06 / ow), y0, y0 + oy1, T + 0.08); }
-        if (o === 'gate') { wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.1, y0 + oy1, T + 0.1); }
+          wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.06, y0 + oy1 - 0.002, T + 0.08); for (const p of [p0, p1]) { const o2 = p === p0 ? p1 : p0; wallBox(Mt.trim, lerp(p, o2, -0.01 / ow), lerp(p, o2, 0.06 / ow), y0 + 0.002, y0 + oy1 - 0.062, T + 0.08); } }   // posten 1 cm de muur in
+        if (o === 'gate') { wallBox(Mt.trim, p0, p1, y0 + oy1 - 0.1, y0 + oy1 - 0.002, T + 0.1); }
       }
       if (farWalls.length) {   // ver weg: aaneensluitende stukken in dezelfde richting en van hetzelfde materiaal worden één blok
         const pk = p => Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100), starts = new Map(), used = new Set();
@@ -826,7 +838,7 @@
           case 'planter': col(Mt.slab, 0.75, 0.65, 0.5, 0, 0, 0, 8); place(Mt.leaf[2], new THREE.IcosahedronGeometry(0.55, 0).scale(1.2, 0.7, 1.2).translate(0, 0.75, 0)); for (let i = 0; i < 5; i++) { const a = i * 1.26, c = ['#e64a3c', '#f2b233', '#e9e6dc', '#d05a9a', '#f28c33'][i]; place(new THREE.MeshBasicMaterial({ color: c }), new THREE.SphereGeometry(0.09, 5, 4).translate(Math.cos(a) * 0.4, 0.95, Math.sin(a) * 0.4)); } solid(0.75, 1); break;
           case 'fountain': col(Mt.wl.stone, 1.8, 1.9, 0.5, 0, 0, 0, 12); col(Mt.water, 1.6, 1.6, 0.1, 0, 0.42, 0, 12); col(Mt.wl.stone, 0.12, 0.18, 1.3, 0, 0.4, 0, 8); col(Mt.wl.stone, 0.6, 0.5, 0.12, 0, 1.6, 0, 10); solid(1.9, 0.6); break;
           case 'bin': col(Mt.bin, 0.25, 0.22, 0.9, 0, 0, 0, 8); solid(0.25, 0.9); break;
-          case 'shelf': { box(Mt.wl.panel, 2.4, 1.9, 0.5, 0, 0.95, 0); for (const y of [0.45, 0.95, 1.45]) box(Mt.slab, 2.3, 0.04, 0.46, 0, y, 0.02); for (let i = 0; i < 6; i++) { const k = (hj + i * 37) % 5; box(new THREE.MeshStandardMaterial({ color: ['#d94b3a', '#3a7fd9', '#e9c04a', '#48a35a', '#e6e1d8'][k], roughness: 0.8 }), 0.32, 0.26, 0.3, -1 + i * 0.4, 0.45 + 0.5 * (i % 3) + 0.13, 0.04); } solidLen(2.4, 0.27, 1.9); break; }
+          case 'shelf': { box(Mt.wl.panel, 2.4, 1.9, 0.5, 0, 0.95, 0); for (const y of [0.45, 0.95, 1.45]) box(Mt.slab, 2.3, 0.04, 0.44, 0, y, 0.01); for (let i = 0; i < 6; i++) { const k = (hj + i * 37) % 5; box(new THREE.MeshStandardMaterial({ color: ['#d94b3a', '#3a7fd9', '#e9c04a', '#48a35a', '#e6e1d8'][k], roughness: 0.8 }), 0.32, 0.26, 0.3, -1 + i * 0.4, 0.45 + 0.5 * (i % 3) + 0.13, 0.04); } solidLen(2.4, 0.27, 1.9); break; }
           case 'counter': box(Mt.wl.slats, 2.2, 1.0, 0.7, 0, 0.5, 0); box(Mt.slab, 2.3, 0.05, 0.8, 0, 1.02, 0); box(Mt.metal, 0.35, 0.3, 0.3, 0.6, 1.2, 0); solidLen(2.2, 0.37, 1.05); break;
           case 'sign': { col(Mt.metal, 0.05, 0.06, 2.6, 0, 0, 0, 6); box(Mt.metal, 1.6, 0.6, 0.08, 0, 2.6, 0); box(new THREE.MeshBasicMaterial({ color: ['#ff4f6d', '#39b6ff', '#ffd23f', '#5de07a'][hj % 4] }), 1.5, 0.5, 0.1, 0, 2.6, 0); solid(0.1, 2.9); break; }
           case 'bike': for (let i = -2; i <= 2; i++) { box(Mt.metal, 0.04, 0.6, 0.6, i * 0.5, 0.3, 0); } box(Mt.metal, 2.3, 0.04, 0.04, 0, 0.6, 0.28); box(Mt.metal, 2.3, 0.04, 0.04, 0, 0.6, -0.28); solidLen(2.4, 0.32, 0.7); break;
