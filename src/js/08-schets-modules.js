@@ -254,6 +254,7 @@
   }
   window.__aansluiten = () => showModuleGhost.aansluiten;   // voor de tests
   window.__modRot = () => moduleRot;
+  window.__moduleGhost = () => ({ visible: moduleGhost.visible, kinderen: moduleGhost.children.length, y: moduleGhost.position.y });   // voor de tests: zie je het spookbeeld?
   function aansluitGroep(lijst, y0) {   // gekleurde stroken net boven de rand (los van de diepte: altijd zichtbaar)
     const g = new THREE.Group();
     for (const e of lijst) { const N = e.bits.length || 1, mat = new THREE.MeshBasicMaterial({ color: e.goed ? '#3fcf6a' : '#ff4838', transparent: true, opacity: 0.95, depthTest: false });
