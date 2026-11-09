@@ -24,7 +24,7 @@
     openings: { '': 'Dicht', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open' },
     objects: { tree: 'Boom', bush: 'Struik', bench: 'Bankje', lamp: 'Lantaarn', pillar: 'Zuil', table: 'Tafel', planter: 'Plantenbak', fountain: 'Fontein', bin: 'Prullenbak', bike: 'Fietsenrek', shelf: 'Winkelstelling', counter: 'Toonbank', sign: 'Lichtreclame',
       bed: 'Bed', sofa: 'Bank (binnen)', desk: 'Bureau', kitchen: 'Keukenblok', screen: 'Filmdoek', car: 'Auto', pump: 'Tankpomp', charger: 'Laadpaal', solar: 'Zonnepanelen', turbine: 'Windmolen', chimney: 'Schoorsteen', container: 'Container', goal: 'Doel', grave: 'Grafsteen', boat: 'Boot', shelter: 'Abri', slide: 'Glijbaan', swing: 'Schommel', sheep: 'Schaap' },
-    cats: ['Wonen', 'Werken', 'Winkels', 'Horeca', 'Winkelcentrum', 'Openbaar', 'Sport', 'Vervoer', 'Voorzieningen', 'Groen', 'Pleinen', 'Verbindingen', 'Bouwdelen', 'Overig'],
+    cats: ['Wonen', 'Werken', 'Winkels', 'Horeca', 'Winkelcentrum', 'Openbaar', 'Sport', 'Vervoer', 'Voorzieningen', 'Groen', 'Pleinen', 'Paden', 'Verbindingen', 'Bouwdelen', 'Overig'],
   };
   const mv2Ts = m => R / ([1, 2, 4, 8].includes(m.n) ? m.n : 4);
   const mv2P = (i, j, ts) => [i * ts * SQ3 / 2, i * ts / 2 + j * ts];
@@ -302,7 +302,7 @@
           const mx = (a[0] + b[0]) / 2 - f.nx * 0.15, mz = (a[1] + b[1]) / 2 - f.nz * 0.15, id = triAt(mx, mz), key = id.join(',');
           let vloer = false;
           if (L && L.f[key] && L.f[key] !== 'water' && !(li === 0 && GROEN.has(L.f[key]))) { const gat = (gaten[li] || []).some(h => { const g = h(mv2TriVerts(id[0], id[1], id[2], ts)); return g && (!g.keep || mx * g.keep[0] + mz * g.keep[1] < g.keep[2]); }); if (!gat) vloer = true; }
-          if (!vloer && Lo && Lo.v && Lo.v[key] && !(L && L.f[key])) vloer = true;   // bovenkant van massief op de verdieping eronder
+          if (!vloer && Lo && Lo.v && Lo.v[key] && !(L && L.f[key]) && !(L && L.v && L.v[key])) vloer = true;   // bovenkant van massief op de verdieping eronder
           if (!vloer && li > 0) for (const G of platen[li - 1] || []) { const h = G.at(mx, mz); if (h && Math.abs(h.y - LH) < 0.15) vloer = true; }   // helling van eronder komt hier boven uit
           for (const G of (L ? platen[li] : []) || []) { const h = G.at(mx, mz); if (!h) continue; if (Math.abs(h.y) < 0.15) vloer = true; else if (h.y < LH - 0.15) schuin.push(s); }
           const w = L ? muurOp(L, ij(...a), ij(...b)) : null, dicht = w && !RAND_OPEN.has(w.o || '') && !(w.h && w.h < 0.6);

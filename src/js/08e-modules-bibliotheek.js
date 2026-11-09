@@ -311,6 +311,7 @@
     libExtra(add);   // de 35 nieuwe basisgebouwen (08d9)
     libDorp(add);    // dorpshuizen voor het heuveldorp (08d9)
     libKantoor(add); // hoog kantoor met groen dak (08d9)
+    libPaden(add);   // paden uit de Modulekaart (08m2)
     return out;
   }
   // ---------- Voorbeeld: het winkelcentrum uit de SketchUp-schets (hex_mall), precies zoals getekend ----------
