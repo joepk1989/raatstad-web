@@ -523,8 +523,8 @@
     if (b === 'helling') {
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
       const floor = cached('hellingvloer' + d + upper, () => boxAt(f, 0, -INNER / 2, upper ? -0.075 : 0.025, 2 * W, upper ? 0.25 : 0.05, INNER));
-      addMesh(floor, M.paverPlain);
-      addMesh(rampGeo(f), [M.paverPlain, M.blockSide]);
+      addMesh(floor, M.paver);   // dezelfde klinkers als Steeg (was M.paverPlain, een vlakke kleur zonder textuur — viel uit de toon naast een getextureerde steeg)
+      addMesh(rampGeo(f), [M.paver, M.blockSide]);
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
@@ -586,7 +586,7 @@
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF, N = 16, run = RAMP_END / N, rise = 2.95 / N;
       const mask = (1 << d) | (1 << ((d + 3) % 6)), sh = channelShapes(mask), geos = channelGeos(mask, upper);
       geos.solids.forEach((g, n) => solid(sh.solids[n], g));
-      bag.put(M.paverPlain, boxAt(f, 0, -INNER / 2, upper ? -0.075 : 0.025, 2 * W, upper ? 0.25 : 0.05, INNER));
+      bag.put(M.paver, boxAt(f, 0, -INNER / 2, upper ? -0.075 : 0.025, 2 * W, upper ? 0.25 : 0.05, INNER));   // dezelfde klinkers als Steeg (was M.paverPlain)
       for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; bag.put(M.stone, boxAt(f, 0, (j + 0.5) * run, top / 2, 2 * W, top, run)); }
       bag.put(M.stone, boxAt(f, 0, (RAMP_END + INNER) / 2, 1.5, 2 * W, 3, INNER - RAMP_END));
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
@@ -616,7 +616,7 @@
           wallSeg(fk, -pc / SQ3, pc / SQ3, pc, T / 2);
         }
       }
-      addMesh(rampGeo(f), [M.paverPlain, M.blockSide]);
+      addMesh(rampGeo(f), [M.paver, M.blockSide]);   // dezelfde klinkers als Steeg (was M.paverPlain)
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -CH_HALF, u1: CH_HALF, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -CH_HALF, u1: CH_HALF, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
     }
