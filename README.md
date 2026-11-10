@@ -512,6 +512,26 @@ Het gereedschap heette **Looppad**: een vak dat beloopbaar is zoals Pad, maar va
 
 Daarnaast hebben de bordessen van de **Trap** nu ook de zeshoekige klinkers (`M.paver`; de treden blijven steen), en vangen meldingen (`.toast`) geen klikken meer op (`pointer-events: none`): een vervaagde melding onderaan het scherm hield eerder een klik op het speelveld tegen. Test: `test/visueel/paden_aansluiten.js` (het palet, pad naar steeg op 3 m, steeg naast een pad op 3 m, zelf van het pad de steeg op lopen).
 
+**Kavels (vul-elementen) langs een pad of steeg** (`path.rand`, `kavelsLangsPaden` in 07, november 2026). Het plan is: eerst de paden bouwen, dan de stukken ernaast invullen met huizen. Met Pad of Steeg (getekend) in de hand wisselt **Ctrl+klik op zo'n pad** wat er langs de kanten staat: niets → muurtjes → kavels → niets. Zonder keuze heeft een Steeg muurtjes en een Pad niets.
+- **Wat een kavel is:** precies het stuk van een zeshoek van het raster dat naast het pad overblijft, dus het vak min de strook van het pad en van andere paden of wegen op die hoogte die erdoor lopen. De randen blijven op het raster (de zijden van het vak) en langs de rand van het pad; niets schuift.
+- **Hoe hij wordt uitgerekend:** het vak wordt geknipt langs de randlijnen van elke strook, plus een kopse lijn voorbij een uiteinde. Een knip langs een rechte lijn houdt elk stuk convex. Daarna gaan de stukken weg die op een strook liggen, en stukjes kleiner dan 2,5 m². Een vak waar het pad recht doorheen gaat, geeft zo twee kavels: samen het vak min de strook. Bij een bocht, een eind of een aansluiting worden het er meer.
+- **Hoe hij eruitziet:** een plaat van 10 cm boven het pad, met de zijkanten tot in de grond en een dunne donkere rand bovenop. Je kunt erop lopen.
+- **Waar niet:** niet op een vak met een blok en niet op een brugdek.
+- **Opslag:** kavels worden bij elke volledige opbouw opnieuw uitgerekend uit de paden. Ze staan dus niet apart opgeslagen en volgen het pad vanzelf. De lijst staat in `pathGroup.userData.kavels` (`{ q, r, poly, y }`), als basis om ze later met huizen in te vullen.
+
+Eerder stonden hier zelfgemaakte rijtjeshuizen en daarna SketchUp-vulstukken (Gebouw · halve zeshoek aan de weg enz.). Die zijn eruit: de SketchUp-stukken zijn gemaakt voor een weg van 9 m breed, en om ze tegen een pad te krijgen moesten ze van het raster af. Oude vulstukken (`cells.skp` met `vul: 1`) worden bij het laden weggehaald. Test: `test/visueel/steeg_vul.js` (een steeg met een zijsteeg; controleert dat elke kavel binnen zijn zeshoek blijft, nergens op een pad ligt, de opening vrij laat, dat één vak precies het vak min de steeg is, en dat je de kavel op kunt lopen).
+
+De eerste versie zette hier zelfgemaakte rijtjeshuizen neer; die zijn eruit, het zijn nu alleen nog de stukken uit de Raatmaker. Test: `test/visueel/steeg_vul.js` (een steeg met een zijsteeg: stukken aan beide kanten, de opening blijft vrij, zelf tegen een stuk aan en de zijsteeg in lopen).
+
+**Strak op het raster van de Raatmaker** (november 2026): het getekende Pad en de getekende Steeg zijn nu **4,5 m breed** tot en met de rand (1,95 m klinkers per kant plus 0,3 m rand), net als een pad in de Raatmaker (`mv2PadLeggen`, 4,5 m). Bij een pad dat van vakmidden naar vakmidden loopt, vallen de randen dan precies op de rasterpunten van de zijden van het vak (de driehoekjes van 2,25 m). Ook de kavels liggen daardoor op dat raster. De muurtjes van de steeg eindigen precies op die rand.
+
+Wat er gedaan is om kleine foutjes te voorkomen:
+- **Dezelfde lijn:** de kavels gebruiken dezelfde vloeiende middenlijn als het getekende pad.
+- **Ronde koppen:** aan een uiteinde volgen ze de ronde kop, met raaklijnen om de 10°, dus hooguit 1 cm ernaast.
+- **Niets weggooien:** er worden geen stukjes meer weggegooid op grootte of met een marge. Alleen stukjes van bijna nul (onder 0,01 m²) vallen weg, en stukken die bij elkaar horen worden één kavel.
+- **Geen staartje:** een pad dat midden op een ander pad uitkomt, verliest zijn staartje van 0,15 m (`sluitPadenAan`). Anders steekt zijn ronde kop aan de overkant net uit.
+- **Test op gaatjes:** de test prikt in elk vak met kavels om de 25 cm een punt, en elk punt moet op een pad of een kavel liggen.
+
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).
 - **Totale chaos** (de oude knop "Roekeloos rijgedrag", intern nog `cars.reckless`): mensen rennen (×1,6–3,5), pauzeren en kletsen niet, schreeuwen af en toe (`sound.scream`, opnames in `assets/schreeuw.mp3`: paniek, korte kreten, een gruwelkreet bij een explosie en een kreet die bij het bloed hoort) en de spreekballonnen tonen paniek en verwarring (`PANIC`, plus brand- en instortzinnen als dat echt gebeurt).
