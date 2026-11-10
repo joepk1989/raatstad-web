@@ -33,20 +33,27 @@ const { open, OUT } = require('./helper');
     const S = window.__SC(); let K = []; S.scene.traverse(o => { if (o.userData && o.userData.kavels) K = K.concat(o.userData.kavels); });
     const opp = poly => { let a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
     const dseg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); return Math.hypot(a[0] + t * dx - x, a[1] + t * dz - z); };
-    const P = S.getCells().paths, randVan = p => p.t === 'steeg' ? 1.85 : 1.9;
+    const P = S.getCells().paths, randVan = () => 2.25;   // pad en steeg: 4,5 m breed, zoals een pad in de Raatmaker
     // binnen de zeshoek: elk punt binnen de zes zijden van zijn vak (pointy-top, R = 9)
     const inHex = (q, r, x, z) => { const c = S.cellToWorld(q, r), dx = x - c.x, dz = z - c.z; for (let i = 0; i < 6; i++) { const a = Math.PI / 2 - (i + 0.5) * Math.PI / 3; if (dx * Math.cos(a) + dz * Math.sin(a) > 9 * Math.sqrt(3) / 2 + 0.02) return false; } return true; };
-    let buiten = 0, opPad = 0; const dicht = []; for (const k of K) for (const p of k.poly) { if (!inHex(k.q, k.r, p[0], p[1])) buiten++; for (const o of P) for (let i = 0; i < o.p.length - 1; i++) if (dseg(p[0], p[1], o.p[i], o.p[i + 1]) < randVan(o) - 0.05) { opPad++; dicht.push([k.q, k.r, p, o.t, o.p[i], o.p[i + 1], +dseg(p[0], p[1], o.p[i], o.p[i + 1]).toFixed(2)]); } }
-    const vak = K.filter(k => k.q === -2 && k.r === 1), oppVak = vak.reduce((a, k) => a + opp(k.poly), 0), verwacht = 1.5 * Math.sqrt(3) * 81 - 2 * 1.85 * 9 * Math.sqrt(3);
+    let buiten = 0, opPad = 0; const dicht = []; for (const k of K) for (const X of k.delen) for (const p of X) { if (!inHex(k.q, k.r, p[0], p[1])) buiten++; for (const o of P) for (let i = 0; i < o.p.length - 1; i++) if (dseg(p[0], p[1], o.p[i], o.p[i + 1]) < randVan(o) - 0.05) { opPad++; dicht.push([k.q, k.r, p, o.t, o.p[i], o.p[i + 1], +dseg(p[0], p[1], o.p[i], o.p[i + 1]).toFixed(2)]); } }
+    const vak = K.filter(k => k.q === -2 && k.r === 1), oppVak = vak.reduce((a, k) => a + k.delen.reduce((b, X) => b + opp(X), 0), 0), verwacht = 1.5 * Math.sqrt(3) * 81 - 2 * 2.25 * 9 * Math.sqrt(3);
     const k0 = S.cellToWorld(0, 1);
-    return { dicht, kavels: K.length, vakken: new Set(K.map(k => k.q + ',' + k.r)).size, buiten, opPad, oppVak: +oppVak.toFixed(1), verwacht: +verwacht.toFixed(1), stukjesVak: vak.length,
-      opening: K.some(k => { const m = k.poly.reduce((a, p) => [a[0] + p[0] / k.poly.length, a[1] + p[1] / k.poly.length], [0, 0]); return Math.hypot(m[0] - (k0.x - 3.5 * 7.8 / 13.5), m[1] - (k0.z - 3.5)) < 1.5; }) }; });
+    // geen gaatjes: in elk vak met kavels ligt elk punt (om de 25 cm) op een pad of op een kavel
+    const inPoly = (X, x, z) => { let bin = false; for (let i = 0, j = X.length - 1; i < X.length; j = i++) { const a = X[i], b = X[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) bin = !bin; } return bin; };
+    const gaten = []; for (const key of new Set(K.map(k => k.q + ',' + k.r))) { const [q, r] = key.split(',').map(Number), c = S.cellToWorld(q, r), hier = K.filter(k => k.q === q && k.r === r);
+      for (let dx = -8; dx <= 8; dx += 0.25) for (let dz = -9; dz <= 9; dz += 0.25) { const x = c.x + dx, z = c.z + dz; if (!inHex(q, r, x, z) || !inHex(q, r, x + 0.06, z) || !inHex(q, r, x - 0.06, z) || !inHex(q, r, x, z + 0.06) || !inHex(q, r, x, z - 0.06)) continue;
+        if (P.some(o => o.p.some((_, i) => i < o.p.length - 1 && dseg(x, z, o.p[i], o.p[i + 1]) < randVan(o) + 0.03))) continue;
+        if (hier.some(k => k.delen.some(X => inPoly(X, x, z)))) continue; gaten.push([+x.toFixed(2), +z.toFixed(2)]); } }
+    return { gaten: gaten.length, gatVb: gaten.slice(0, 5), dicht, kavels: K.length, vakken: new Set(K.map(k => k.q + ',' + k.r)).size, buiten, opPad, oppVak: +oppVak.toFixed(1), verwacht: +verwacht.toFixed(1), stukjesVak: vak.length,
+      opening: K.some(k => k.delen.some(X => { const m = X.reduce((a, p) => [a[0] + p[0] / X.length, a[1] + p[1] / X.length], [0, 0]); return Math.hypot(m[0] - (k0.x - 3.5 * 7.8 / 13.5), m[1] - (k0.z - 3.5)) < 1.5; })) }; });
   console.log(JSON.stringify(r));
   zeg(r.kavels >= 10 && r.vakken >= 8, 'kavels langs de steeg', { kavels: r.kavels, vakken: r.vakken });
   zeg(r.buiten === 0, 'elke kavel blijft binnen zijn zeshoek (op het raster)', r.buiten);
   zeg(r.opPad === 0, 'geen kavel op een pad (ook niet op de zijsteeg)', r.opPad);
   zeg(Math.abs(r.oppVak - r.verwacht) < 1 && r.stukjesVak === 2, 'een vak waar de steeg recht doorheen gaat: twee kavels, samen precies het vak min de steeg', { opp: r.oppVak, verwacht: r.verwacht, stukken: r.stukjesVak });
   zeg(!r.opening, 'bij de zijsteeg geen kavel: de opening blijft vrij', r.opening);
+  zeg(r.gaten === 0, 'geen gaatjes: in elk vak met kavels ligt elk punt op een pad of een kavel', { gaten: r.gaten, bv: r.gatVb });
   // pad: Ctrl+klik geeft muurtjes
   await p.evaluate(() => window.__SC().selectTool('vpad')); await sleep([[-4, 4], [2, 4]], []);
   await ctrlKlik(-1, 4);

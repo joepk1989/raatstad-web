@@ -523,6 +523,15 @@ Eerder stonden hier zelfgemaakte rijtjeshuizen en daarna SketchUp-vulstukken (Ge
 
 De eerste versie zette hier zelfgemaakte rijtjeshuizen neer; die zijn eruit, het zijn nu alleen nog de stukken uit de Raatmaker. Test: `test/visueel/steeg_vul.js` (een steeg met een zijsteeg: stukken aan beide kanten, de opening blijft vrij, zelf tegen een stuk aan en de zijsteeg in lopen).
 
+**Strak op het raster van de Raatmaker** (november 2026): het getekende Pad en de getekende Steeg zijn nu **4,5 m breed** tot en met de rand (1,95 m klinkers per kant plus 0,3 m rand), net als een pad in de Raatmaker (`mv2PadLeggen`, 4,5 m). Bij een pad dat van vakmidden naar vakmidden loopt, vallen de randen dan precies op de rasterpunten van de zijden van het vak (de driehoekjes van 2,25 m). Ook de kavels liggen daardoor op dat raster. De muurtjes van de steeg eindigen precies op die rand.
+
+Wat er gedaan is om kleine foutjes te voorkomen:
+- **Dezelfde lijn:** de kavels gebruiken dezelfde vloeiende middenlijn als het getekende pad.
+- **Ronde koppen:** aan een uiteinde volgen ze de ronde kop, met raaklijnen om de 10°, dus hooguit 1 cm ernaast.
+- **Niets weggooien:** er worden geen stukjes meer weggegooid op grootte of met een marge. Alleen stukjes van bijna nul (onder 0,01 m²) vallen weg, en stukken die bij elkaar horen worden één kavel.
+- **Geen staartje:** een pad dat midden op een ander pad uitkomt, verliest zijn staartje van 0,15 m (`sluitPadenAan`). Anders steekt zijn ronde kop aan de overkant net uit.
+- **Test op gaatjes:** de test prikt in elk vak met kavels om de 25 cm een punt, en elk punt moet op een pad of een kavel liggen.
+
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).
 - **Totale chaos** (de oude knop "Roekeloos rijgedrag", intern nog `cars.reckless`): mensen rennen (×1,6–3,5), pauzeren en kletsen niet, schreeuwen af en toe (`sound.scream`, opnames in `assets/schreeuw.mp3`: paniek, korte kreten, een gruwelkreet bij een explosie en een kreet die bij het bloed hoort) en de spreekballonnen tonen paniek en verwarring (`PANIC`, plus brand- en instortzinnen als dat echt gebeurt).

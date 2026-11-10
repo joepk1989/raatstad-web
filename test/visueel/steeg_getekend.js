@@ -26,7 +26,7 @@ const { open, OUT } = require('./helper');
   await sleep([[0, -3], [0, 1]], []);   // zijsteeg die op de eerste uitkomt: een T
   await sleep([[3, -3], [3, 1], [3, 5]], [4, -4]);   // over de eerste heen, 6 m hoog
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'steeg'), D = window.__modDbg();
-    const a = S.cellToWorld(-3, 1), k = S.cellToWorld(0, 1), w3 = S.cellToWorld(3, 1), muur = 1.5 + 0.17;
+    const a = S.cellToWorld(-3, 1), k = S.cellToWorld(0, 1), w3 = S.cellToWorld(3, 1), muur = 1.9 + 0.17;
     const bl = (x, z) => D.blockedAt(x, z, 0.1);
     return { n: P.length,
       muurNaast: bl(a.x, a.z + muur) && bl(a.x, a.z - muur), midden: bl(a.x, a.z), tOpen: bl(k.x - muur * 7.8 / 13.5, k.z - muur), tOverkant: bl(k.x, k.z + muur),
@@ -48,7 +48,7 @@ const { open, OUT } = require('./helper');
     return p.evaluate(() => { const P = window.__SC().player; return [P.x, P.z]; }); };
   const a = await p.evaluate(() => { const w = window.__SC().cellToWorld(-3, 1); return [w.x, w.z]; });
   const naMuur = await loop(a, Math.PI, 4000);   // yaw π: naar +z (dwars op de steeg)
-  zeg(Math.abs(naMuur[1] - a[1]) < 1.5, 'dwars lopen: het muurtje houdt je tegen', { dz: +(naMuur[1] - a[1]).toFixed(2) });
+  zeg(Math.abs(naMuur[1] - a[1]) < 2.0, 'dwars lopen: het muurtje houdt je tegen', { dz: +(naMuur[1] - a[1]).toFixed(2) });
   const k = await p.evaluate(() => { const w = window.__SC().cellToWorld(0, 1); return [w.x, w.z]; });
   const naT = await loop(k, Math.PI / 6, 6000);   // yaw π/6: richting (−0,5; −0,87), de zijsteeg in (naar vak 0,-3)
   zeg(k[1] - naT[1] > 3, 'bij de T loop je de zijsteeg in', { dz: +(naT[1] - k[1]).toFixed(2) });
