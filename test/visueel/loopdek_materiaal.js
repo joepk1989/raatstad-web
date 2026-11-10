@@ -29,7 +29,9 @@ const { open, OUT } = require('./helper');
     await p.keyboard.down('Control'); await p.mouse.click(s0[0], s0[1]); await p.keyboard.up('Control'); await p.waitForTimeout(350);
     uitkomst.push((await p.evaluate(() => window.__SC().getCells().get('0,0'))).join());
   }
-  zeg(JSON.stringify(uitkomst) === JSON.stringify(['looppad1', 'looppad2', 'looppad3', 'looppad']), 'Ctrl+klik 4×: beton → hout → staal → weer klinkers (rondgaand)', uitkomst);
+  // materiaal zit in het eerste cijfer (looppad1 of looppad10 zijn allebei beton; geen plein hier dus hofje blijft 0)
+  const matVan = t => +((/(\d)\d?$/.exec(t) || ['0', '0'])[1]);
+  zeg(JSON.stringify(uitkomst.map(matVan)) === JSON.stringify([1, 2, 3, 0]), 'Ctrl+klik 4×: beton → hout → staal → weer klinkers (rondgaand)', uitkomst);
   await p.screenshot({ path: OUT + '/loopdek_materiaal.png' });
 
   // de materialen zijn ook echt anders: vier losse schermafdrukken, van dichtbij
