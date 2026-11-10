@@ -731,6 +731,16 @@
   // een beloopbare vloer op dezelfde hoogte (Steeg, Helling, Trap, Hof … — blokAanHoogte, 05), dan loopt het door tot
   // de rand van dat vak (anders zit er een gat van een half vak tussen). Bij elke volledige opbouw, dus ook als je het
   // blok pas na het pad neerzet; is het blok weg, dan blijft het pad gewoon iets langer.
+  // Een eind dat tegen een blok aan ligt (op de rand van een vak, met daarachter een vloer op dezelfde hoogte) loopt recht af:
+  // geen ronde kop, die zou als een grijze halve cirkel op de vloer van het blok liggen. Elke opbouw opnieuw bepaald,
+  // dus haal je het blok weg, dan krijgt het eind zijn ronde kop terug.
+  function padEindVlak(path, E) {
+    const D = padEinden(path).find(x => Math.hypot(x.E[0] - E[0], x.E[1] - E[1]) < 0.3); if (!D) return false;
+    const [q, r] = worldToCell(D.E[0] - D.dir[0], D.E[1] - D.dir[1]), c = cellToWorld(q, r);
+    if (Math.hypot(c.x - D.E[0], c.z - D.E[1]) < R * SQ3 / 2 - 0.2) return false;   // niet op de rand van het vak
+    const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * D.dir[0] + (w.z - c.z) / L * D.dir[1] > 0.995; });
+    if (k < 0) return false; const h = blokAanHoogte(q, r, k); return h !== null && Math.abs(pathH(path, D.E[0], D.E[1]) - h) < 0.35;
+  }
   function sluitPadenAan() {
     let n = 0;
     // Een pad dat midden op een ander pad of een weg uitkomt (op dezelfde hoogte) houdt daar precies op: zonder het staartje
@@ -750,10 +760,10 @@
         const [q, r] = worldToCell(End.E[0], End.E[1]), c = cellToWorld(q, r); if (Math.hypot(c.x - End.E[0], c.z - End.E[1]) > 0.3) continue;
         const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * End.dir[0] + (w.z - c.z) / L * End.dir[1] > 0.995; });
         if (k < 0) continue; const h = blokAanHoogte(q, r, k); if (h === null || Math.abs(pathH(path, c.x, c.z) - h) > 0.35) continue;
-        const a = R * SQ3 / 2, edge = [Math.round((c.x + End.dir[0] * a) * 100) / 100, Math.round((c.z + End.dir[1] * a) * 100) / 100], tip = [Math.round((edge[0] + End.dir[0] * 0.15) * 100) / 100, Math.round((edge[1] + End.dir[1] * 0.15) * 100) / 100];
-        const yv = path.y ? path.y[End.ci] : null;
-        if (End.atS) { if (End.tip >= 0) { path.p.splice(0, 1, tip, edge); if (path.y) path.y.splice(0, 1, yv, yv); } else { path.p.unshift(edge); if (path.y) path.y.unshift(yv); } }
-        else { if (End.tip >= 0) { path.p.splice(path.p.length - 1, 1, edge, tip); if (path.y) path.y.splice(path.y.length - 1, 1, yv, yv); } else { path.p.push(edge); if (path.y) path.y.push(yv); } }
+        const a = R * SQ3 / 2 + 0.3, edge = [Math.round((c.x + End.dir[0] * a) * 100) / 100, Math.round((c.z + End.dir[1] * a) * 100) / 100]   /* 30 cm over de vloer van het blok heen: die ligt iets lager, anders zie je een naadje gras */, tip = [Math.round((edge[0] + End.dir[0] * 0.15) * 100) / 100, Math.round((edge[1] + End.dir[1] * 0.15) * 100) / 100];
+        const yv = path.y ? path.y[End.ci] : null; void tip;   // geen staartje: het eind ligt precies op de rand van het vak (recht af, zie padEindVlak)
+        if (End.atS) { if (End.tip >= 0) { path.p.splice(0, 1, edge); if (path.y) path.y.splice(0, 1, yv); } else { path.p.unshift(edge); if (path.y) path.y.unshift(yv); } }
+        else { if (End.tip >= 0) { path.p.splice(path.p.length - 1, 1, edge); if (path.y) path.y.splice(path.y.length - 1, 1, yv); } else { path.p.push(edge); if (path.y) path.y.push(yv); } }
         if (path.y && path.y.length !== path.p.length) delete path.y;   // (zou niet mogen; dan liever plat dan scheef)
         profCache.delete(path); n++;
       }
@@ -870,8 +880,9 @@
         if (path.t === 'pad' || path.t === 'steeg' || path.t === 'fiets') {   // pad en steeg: klinkers; fietspad: rood asfalt met een witte streep in het midden
           const L = path.t === 'fiets' ? bike : pave;
           // net onder het wegdek (asfalt 0,02, klinkers 0,012): waar een pad op een straat uitkomt of hem kruist, wint de straat
-          ribbonInto(kerb, pts, def.hw + 0.3, Y + 0.002); pts.length && [pts[0], pts[pts.length - 1]].forEach(p => discInto(kerb, p, def.hw + 0.3, Y + 0.002));
-          ribbonInto(L, pts, def.hw, Y + 0.007); [pts[0], pts[pts.length - 1]].forEach(p => discInto(L, p, def.hw, Y + 0.007));
+          const koppen = pts.length ? [pts[0], pts[pts.length - 1]].filter(p => !padEindVlak(path, p)) : [];   // tegen een blok: recht af
+          ribbonInto(kerb, pts, def.hw + 0.3, Y + 0.002); koppen.forEach(p => discInto(kerb, p, def.hw + 0.3, Y + 0.002));
+          ribbonInto(L, pts, def.hw, Y + 0.007); koppen.forEach(p => discInto(L, p, def.hw, Y + 0.007));
           if (path.t === 'fiets') dashesInto(dash, pts, 0.06, Y + 0.03, 1.5, 1.5);
           continue;
         }

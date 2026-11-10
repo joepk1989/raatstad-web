@@ -422,7 +422,7 @@
   // zijde die aansluit. Wat overblijft zijn de componenten: een hoekstuk tussen twee paden (6x = de
   // zesvoudige splitsing), een helft (rechtdoor), een binnen- en buitenbocht. Bij drie of meer paden
   // komt er een plein van 4,4 m straal in het midden. De bovenkant is het tweede loopniveau.
-  const CH_HALF = 2.1, PLAZA_R = 4.4, END_R = 2.6, RAMP_END = 6.8;
+  const CH_HALF = 2.25,   /* 4,5 m: net als een pad in de Raatmaker en een getekende steeg (was 2,1) */ PLAZA_R = 4.4, END_R = 2.6, RAMP_END = 6.8;
   const chanCache = new Map();
   function channelShapes(mask) {
     if (chanCache.has(mask)) return chanCache.get(mask);
@@ -512,7 +512,7 @@
   function hofjeDecor(o, kind, baseY, cx, cz, col, hv) {
     if (!kind) return;   // 0 = kaal, geen decoratie
     hofjeInit();
-    const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(cx + x, baseY + 0.05, cz + z); if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
+    const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(x, baseY + 0.05, z);   /* het blok staat al op het vak: hier alleen de plek binnen het vak (de botsing hieronder rekent wél in de wereld) */ if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
     if (kind === 1) {   // boom in het midden, met een laag plantvak
       add(G.hofjePlanter, M.stone, 0, 0);
       col.walls.push({ ax: cx, az: cz, bx: cx, bz: cz, y0: baseY, y1: baseY + 0.45, half: 1.1 });
