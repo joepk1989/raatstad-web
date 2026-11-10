@@ -59,7 +59,7 @@
   // geen stoep maar een grasberm (walk). Klinkerstraat: smal, rood gebakken klinkers, geen belijning. Fietspad: rood
   // asfalt, 2,5 m, alleen voor de sier en de looproute. ring: de rijbaan van een rotonde (eenrichting, zie vecGraphOf).
   const PATH_DEF = { weg: { hw: 2.5, walk: 2.0 }, brd: { hw: 4.5, walk: 2.0 }, laan: { hw: 8.75, walk: 2.5, med: 1.5 }, pad: { hw: 1.6, walk: 0.5 },
-    snel: { hw: 10.1, walk: 2.0, snel: true }, klink: { hw: 2.75, walk: 1.8, klink: true }, fiets: { hw: 1.25, walk: 0.4 }, ring: { hw: 2.75, walk: 0 } };
+    snel: { hw: 10.1, walk: 2.0, snel: true }, klink: { hw: 2.75, walk: 1.8, klink: true }, fiets: { hw: 1.25, walk: 0.4 }, steeg: { hw: 1.5, walk: 0.35 }, ring: { hw: 2.75, walk: 0 } };
   const CAR_T = new Set(['weg', 'brd', 'laan', 'snel', 'klink']);   // getekende wegen waar auto's over rijden
   const ROT = { Rc: 11, Ri: 8.25, Ro: 13.75, isl: 6.75 };   // rotonde: midden van de rijbaan, binnen- en buitenrand, eiland (met overrijdbare rand tot Ri)
   // Een lijn knippen met een cirkel: de stukken buiten de cirkel, met de snijpunten op de cirkel (arms: waar ze de cirkel raken)
@@ -84,7 +84,7 @@
     return parts.filter(pp => pp.length > 1 && plen(pp) > 0.5);
   }
   const vmat = (color, n) => std({ color, polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n, side: THREE.DoubleSide });
-  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
+  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), muur: std({ color: '#cdbfa6', roughness: 0.9, side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
   let pathGroup = null;
   // Welke vakken beslaat een getekende weg? Een vak hoort erbij als zijn midden dicht genoeg bij de lijn ligt
   // (breedte van de weg plus een half vak). Die vakken krijgen een zandkleurige vloer en zijn niet meer bebouwbaar.
@@ -180,7 +180,7 @@
     const at = (P, x, z) => { let bi = 0, bf = 0, bd = 1e9; for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)), d = Math.hypot(a[0] + dx * f - x, a[1] + dz * f - z); if (d < bd) { bd = d; bi = i; bf = f; } } return { d: bd, h: P.h[bi] + ((P.h[bi + 1] ?? P.h[bi]) - P.h[bi]) * bf, s: P.S[bi] + (P.S[Math.min(bi + 1, P.S.length - 1)] - P.S[bi]) * bf }; };
     let wO = 2;   // halve breedte van de rijbaan van de andere weg (+1 m): zo ver ligt het kruispunt vlak
     const add = (s0, J) => { const hA = h[Math.max(0, Math.min(h.length - 1, S.findIndex(v => v >= s0)))]; if (Math.abs(J - hA) >= 3) return; const o = out.find(o => Math.abs(o.s0 - s0) < 1.5); if (o) { o.w = Math.max(o.w, wO); return; } out.push({ s0, J, w: wO }); };
-    const rank = p => p.t === 'pad' || p.t === 'fiets' ? 0 : 1, myR = rank(path);   // een pad of fietspad volgt de straat, niet andersom
+    const rank = p => p.t === 'pad' || p.t === 'steeg' || p.t === 'fiets' ? 0 : 1, myR = rank(path);   // een pad of fietspad volgt de straat, niet andersom
     for (const o of others) {
       const O = profBase(o), LO = O.S[O.S.length - 1];
       if (O.bb[0] > B.bb[2] + 2 || O.bb[2] < B.bb[0] - 2 || O.bb[1] > B.bb[3] + 2 || O.bb[3] < B.bb[1] - 2) continue;   // ver weg: snel overslaan
@@ -414,7 +414,7 @@
   const HEAD_EXT = { weg: 2.1 }, HEAD_RHO = { weg: 3.0, brd: 3.4, laan: 3.125 };
   function vecHead(G, n) {
     const N = G.nodes[n]; if (!N || N.edges.length !== 1) return null;
-    const e = G.edges.get(N.edges[0]), def = e && PATH_DEF[e.t]; if (!def || e.t === 'pad') return null;
+    const e = G.edges.get(N.edges[0]), def = e && PATH_DEF[e.t]; if (!def || e.t === 'pad' || e.t === 'steeg') return null;
     const pts = e.a === n ? e.pts : e.pts.slice().reverse();   // vanaf het eindpunt de weg in
     let q = pts[1] || pts[0]; for (let i = 1; i < pts.length; i++) { q = pts[i]; if (Math.hypot(q[0] - N.x, q[1] - N.z) > 1.5) break; }
     let dx = N.x - q[0], dz = N.z - q[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
@@ -740,8 +740,8 @@
   function pathBuild(P, lightReg, quick) {   // lint-meshes voor een lijst vrije wegen; ook gebruikt door de 3D-weergave in de schets
     const pathGroup = new THREE.Group();
     if (!P || !P.length) return pathGroup;
-    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), Y = 0.1;
-    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink);
+    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), muur = newLayer(), Y = 0.1, steegMuren = [];
+    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink, muur);
     const surfOf = n => GR.nodes[n].edges.every(id => GR.edges.get(id).t === 'klink') ? klink : asph;   // knoop met alleen klinkerstraten: klinkers
     // gemengd (klinkers op asfalt): het asfaltvlak iets hoger, anders vechten het vlak en het klinkerlint (even hoog) om dezelfde pixels
     const surfY = n => surfOf(n) === asph && GR.nodes[n].edges.some(id => GR.edges.get(id).t === 'klink') ? Y + 0.04 : Y + 0.02;
@@ -755,17 +755,17 @@
       const def = PATH_DEF[path.t]; if (!def || !path.p || path.p.length < 2 || !isLone(path)) continue;
       ctx(pathHF(path), gid++);
       const ext = HEAD_EXT[path.t] || 0, c = path.p[0], kw = def.hw + ext + 0.3, ow = def.hw + ext + (def.walk || 0);   // even groot als de ronde kop van een weg
-      discInto(path.t === 'pad' ? pave : path.t === 'fiets' ? bike : def.klink ? klink : asph, c, kw, Y + 0.02);
+      discInto(path.t === 'pad' || path.t === 'steeg' ? pave : path.t === 'fiets' ? bike : def.klink ? klink : asph, c, kw, Y + 0.02);
       if (def.walk) { const ring = r => Array.from({ length: 33 }, (_, i) => [c[0] + Math.cos(i / 32 * Math.PI * 2) * r, c[1] + Math.sin(i / 32 * Math.PI * 2) * r]), kb = kw - 0.3 + KERB_IN, kt2 = kw - 0.3 + KERB_OUT;
         slopeInto(kerb, ring(kb), ring(kt2), Y + 0.015, PW_H); for (let i = 0; i < 32; i++) { const a0 = i / 32 * Math.PI * 2, a1 = (i + 1) / 32 * Math.PI * 2; polyInto(walk, [[c[0] + Math.cos(a0) * kt2, c[1] + Math.sin(a0) * kt2], [c[0] + Math.cos(a0) * ow, c[1] + Math.sin(a0) * ow], [c[0] + Math.cos(a1) * ow, c[1] + Math.sin(a1) * ow], [c[0] + Math.cos(a1) * kt2, c[1] + Math.sin(a1) * kt2]], PW_H); } }
     }
     for (const path of P) {
       const def = PATH_DEF[path.t]; if (!def || !path.p || path.p.length < 2 || isLone(path)) continue;
       const pts0 = smoothPts(path.p); ctx(pathHF(path), gid++);
-      const edgeW = path.t === 'pad' || path.t === 'fiets' ? def.hw + 0.3 : def.hw + def.walk;
-      for (const [w, sg] of [[path.r, 1], [path.l, -1]]) if (w > 0) ribbonInto(grass, pts0, w / 2, path.t === 'pad' || path.t === 'fiets' ? Y - 0.005 : PW_H - 0.005, sg * (edgeW + w / 2));
+      const edgeW = path.t === 'pad' || path.t === 'steeg' || path.t === 'fiets' ? def.hw + 0.3 : def.hw + def.walk;
+      for (const [w, sg] of [[path.r, 1], [path.l, -1]]) if (w > 0) ribbonInto(grass, pts0, w / 2, path.t === 'pad' || path.t === 'steeg' || path.t === 'fiets' ? Y - 0.005 : PW_H - 0.005, sg * (edgeW + w / 2));
       for (const pts of rots.length ? rotClip(pts0, rots) : [pts0]) {
-        if (path.t === 'pad' || path.t === 'fiets') {   // pad: klinkers; fietspad: rood asfalt met een witte streep in het midden
+        if (path.t === 'pad' || path.t === 'steeg' || path.t === 'fiets') {   // pad en steeg: klinkers; fietspad: rood asfalt met een witte streep in het midden
           const L = path.t === 'fiets' ? bike : pave;
           // net onder het wegdek (asfalt 0,02, klinkers 0,012): waar een pad op een straat uitkomt of hem kruist, wint de straat
           ribbonInto(kerb, pts, def.hw + 0.3, Y + 0.002); pts.length && [pts[0], pts[pts.length - 1]].forEach(p => discInto(kerb, p, def.hw + 0.3, Y + 0.002));
@@ -800,7 +800,7 @@
     // Wegmarkering per tak, en niet over de kruising heen
     const markTrim = n => { const H = vecHead(GR, n); return H ? H.cN : (vecJunctionTrim(GR, n) || vecBendTrim(GR, n, 1.0)); };
     for (const e of GR.edges.values()) {
-      if (e.t === 'pad' || e.t === 'ring' || e.t === 'klink') continue;
+      if (e.t === 'pad' || e.t === 'steeg' || e.t === 'ring' || e.t === 'klink') continue;
       ctx(pathHF(e.src), gid++);
       const mp = trimPts(e.pts, markTrim(e.a), markTrim(e.b)); if (mp.length < 2) continue;
       if (e.t === 'snel') {   // doorgetrokken randstrepen, gestreepte strookscheiding, betonnen middenbarrière
@@ -810,6 +810,40 @@
       else if (e.t === 'weg') dashesInto(dash, mp, 0.07, Y + 0.03, 3, 3.5);
       else if (e.t === 'laan') { for (const sg of [1, -1]) { ribbonInto(dash, mp, 0.06, Y + 0.03, sg * 4.75); ribbonInto(pave, mp, 1.0, Y + 0.025, sg * 7.75); ribbonInto(dash, mp, 0.05, Y + 0.03, sg * 6.75); } }
       else { dashesInto(dash, mp, 0.06, Y + 0.03, 3, 3.5, 2.25); dashesInto(dash, mp, 0.06, Y + 0.03, 3, 3.5, -2.25); ribbonInto(dash, mp, 0.05, Y + 0.03, 0.12); ribbonInto(dash, mp, 0.05, Y + 0.03, -0.12); }
+    }
+    // Steeg: aan beide kanten een licht schuin muurtje (1 m, onder 0,34 m dik, boven 0,22 m). Paden horen niet bij de
+    // wegengraaf, dus de openingen bepalen we zelf: een stuk muur vervalt waar een ander pad of een weg op dezelfde
+    // hoogte (minder dan 2,5 m verschil) eroverheen ligt — zo blijft een zijsteeg, pad of straat die aansluit open
+    for (const path of P) {
+      if (path.t !== 'steeg' || !path.p || path.p.length < 2 || isLone(path)) continue;
+      ctx(pathHF(path), gid++);
+      const hw = PATH_DEF.steeg.hw, line = smoothPts(path.p);
+      const others = P.filter(o => o !== path && o.t !== 'rot' && PATH_DEF[o.t] && o.p && o.p.length > 1).map(o => ({ o, pts: smoothPts(o.p), w: PATH_DEF[o.t].hw + (CAR_T.has(o.t) ? PATH_DEF[o.t].walk : 0.35) + 0.15 }));
+      // afstand tot de lijn van het andere pad, maar niet voorbij zijn eindpunten: een zijsteeg die hier ophoudt opent
+      // alleen de muur aan zijn eigen kant, niet die aan de overkant
+      const binnen = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i++) { const A = pts[i], B = pts[i + 1], dx = B[0] - A[0], dz = B[1] - A[1], L2 = dx * dx + dz * dz || 1e-9, t = ((x - A[0]) * dx + (z - A[1]) * dz) / L2;
+        if (t >= 0 && t <= 1) d = Math.min(d, Math.hypot(x - A[0] - dx * t, z - A[1] - dz * t)); if (i > 0 && Math.hypot(A[0] - pts[0][0], A[1] - pts[0][1]) > 0.6 && Math.hypot(A[0] - pts[pts.length - 1][0], A[1] - pts[pts.length - 1][1]) > 0.6) d = Math.min(d, Math.hypot(x - A[0], z - A[1])); } return d; };   // tussenpunt, niet het staartje van 0,1 m aan een eind
+      const open = q => others.some(O => binnen(q[0], q[1], O.pts) < O.w && Math.abs(pathH(O.o, q[0], q[1]) - pathH(path, q[0], q[1])) < 2.5);
+      for (const sg of [1, -1]) {
+        const all = densify(offsetPts(line, sg * (hw + 0.17)), 0.6), runs = []; let run = [];
+        for (const q of all) { if (open(q)) { if (run.length > 1) runs.push(run); run = []; } else run.push(q); }
+        if (run.length > 1) runs.push(run);
+        for (const mid of runs) {
+          if (plen(mid) < 0.8) continue;
+          const bin = offsetPts(mid, -sg * 0.17), bout = offsetPts(mid, sg * 0.17), tin = offsetPts(mid, -sg * 0.11), tout = offsetPts(mid, sg * 0.11);
+          const lo = Y - 0.05, hi = Y + 1.0;
+          for (let i = 0; i < mid.length - 1; i++) {
+            const a = mid[i], b = mid[i + 1], ha = hy(a[0], a[1]), hb = hy(b[0], b[1]);
+            const quad = (p0, y0a, y0b, p1, y1a, y1b) => { const base = muur.pos.length / 3; muur.pos.push(p0[i][0], y0a, p0[i][1], p1[i][0], y1a, p1[i][1], p0[i + 1][0], y0b, p0[i + 1][1], p1[i + 1][0], y1b, p1[i + 1][1]); muur.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); };
+            quad(bin, lo + ha, lo + hb, tin, hi + ha, hi + hb); quad(bout, lo + ha, lo + hb, tout, hi + ha, hi + hb); quad(tin, hi + ha, hi + hb, tout, hi + ha, hi + hb);
+            steegMuren.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], y0: Math.min(ha, hb) + lo, y1: Math.max(ha, hb) + hi, half: 0.17 });
+          }
+          for (const k of [0, mid.length - 1]) {   // kopse kant
+            const p = mid[k], h = hy(p[0], p[1]), base = muur.pos.length / 3;
+            muur.pos.push(bin[k][0], lo + h, bin[k][1], tin[k][0], hi + h, tin[k][1], bout[k][0], lo + h, bout[k][1], tout[k][0], hi + h, tout[k][1]); muur.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+          }
+        }
+      }
     }
     // Knikken: asfalt rond dichtmaken en de stoep met een ronde buitenhoek om de knik heen leggen
     for (let n = 0; n < GR.nodes.length; n++) {
@@ -983,8 +1017,12 @@
         const cr = new THREE.Mesh(G.crown, M.leaf[1]); cr.scale.set(1.35, 1.5, 1.35); cr.position.set(C[0], PW_H + 4.2 + h0, C[1]); cr.castShadow = true; pathGroup.add(cr); }
     }
     ctx(null, -1);
-    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
-    if (lightReg && !quick) pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink]);
+    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink], [muur, VM.muur]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
+    if (lightReg && !quick) { const cm = pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink]);
+      for (const w of steegMuren) {   // de muurtjes van een steeg houden je tegen (per vak waar ze doorheen gaan)
+        const col = { surfaces: [], walls: [w], tag: 'steegmuur' }, seen = new Set();
+        for (let f = 0; f <= 1; f += 0.5) { const [q, r] = worldToCell(w.ax + (w.bx - w.ax) * f, w.az + (w.bz - w.az) * f), k = q + ',' + r; if (seen.has(k)) continue; seen.add(k); let L = cm.get(k); if (!L) cm.set(k, L = []); L.push(col); }
+      } }
     return pathGroup;
   }
   const distPoly = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i++) d = Math.min(d, distSeg(x, z, pts[i], pts[i + 1])); return d; };

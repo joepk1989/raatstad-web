@@ -222,7 +222,7 @@
   // Elk vak waar je overheen sleept wordt weg (ook als je snel beweegt: de vakken ertussen worden ingevuld).
   // Waar geen weg mag komen wordt stil overgeslagen; bestaande wegen blijven gewoon liggen.
   // Alles wat een lijn vormt kun je trekken: wegen, paden, looppaden, tunnels en grachten
-  const DRAG_TOOLS = new Set(['pad', 'fietspad', 'kuil', 'heuvel', 'looppad', 'tunnel', 'water', 'meer', 'vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad']);
+  const DRAG_TOOLS = new Set(['pad', 'fietspad', 'kuil', 'heuvel', 'looppad', 'tunnel', 'water', 'meer', 'vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg']);
   const roadDrag = { on: false, last: null, count: 0, tool: 'weg', preset: 0 };   // preset: hoogte waarop de volgende getekende weg begint (vooraf in te stellen met ▲▼)
   let frameMs = 16;
   let dakHintShown = false, padHintShown = false;

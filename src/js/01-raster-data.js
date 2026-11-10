@@ -50,7 +50,7 @@
     vweg: { name: 'Weg', h: 0 },        // alleen als gereedschap: getekende weg (vrije lijn, sleep van vak naar vak)
     vbrd: { name: 'Brede weg', h: 0 },  // idem, vier rijstroken
     vlaan: { name: 'Laan', h: 0 },      // idem, met middenberm en bomen
-    vsnel: { name: 'Snelweg', h: 0 }, vklink: { name: 'Klinkerstraat', h: 0 }, vfiets: { name: 'Fietspad', h: 0 }, vpad: { name: 'Pad (getekend)', h: 0 },   // idem
+    vsnel: { name: 'Snelweg', h: 0 }, vklink: { name: 'Klinkerstraat', h: 0 }, vfiets: { name: 'Fietspad', h: 0 }, vpad: { name: 'Pad (getekend)', h: 0 }, vsteeg: { name: 'Steeg (getekend)', h: 0 },   // idem
     vrot: { name: 'Rotonde', h: 0 },
     spoor: { name: 'Spoor', h: 0 },     // alleen als gereedschap: een spoorlijn (zie 11e), bewaard in cells.rails    // klik op een vak: rotonde; wegen die erin uitkomen sluiten erop aan
     tophoog: { name: 'Ophogen', h: 0 }, tafgraaf: { name: 'Afgraven', h: 0 }, tvlak: { name: 'Egaliseren', h: 0 },   // terrein boetseren (zie 14b)
@@ -60,14 +60,14 @@
   // Het palet is in groepen verdeeld; het scrollwiel loopt ze allemaal door
   const CATS = [
     { name: 'Wegen', tools: ['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vrot', 'spoor'], todo: [] },   // getekende wegen; de oude vakwegen zijn uit het palet (bestaande steden tonen ze nog)
-    { name: 'Paden', tools: ['vpad', 'pad', 'fietspad', 'looppad', 'randpad', 'trap', 'trappad'], todo: [] },
+    { name: 'Paden', tools: ['vpad', 'vsteeg', 'pad', 'fietspad', 'looppad', 'randpad', 'trap', 'trappad'], todo: [] },
     { name: 'Gebouwen', tools: ['woning', 'kantoor', 'dak'], todo: [] },
     { name: 'Groen en water', tools: ['park', 'meer', 'water'], todo: [] },
     { name: 'Terrein', tools: ['tophoog', 'tafgraaf', 'tvlak', 'tglad', 'thelling', 'kuil', 'helling', 'hofhelling'], todo: ['Klif'] },
     { name: 'Modules', tools: ['module'], todo: [] },   // blok, muur, tunnel, tribune, zuilen en hof zijn modules geworden (zie 08b); bestaande steden tonen ze nog
   ];
   const TOOLS = [...CATS.flatMap(c => c.tools), 'gum'];
-  const VEC_TOOLS = new Set(['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad']), VEC_T = { vweg: 'weg', vbrd: 'brd', vlaan: 'laan', vsnel: 'snel', vklink: 'klink', vfiets: 'fiets', vpad: 'pad' };   // getekende wegen: lijnen, geen vakken
+  const VEC_TOOLS = new Set(['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg']), VEC_T = { vweg: 'weg', vbrd: 'brd', vlaan: 'laan', vsnel: 'snel', vklink: 'klink', vfiets: 'fiets', vpad: 'pad', vsteeg: 'steeg' };   // getekende wegen: lijnen, geen vakken
   const TOOL_LABEL = {};
   const DIRECTIONAL = new Set(['trap', 'helling', 'muur', 'trappad', 'tribune', 'hofhelling']);   // met een richting, bewaard als trap0…5 enz.
   const dirOf = t => +t.replace(/\D/g, '');
@@ -216,7 +216,7 @@
       const obj = JSON.parse(raw);
       const m = new Map();
       if (Array.isArray(obj.__e)) m.edges = new Map(obj.__e.filter(e => Array.isArray(e) && typeof e[0] === 'string' && (e[1] === 'weg' || e[1] === 'brd' || e[1] === 'pad')));
-      if (Array.isArray(obj.__p)) m.paths = obj.__p.filter(p => p && ['weg', 'brd', 'laan', 'pad', 'snel', 'klink', 'fiets', 'rot'].includes(p.t) && Array.isArray(p.p) && p.p.length > (p.t === 'rot' ? 0 : 1) && p.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])));
+      if (Array.isArray(obj.__p)) m.paths = obj.__p.filter(p => p && ['weg', 'brd', 'laan', 'pad', 'steeg', 'snel', 'klink', 'fiets', 'rot'].includes(p.t) && Array.isArray(p.p) && p.p.length > (p.t === 'rot' ? 0 : 1) && p.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])));
       if (Array.isArray(obj.__r)) m.rails = obj.__r.filter(r => r && Array.isArray(r.p) && r.p.length > 1 && r.p.every(a => Array.isArray(a) && isFinite(a[0]) && isFinite(a[1]))).map(r => ({ p: r.p.map(a => [+a[0], +a[1]]) }));
       if (Array.isArray(obj.__i) && typeof modules !== 'undefined') for (const x of obj.__i) if (x && x.mref && !x.m) { const mod = modules.find(y => y.id === x.mid); if (mod && typeof instData === 'function') x.m = instData(mod, !!x.mir); delete x.mref; }   // verwijzing (zie serializeOpslag): de kopie terug
       if (Array.isArray(obj.__i)) m.inst = obj.__i.filter(x => x && x.m && Array.isArray(x.m.edges) && isFinite(x.q) && isFinite(x.r) && isFinite(x.rot));
