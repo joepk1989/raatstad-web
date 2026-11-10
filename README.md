@@ -543,12 +543,27 @@ De speler loopt zelf het hofje in en over de brug het hoge hofje op. Bij het bou
 3. **Een steeg die op een blok uitkwam, had een ronde kop** (een grijze halve cirkel op de vloer van het blok) **en een naadje gras.** Zo'n eind loopt nu recht af (`padEindVlak`) en 30 cm over de vloer van het blok heen, die iets lager ligt.
 
 ## Stegentoren (08i3-stegentoren.js)
-Menu → **Stegentoren**: een compacte loopstad van 5 lagen (tot 15 m) op 5 × 5 vakken. In het midden staat een toren van zes Steeg-blokken op elkaar, met vloeren op 0, 3, 6, 9, 12 en 15 m en hofjes op een paar lagen. Vijf getekende stegen (hellingen) stijgen elk één laag. Zo'n helling gaat van zijde s van de toren een vak naar buiten, twee vakken opzij en weer naar binnen op zijde s + 1, een laag hoger: 62 m voor 3 m, dus 4,8 %. De hellingen gaan om en om rond de toren (zijden 0–1, 2–3, 4–5, 0–1, 2–3). Een helling ligt dus precies 9 m boven die van drie stappen eerder, en ze kruisen nooit op dezelfde hoogte. Een steeg op de grond leidt naar de toren.
+Menu → **Stegentoren**: een getrapte toren van 5 lagen (tot 15 m), helemaal uit blokken. De regels:
+- elk pad ligt op een laag van 3 m;
+- elk pad loopt door een bouwblok (een Steeg-blok, met massief aan weerskanten);
+- een pad verspringt alleen met een Helling-blok van precies 3 m.
 
-Test: `test/visueel/stegen_toren.js` loopt de hele route om de 50 cm na: van de grondsteeg door alle torenvloeren en over alle hellingen tot boven. Overal moet er vloer zijn, niets mag je tegenhouden, en er mag geen trede hoger dan 30 cm zijn. De speler loopt ook zelf een stuk. Wat hiervoor is aangepast:
-1. **De goede torenvloer:** een pad dat op een blok met meer vloeren uitkomt (een toren), sluit aan op de vloer die het dichtst bij zijn eigen hoogte ligt (`blokAanHoogte(q, r, k, bij)`, 05). Eerst werd altijd de bovenste vloer gekozen.
-2. **Geen dijkje onder een blok:** in een vak met blokken verandert een weg of pad het terrein niet meer (`lpHeight`, `lpMesh` en `roadAdjust` in 07b). Het dijkje van een lage helling stak eerst door de vloer van de toren.
-3. **Hoger dan 12 m:** een getekende weg of pad mag nu tot 30 m boven het terrein liggen (`ROAD_MAX_OFF`, was 12), en in de vaste-laag-stand tot 48 m (was 24).
+**Opbouw:** zeshoekige ringen om het midden, elke ring een laag hoger: ring 4 op 3 m, ring 3 op 6 m, ring 2 op 9 m en ring 1 op 12 m. Elke ring is een rondgaande steeg van Steeg-blokken op Blokken. Op één plek per ring stijgt de steeg met een Helling naar een overloopje van 3 m hoger. Dat overloopje ligt op de hoogte van de volgende ring en sluit daar vanzelf op aan, want Steeg-blokken op dezelfde hoogte naast elkaar zijn verbonden. De hellingen liggen steeds op een andere plek, dus je loopt in een spiraal naar boven. Een helling moet recht zijn (aanloop, helling en overloopje op één lijn), dus hij ligt nooit op een hoek van een ring. Ring 1 heeft alleen hoeken; daarom ligt de laatste helling in het midden, dwars naar een hofje op 15 m aan de overkant. Je komt binnen via een helling van de grond naar ring 4, met een getekende steeg erheen.
+
+**Nieuwe regel bij het verbinden** (`computePathLinks`, 05): een steeg gaat niet meer open naar het dak van een ander Steeg-blok. In een getrapte stad ligt het dak van een lagere ring precies op de vloer van de ring erboven; dan verdween de wand van het bouwblok en liep je over de daken. Naar het dak van een gewoon Blok mag een steeg nog steeds, dus een dakterras blijft mogelijk.
+
+**Getekend Pad en Steeg:** E/Q gaat in lagen van 3 m (`roadHeightStep`, 14; was 1,5 m), zodat ook deze paden alleen per laag verspringen.
+
+**Eerder aangepast** voor de eerste versie van de toren:
+- een pad sluit aan op de vloer van een toren die het dichtst bij zijn eigen hoogte ligt (`blokAanHoogte(q, r, k, bij)`);
+- in een vak met blokken maakt een weg of pad geen dijkje of ingraving meer (07b);
+- getekende paden mogen tot 30 m boven het terrein liggen (`ROAD_MAX_OFF`).
+
+**Test:** `test/visueel/stegen_toren.js`. Hij stelt de looproute samen (grondsteeg → ingangshelling → ring 4 rond tot de helling → overloopje → ring 3 … → het hofje op 15 m) en loopt hem om de 50 cm na. Hij controleert:
+- overal is vloer, niets houdt je tegen en er is geen trede hoger dan 30 cm;
+- elk stuk vlak pad ligt op een veelvoud van 3 m;
+- er zijn vijf hellingen;
+- de speler loopt zelf de ingangshelling op tot 3 m.
 
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).

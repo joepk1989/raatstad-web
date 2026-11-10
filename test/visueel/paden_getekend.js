@@ -1,5 +1,5 @@
 // Pad (getekend), knop 'vpad' bij Paden: een voetpad dat je sleept zoals een weg (type 'pad' in het wegsysteem, 07).
-// Een pad op de grond, en een tweede pad dat er met E (1,5 m per druk) 6 m boven overheen gaat: een brug op pijlers,
+// Een pad op de grond, en een tweede pad dat er met E (3 m per druk: een laag) 6 m boven overheen gaat: een brug op pijlers,
 // zonder dat de twee met elkaar verbonden worden (echt onder elkaar door). Klinkers zijn de zeshoekige (M.paver).
 // Screenshots: paden_getekend_tijdens.png, paden_getekend.png, paden_getekend_dichtbij.png
 const { open, OUT } = require('./helper');
@@ -27,9 +27,9 @@ const { open, OUT } = require('./helper');
   await sleep([[-4, 1], [4, 1]], []);
   const n1 = await p.evaluate(() => (window.__SC().getCells().paths || []).filter(x => x.t === 'pad').length);
   zeg(n1 === 1, 'pad op de grond getekend', n1);
-  // 2. pad dat erover gaat, zoals een speler het doet: tot de kruising slepen, even stilhouden (hoekpunt), E 4× (6 m),
-  //    verder slepen en aan het eind Q 4× (weer op de grond)
-  await sleep([[0, -4], [0, 1], [0, 5]], Object.assign([4, -4], { tijdens: true }));
+  // 2. pad dat erover gaat, zoals een speler het doet: tot de kruising slepen, even stilhouden (hoekpunt), E 2× (6 m),
+  //    verder slepen en aan het eind Q 2× (weer op de grond)
+  await sleep([[0, -4], [0, 1], [0, 5]], Object.assign([2, -2], { tijdens: true }));
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'pad'), w = S.cellToWorld(0, 1);
     const hoog = P.map(x => +Math.max(...S.pathProf(x).h).toFixed(1));
     return { n: P.length, hoog, top: S.roadTop(w.x, w.z, 8), laag: S.roadTop(w.x, w.z, 0.5), y: P.map(x => x.y || null) }; });

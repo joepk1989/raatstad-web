@@ -16,7 +16,7 @@
       if (b === 'pad' || b === 'hof') out.push({ y, sides: 63 });
       else if (b === 'zuilen' && i === st.length - 1) out.push({ y: y + 3, sides: 63 });
       else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t); out.push({ y, sides: 1 << ((d + 3) % 6) }); out.push({ y: y + 3, sides: 1 << d }); }
-      else if (b === 'looppad') { out.push({ y, sides: 63 }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
+      else if (b === 'looppad') { out.push({ y, sides: 63, steeg: true }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true, steegDak: true }); }
       else if (b === 'blok' && i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true });
       else if (b === 'tunnel') { out.push({ y, sides: 63 }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
       else if (b === 'hofhelling') { const d = dirOf(t); out.push({ y, sides: 63 & ~(1 << d) }); out.push({ y: y + 3, sides: 1 << d }); }
@@ -99,8 +99,8 @@
       const [q, r] = k.split(',').map(Number);
       for (const f of ifacesOfColumn(q, r)) {
         const kk = lk(q, r, f.y), prev = ifs.get(kk);
-        if (prev) { prev.sides |= f.sides; prev.passive = prev.passive && !!f.passive; }
-        else ifs.set(kk, { q, r, y: f.y, sides: f.sides, passive: !!f.passive });
+        if (prev) { prev.sides |= f.sides; prev.passive = prev.passive && !!f.passive; prev.steeg = prev.steeg || !!f.steeg; prev.steegDak = prev.steegDak || !!f.steegDak; }
+        else ifs.set(kk, { q, r, y: f.y, sides: f.sides, passive: !!f.passive, steeg: !!f.steeg, steegDak: !!f.steegDak });
       }
     }
     // Het eind van een getekend pad of weg doet passief mee, net als een weg of voordeur: houdt het op in het midden of aan
@@ -124,6 +124,9 @@
         if (ka > kb || !has(bq, br, A.y, (k + 3) % 6)) continue;
         const B = ifs.get(kb);
         if (A.passive && B.passive) continue;
+        // een steeg gaat niet open naar het dak van een ander Steeg-blok (een ring lager in een getrapte stad ligt met zijn
+        // dak precies op de vloer van de ring erboven: dan verdween de wand van het bouwblok). Een dak van een Blok mag wel.
+        if ((A.steeg && B.steegDak && !B.steeg) || (B.steeg && A.steegDak && !A.steeg)) continue;
         const score = (has(A.q - dq, A.r - dr, A.y, k) ? 1 : 0) + (has(bq + dq, br + dr, A.y, (k + 3) % 6) ? 1 : 0);
         edges.push({ ka, kb, A, k, bq, br, score });
       }

@@ -1,6 +1,6 @@
 // Steeg (getekend), knop 'vsteeg' bij Paden: een smalle steeg die je sleept zoals een weg (type 'steeg' in het wegsysteem, 07),
 // met klinkers en aan beide kanten een licht schuin muurtje van 1 m dat je tegenhoudt. Bij een aansluiting (T) blijft hij open.
-// Een derde steeg gaat er met E (1,5 m per druk) 6 m boven overheen. Screenshots: steeg_getekend.png, steeg_getekend_dichtbij.png
+// Een derde steeg gaat er met E (3 m per druk) 6 m boven overheen. Screenshots: steeg_getekend.png, steeg_getekend_dichtbij.png
 const { open, OUT } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
@@ -24,7 +24,7 @@ const { open, OUT } = require('./helper');
     await p.mouse.up(); await p.waitForTimeout(700); };
   await sleep([[-4, 1], [4, 1]], []);
   await sleep([[0, -3], [0, 1]], []);   // zijsteeg die op de eerste uitkomt: een T
-  await sleep([[3, -3], [3, 1], [3, 5]], [4, -4]);   // over de eerste heen, 6 m hoog
+  await sleep([[3, -3], [3, 1], [3, 5]], [2, -2]);   // over de eerste heen, 6 m hoog
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'steeg'), D = window.__modDbg();
     const a = S.cellToWorld(-3, 1), k = S.cellToWorld(0, 1), w3 = S.cellToWorld(3, 1), muur = 1.9 + 0.17;
     const bl = (x, z) => D.blockedAt(x, z, 0.1);
