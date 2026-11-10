@@ -572,6 +572,11 @@ Menu → **Stegentoren**: een getrapte toren van 5 lagen (tot 15 m), helemaal ui
 
 Test: `test/visueel/eq_hoogte.js`.
 
+**Tekenen: bochten en lagen in één sleep** (`vecPaintTo` en `roadHeightStep` in 14, november 2026).
+- **Vanzelf een hoekpunt:** is het stuk dat je sleept twee vakken lang, dan ligt zijn richting vast (`D.vlock`). Blijf je binnen 11 m van die lijn, dan groeit het stuk alleen langs die lijn. Ga je er verder vanaf (en niet terug), dan wordt het laatste vak op die lijn een hoekpunt en begint daar een nieuw stuk. Je hoeft niet meer stil te houden voor een bocht, maar dat werkt nog wel. Test: `test/visueel/weg_bocht.js` (L-weg, Z-steeg, rechte sleep).
+- **E/Q tijdens het slepen van een steeg of pad: een laag hoger of lager, met een helling.** Waar je bent, wordt een hoekpunt op de oude hoogte. Daarna komt in de richting waarin je verder sleept een helling van één vak per laag (15,6 m voor 3 m; twee keer E = twee vakken naar 6 m), en dan loopt de steeg vlak verder op de nieuwe laag. Q doet hetzelfde naar beneden. Bij wegen blijft E/Q de hoogte van het punt waar je bent. Test: `test/visueel/steeg_helling.js`.
+- **Fout opgelost:** met een gekozen laag slepen met gereedschap zonder eigen stapelregels (Fietspad) gaf "Cannot read properties of undefined (reading 'includes')" (`vulBlokken`/`allowedOn`). Een ronde met alle gereedschappen, met E/Q en klikken en slepen op twee lagen, geeft nu geen fouten meer.
+
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).
 - **Totale chaos** (de oude knop "Roekeloos rijgedrag", intern nog `cars.reckless`): mensen rennen (×1,6–3,5), pauzeren en kletsen niet, schreeuwen af en toe (`sound.scream`, opnames in `assets/schreeuw.mp3`: paniek, korte kreten, een gruwelkreet bij een explosie en een kreet die bij het bloed hoort) en de spreekballonnen tonen paniek en verwarring (`PANIC`, plus brand- en instortzinnen als dat echt gebeurt).

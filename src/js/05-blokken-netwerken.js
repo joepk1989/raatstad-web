@@ -83,7 +83,8 @@
   // RULES) — dan gaat het gewoon door als vanouds. Geeft null bij een duidelijke fout: er was wél een hoogte, maar
   // die zou boven de 150 m komen (MAX_H). t is het gereedschap of de blokcode (helling3 mag ook).
   function vulBlokken(q, r, t) {
-    if (stackOf(q, r).length || !RULES[baseOf(t)].includes('blok')) return 0;
+    const regels = RULES[baseOf(t)] || RULES[baseOf(toolBase(t))];   // gereedschap zonder eigen regels (Fietspad = Pad): die van het basisblok; geen regels: niet op hoogte
+    if (stackOf(q, r).length || !regels || !regels.includes('blok')) return 0;
     const lv = hudLayer(), h = lv !== null ? lv * MV2.LV_H : baseOf(t) === 'looppad' ? loopdekHoogte(q, r) : 0;
     if (!h) return 0;
     if (h + TY(t).h > MAX_H + 0.01) return null;

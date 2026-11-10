@@ -27,14 +27,14 @@ const { open, OUT } = require('./helper');
   await sleep([[-4, 1], [4, 1]], []);
   const n1 = await p.evaluate(() => (window.__SC().getCells().paths || []).filter(x => x.t === 'pad').length);
   zeg(n1 === 1, 'pad op de grond getekend', n1);
-  // 2. pad dat erover gaat, zoals een speler het doet: tot de kruising slepen, even stilhouden (hoekpunt), E 2× (6 m),
+  // 2. pad dat erover gaat, zoals een speler het doet: slepen, vóór de kruising even stilhouden (hoekpunt) en E 2× (een helling van twee vakken naar 6 m),
   //    verder slepen en aan het eind Q 2× (weer op de grond)
-  await sleep([[0, -4], [0, 1], [0, 5]], Object.assign([2, -2], { tijdens: true }));
+  await sleep([[0, -4], [0, -2], [0, 2], [0, 5]], Object.assign([2, -2], { tijdens: true }));   // bij (0, -2) E 2×: per laag één vak helling, op (0, 0) 6 m; bij (0, 2) Q 2×: weer omlaag
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'pad'), w = S.cellToWorld(0, 1);
     const hoog = P.map(x => +Math.max(...S.pathProf(x).h).toFixed(1));
     return { n: P.length, hoog, top: S.roadTop(w.x, w.z, 8), laag: S.roadTop(w.x, w.z, 0.5), y: P.map(x => x.y || null) }; });
   zeg(r.n === 2, 'twee aparte paden (niet samengevoegd bij de kruising)', r.n);
-  zeg(Math.max(...r.hoog) >= 5.9 && Math.min(...r.hoog) < 1 && JSON.stringify(r.y[1]).startsWith('[0') && r.y[1][r.y[1].length - 1] === 0, 'tweede pad: begin en eind op de grond, 6 m bij de kruising', { hoog: r.hoog, y: r.y });
+  zeg(Math.max(...r.hoog) >= 5.9 && Math.min(...r.hoog) < 1 && JSON.stringify(r.y[1]).startsWith('[0') && r.y[1][r.y[1].length - 1] === 0 && r.y[1].includes(6), 'tweede pad: begin en eind op de grond, 6 m bij de kruising', { hoog: r.hoog, y: r.y });
   console.log('y', JSON.stringify(r.y), 'pts', JSON.stringify(await p.evaluate(() => (window.__SC().getCells().paths || []).filter(x => x.t === 'pad').map(x => x.p.map(q => q.map(v => Math.round(v)))))));
   zeg(r.top !== null && r.top > 5.5 && r.laag !== null && r.laag < 1, 'op de kruising: bovenop een dek op ~6 m, en eronder het pad op de grond', { boven: r.top, onder: r.laag });
   await p.mouse.move(5, 5); await p.waitForTimeout(300);
