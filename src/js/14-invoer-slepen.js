@@ -443,7 +443,7 @@
       if (!VEC_TOOLS.has(tool)) return false;
       const st0 = tool === 'vpad' || tool === 'vsteeg' ? 3 : 1.5;   // paden en stegen alleen in lagen van 3 m
       const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs || st0 === 3 ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
-      D.preset = nv; dragHText();
+      D.preset = nv; D.presetKlik = true; dragHText();
       toast(nv ? 'Volgende weg begint ' + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') + ' · tijdens het slepen: E/Q of scrollwiel' : 'Volgende weg ligt op het terrein', 1800);
       return true;
     }
@@ -479,6 +479,7 @@
   function vecDragEnd() {
     const D = roadDrag, vp = D.vp; D.vp = null; clearTimeout(D.vtimer); showDragH(false); if (!vp) return;
     if (!vp.core || vp.core.length < 2) { const i = cells.paths.indexOf(vp); if (i >= 0) cells.paths.splice(i, 1); buildPathNet(); vecChainClick(D.vstart); return; }
+    D.presetKlik = false;   // echt gesleept: de gekozen hoogte is gebruikt
     // Niet dubbel: de stukken die precies over een bestaande weg op het terrein lopen (beide vakmiddens en het midden ertussen
     // op die weg) vallen weg; wat overblijft zijn losse stukken die op die weg aansluiten. Kruisen blijft gewoon (daar ligt
     // alleen het kruisingsvak op de andere weg). Een verhoogde weg of dakweg mag over een andere heen (viaduct).
@@ -628,6 +629,15 @@
   // Een weg heeft een staartje (half vak) voorbij zijn laatste vak, zodat het vak vol zit; dat schuift bij het doorklikken mee.
   const HALF = 0.15, r2 = v => Math.round(v * 100) / 100;
   // een nieuw geklikt stuk weg op de vooraf gekozen hoogte (▲▼ of E/Q zonder te slepen; bij pad en steeg in lagen van 3 m)
+  // Doorklikken op hoogte: zonder E/Q blijft het nieuwe vak op de hoogte van het eind; na E/Q gaat het één laag per vak
+  // (pad, steeg, vaste laag: 3 m; weg: 1,5 m) naar de gekozen hoogte, met een helling over dat ene vak. Tien keer E en
+  // dan tien klikken: elk vak 3 m hoger, tot 30 m (roadDrag.preset blijft het doel tot je het bereikt).
+  function vecKlikHoogte(path, end) {
+    const y = path.y, n = path.p.length, tip = end === 0 ? path.tipS : path.tipE, i = end === 0 ? (tip && n > 2 ? 1 : 0) : (tip && n > 2 ? n - 2 : n - 1), hEnd = y ? (y[i] || 0) : 0, D = roadDrag;
+    if (!D.presetKlik) return hEnd;
+    const st = D.abs || path.t === 'pad' || path.t === 'steeg' ? 3 : 1.5, d = (D.preset || 0) - hEnd;
+    return Math.round((hEnd + Math.max(-st, Math.min(st, d))) * 2) / 2;
+  }
   const vecOpHoogte = path => { const h = roadDrag.preset || 0; if (h > 0) { path.y = path.p.map(() => h); if (roadDrag.abs) path.abs = true; } return path; };
   // Verleng een weg bij zijn begin (end 0) of eind met het vak op Wc; ook voor het voorbeeld (dan op een kopie)
   // Wegen lopen alleen onder hoeken van het raster (veelvouden van 30°: 60° en 90° bochten). Een aansluiting op een andere weg
@@ -652,7 +662,9 @@
     }
     return best ? [Math.round(best[0] * 100) / 100, Math.round(best[1] * 100) / 100] : Wc;
   }
-  function vecExtendPath(path, end, Wc) {
+  function vecExtendPath(path, end, Wc, hNew) {
+    if (hNew === undefined) hNew = vecKlikHoogte(path, end);
+    if (hNew > 0 && !path.y) path.y = path.p.map(() => 0);
     const atStart = end === 0, P = path.p, tipOn = atStart ? path.tipS : path.tipE;
     const inner = tipOn ? (atStart ? P[1] : P[P.length - 2]) : P[atStart ? 0 : P.length - 1];
     if (Math.hypot(inner[0] - Wc[0], inner[1] - Wc[1]) < 3) return { same: true };
@@ -662,7 +674,7 @@
       const cc = atStart ? P[0] : P[1], dx = W[0] - cc[0], dz = W[1] - cc[1], L = Math.hypot(dx, dz) || 1, o = [r2(cc[0] - dx / L * HALF), r2(cc[1] - dz / L * HALF)];
       if (atStart) P[1] = o; else P[0] = o;
     }
-    if (atStart) { P.unshift(W); if (path.y) path.y.unshift(path.y[0] || 0); } else { P.push(W); if (path.y) path.y.push(path.y[path.y.length - 1] || 0); }   // doorklikken: op dezelfde hoogte als het eind waar je op doorgaat
+    if (atStart) { P.unshift(W); if (path.y) path.y.unshift(hNew); } else { P.push(W); if (path.y) path.y.push(hNew); }   // doorklikken: op de hoogte van het eind, of na E/Q één laag erboven/eronder (vecKlikHoogte)
     // driehoek of lus: ligt het nieuwe vak naast het andere eind van deze weg, dan sluit de weg zich daar
     if (!snapped) {
       const hasTip = atStart ? path.tipE : path.tipS, oi = atStart ? P.length - (hasTip ? 2 : 1) : (hasTip ? 1 : 0), O = P[oi], cores = P.length - (hasTip ? 1 : 0);   // (het staartje aan de kant van de klik is al weg)
@@ -688,9 +700,10 @@
     const plan = vecClickPlan(cell, t);
     let path, gone = 0, snapped = false;
     if (!plan.best) {
-      const st = vecStartPts(cell); path = vecOpHoogte({ t, l: 0, r: 0, p: st.p }); path.tipS = st.tipS; path.tipE = st.tipE; snapped = st.aan; pathsOf().push(path);   // naast een weg: een aftakking die meteen aansluit
+      const st = vecStartPts(cell); path = vecOpHoogte({ t, l: 0, r: 0, p: st.p }); roadDrag.presetKlik = false; path.tipS = st.tipS; path.tipE = st.tipE; snapped = st.aan; pathsOf().push(path);   // naast een weg: een aftakking die meteen aansluit
     } else {
-      path = plan.best.p; const r = vecExtendPath(path, plan.best.end, Wc); if (r.same) { toast('Hier ligt al weg', 900); return; } snapped = r.snapped;
+      path = plan.best.p; const hNew = vecKlikHoogte(path, plan.best.end), r = vecExtendPath(path, plan.best.end, Wc, hNew); if (r.same) { toast('Hier ligt al weg', 900); return; } snapped = r.snapped;
+      { const D = roadDrag; if (!D.presetKlik || Math.abs(hNew - (D.preset || 0)) < 0.01) { D.presetKlik = false; D.preset = hNew; } dragHText(); }   // het paneel toont de hoogte waar je nu bent (of het doel, zolang je nog klimt)
     }
     gone = vecClearUnder([path]);
     buildPathNet(); changed();

@@ -159,6 +159,7 @@
   // (optioneel, per punt) tilt de weg op dat punt op boven het terrein; daartussen loopt de ophoging lineair.
   const profCache = new Map();
   let terrVer = 0;   // telt op bij elke verandering van de vakken (terrein): profielen worden dan opnieuw berekend
+  const SCHANS_L = 9;   // een pad of steeg die één vak verder een laag hoger ligt: vlak, dan een schans van 9 m (één zeshoekzijde) midden op de grens tussen de vakken, dan weer vlak
   const ROAD_MAX_OFF = 30;   // hooguit 30 m boven het terrein (10 lagen; was 12, te laag voor een stegentoren van 5 lagen)
   // Kruisingen op een helling: elke weg volgt het terrein op zijn eigen manier (gemiddeld over ±6 m), dus twee wegen die
   // elkaar raken kunnen daar meer dan een meter verschillen. Dan scheurt het kruispunt. Daarom krijgt elk kruispunt één
@@ -237,8 +238,11 @@
     }
     if (live && Array.isArray(path.y) && path.y.some(v => v)) {   // ophoging per punt, lineair langs de weg
       const sAt = q => { let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; bi = i; } }); return S[bi]; };
+      const schans = path.t === 'pad' || path.t === 'steeg';
       const keys = path.p.map((q, i) => [sAt(q), Math.max(0, Math.min(path.abs ? 48 : ROAD_MAX_OFF, +path.y[i] || 0))]).sort((x, y) => x[0] - y[0]);
-      h = h.map((v, i) => { const s0 = S[i]; let j = 0; while (j < keys.length - 1 && keys[j + 1][0] < s0) j++; const A = keys[j], B = keys[Math.min(j + 1, keys.length - 1)], f = B[0] > A[0] ? Math.max(0, Math.min(1, (s0 - A[0]) / (B[0] - A[0]))) : 0; return (path.abs ? 0 : v) + A[1] + (B[1] - A[1]) * f; });   // abs: vaste laag, hoogte los van het terrein
+      h = h.map((v, i) => { const s0 = S[i]; let j = 0; while (j < keys.length - 1 && keys[j + 1][0] < s0) j++; const A = keys[j], B = keys[Math.min(j + 1, keys.length - 1)]; let f = B[0] > A[0] ? Math.max(0, Math.min(1, (s0 - A[0]) / (B[0] - A[0]))) : 0;
+        if (schans && B[1] !== A[1]) { const L = B[0] - A[0]; if (L > 10 && L < 18) { const Ls = SCHANS_L, m = (A[0] + B[0]) / 2; f = Math.max(0, Math.min(1, (s0 - m + Ls / 2) / Ls)); } }   // pad/steeg van vak naar vak: vlak in elk vak, de verhoging een schans op de grens
+        return (path.abs ? 0 : v) + A[1] + (B[1] - A[1]) * f; });   // abs: vaste laag, hoogte los van het terrein
     }
     // Over een snelweg gaat een andere weg altijd met een viaduct: 7 m boven de snelweg over de hele breedte, met
     // opritten van 55 m aan weerszijden (een uiteinde dat óp de snelweg uitkomt is een aansluiting, geen kruising)
@@ -803,12 +807,14 @@
       for (const k of vakken) {
         if (klaar.has(k)) continue; const [q, r] = k.split(',').map(Number), c = cellToWorld(q, r);
         if (stackOf(q, r).length) continue;
-        let h0 = pathH(path, c.x, c.z); if (isDeck(path, c.x, c.z, h0 + 0.1)) continue;
+        let h0 = pathH(path, c.x, c.z); const hRef = h0; if (isDeck(path, c.x, c.z, h0 + 0.1)) continue;
         if (steegBlok(path)) {   // bouwblok: zo hoog als het laagste stuk steeg in dit vak (een helling loopt erop omhoog, met een wand eronder)
-          for (const S of eigen) for (const q of densify([S.a, S.b], 1)) if (Math.hypot(q[0] - c.x, q[1] - c.z) < R) h0 = Math.min(h0, pathH(path, q[0], q[1]));
+          for (const S of eigen) for (const q of densify([S.a, S.b], 1)) if (Math.hypot(q[0] - c.x, q[1] - c.z) < 3) h0 = Math.min(h0, pathH(path, q[0], q[1]));   // het vlakke stuk rond het midden: daar ligt de steeg gelijk met het blok
+          h0 = Math.floor(h0 / 3 + 1e-3) * 3;   // op een hele laag (3 m), zoals een Blok: op een helling staat het blok een laag lager en de steeg klimt erover
           if (h0 - terrainHeightAt(c.x, c.z) < 0.5) continue;   // het stuk op de grond: geen blok
         }
-        const raak = stroken.filter(S => afst(c.x, c.z, S) < R + S.w + 0.2 && Math.abs(pathH(S.o, c.x, c.z) - h0) < 2.5);
+        // de stroken die dit vak raken: op dezelfde hoogte; bij een bouwblok elke strook die er niet bovenover gaat (anders begraaft het blok hem)
+        const raak = stroken.filter(S => afst(c.x, c.z, S) < R + S.w + 0.2 && (blok ? pathH(S.o, c.x, c.z) < hRef + 2.5 : Math.abs(pathH(S.o, c.x, c.z) - h0) < 2.5));
         if (!raak.some(S => S.o === path && afst(c.x, c.z, S) < R + S.w)) continue;   // het pad komt niet door of langs dit vak
         klaar.add(k);
         const hex = []; for (let i = 0; i < 6; i++) { const a = Math.PI / 2 - i * Math.PI / 3; hex.push([c.x + R * Math.cos(a), c.z + R * Math.sin(a)]); }
