@@ -318,7 +318,7 @@
     const tris = triWorld(mod, rot, 0, 0), th = -rot * Math.PI / 3, co = Math.cos(th), si = Math.sin(th), rt = p => [p[0] * co - p[1] * si, p[0] * si + p[1] * co];
     const lines = [];
     for (const [id, type] of mod.edges || []) { const [q, r, k] = id.split(',').map(Number), [A, B] = edgeEnds(q, r, k); lines.push({ p: [rt(A), rt(B)], w: type === 'brd' ? 11 : type === 'pad' ? 2.5 : 7, c: type === 'pad' ? '#9b5a45' : '#3c4045' }); }
-    for (const p of mod.paths || []) lines.push({ p: smoothPts(p.p).map(rt), w: p.t === 'brd' ? 11 : p.t === 'pad' ? 2.5 : 7, c: p.t === 'pad' ? '#9b5a45' : '#3c4045' });
+    for (const p of mod.paths || []) lines.push({ p: smoothPts(p.p).map(rt), w: p.t === 'brd' ? 11 : p.t === 'pad' || p.t === 'steeg' ? 2.5 : 7, c: p.t === 'pad' || p.t === 'steeg' ? '#9b5a45' : '#3c4045' });
     const dots = (mod.cells || []).map(id => { const [q, r] = id.split(',').map(Number), w = cellToWorld(q, r); return rt([w.x, w.z]); });
     let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; const ext = (x, z) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); };
     tris.forEach(t => { ext(t.v[0], t.v[1]); ext(t.v[2], t.v[3]); ext(t.v[4], t.v[5]); }); lines.forEach(l => l.p.forEach(p => ext(p[0], p[1]))); dots.forEach(p => ext(p[0], p[1]));
@@ -447,9 +447,9 @@
   }
   function drawPaths() {
     for (const a of S.paths) {
-      const def = PATH_DEF[a.t], pts = smoothPts(a.p), ew = a.t === 'pad' ? def.hw + 0.3 : def.hw + def.walk;
+      const def = PATH_DEF[a.t], pts = smoothPts(a.p), ew = a.t === 'pad' || a.t === 'steeg' ? def.hw + 0.3 : def.hw + def.walk;
       for (const [w, sg] of [[a.r, 1], [a.l, -1]]) if (w > 0) strokePath(offPts(pts, sg * (ew + w / 2)), w, '#6aa84a');
-      if (a.t === 'pad') { strokePath(pts, (def.hw + 0.3) * 2, '#7e4636'); strokePath(pts, def.hw * 2, '#b8663f'); continue; }
+      if (a.t === 'pad' || a.t === 'steeg') { strokePath(pts, (def.hw + 0.3) * 2, '#7e4636'); strokePath(pts, def.hw * 2, '#b8663f'); continue; }
       strokePath(pts, (def.hw + def.walk) * 2, '#cbc8bd'); strokePath(pts, (def.hw + 0.3) * 2, '#9b988e'); strokePath(pts, def.hw * 2, '#3c4045');
       if (a.t === 'weg') strokePath(pts, 0.14, '#f1efe6', [3 * S.view.s, 3.5 * S.view.s]);
       else if (a.t === 'laan') { for (const sg of [1, -1]) { strokePath(offPts(pts, sg * 7.75), 2, '#9b5a45'); strokePath(offPts(pts, sg * 4.75), 0.12, '#f1efe6'); } strokePath(pts, 3, '#6aa84a'); }

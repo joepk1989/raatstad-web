@@ -111,7 +111,7 @@
       for (const n of G.nodes) if (n.edges.length === 1) deadEnds++;
       isolated = G.nodes.filter(n => n.edges.length === 1 && G.nodes[G.edges.get(n.edges[0]).a === G.nodes.indexOf(n) ? G.edges.get(n.edges[0]).b : G.edges.get(n.edges[0]).a].edges.length === 1).length / 2 | 0;
       if (waterKeys.size) for (const e of G.edges.values()) {
-        const pts = e.pts || e.p || null; if (!pts || e.t === 'pad') continue;
+        const pts = e.pts || e.p || null; if (!pts || e.t === 'pad' || e.t === 'steeg') continue;
         for (const P of pts) { const c = worldToCell(P[0], P[1]); if (c && waterKeys.has(key(c.q, c.r))) { bridges++; break; } }
       } }
     // groen telt alleen in de bebouwde kom: vakken binnen één vak van een gebouw of weg (een bos ver erbuiten telt niet mee)

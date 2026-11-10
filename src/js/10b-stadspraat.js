@@ -23,7 +23,7 @@
         }
         if (st.length >= 4) n.hoog++;
       }
-      for (const p of cells.paths || []) { if (p.t === 'fiets') n.fiets++; else if (p.t === 'pad') n.pad++; else if (p.t === 'ring') n.rotonde++; else n.wegen++; if (p.t === 'laan') n.laan++; }
+      for (const p of cells.paths || []) { if (p.t === 'fiets') n.fiets++; else if (p.t === 'pad' || p.t === 'steeg') n.pad++; else if (p.t === 'ring') n.rotonde++; else n.wegen++; if (p.t === 'laan') n.laan++; }
       n.bouw = n.woning + n.kantoor;
       n.autos = cars.list ? cars.list.length : 0;
       n.mensen = people.agents ? people.agents.length : 0;
