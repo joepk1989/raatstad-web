@@ -84,7 +84,7 @@
     return parts.filter(pp => pp.length > 1 && plen(pp) > 0.5);
   }
   const vmat = (color, n) => std({ color, polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n, side: THREE.DoubleSide });
-  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), muur: std({ color: '#cdbfa6', roughness: 0.9, side: THREE.DoubleSide }), kavel: vmat('#cfc4a6', 2), kavelZij: std({ color: '#a99f86', side: THREE.DoubleSide }), kavelRand: vmat('#7d735d', 4), blokTop: vmat('#bdb29a', 2), blokZij: std({ color: '#b3a68c', roughness: 0.95, side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
+  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), muur: std({ color: '#cdbfa6', roughness: 0.9, side: THREE.DoubleSide }), kavel: vmat('#cfc4a6', 2), kavelZij: std({ color: '#a99f86', side: THREE.DoubleSide }), kavelRand: vmat('#7d735d', 4), blokTop: vmat('#bdb29a', 2), bouwRand: vmat('#efece4', 2), bouwKavel: vmat('#d9c48f', 2), bouwZij: std({ color: '#d6d3cb', roughness: 0.95, side: THREE.DoubleSide }), blokZij: std({ color: '#b3a68c', roughness: 0.95, side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
   let pathGroup = null;
   // Welke vakken beslaat een getekende weg? Een vak hoort erbij als zijn midden dicht genoeg bij de lijn ligt
   // (breedte van de weg plus een half vak). Die vakken krijgen een zandkleurige vloer en zijn niet meer bebouwbaar.
@@ -639,7 +639,8 @@
     return pathLifted(path) && h - terrainHeightAt(x, z) > 2.5;   // zelf 3 m of hoger gezet (▲▼): dek; 1,5 m: dijkje; een weg die gewoon het terrein volgt: nooit een dek
   }
   const pathLifted = p => Array.isArray(p.y) && p.y.some(v => v >= 3);
-  const steegBlok = p => p.t === 'steeg' && !p.abs && !p.dak && pathLifted(p);   // zelf opgehoogde steeg: de vakken eronder worden een bouwblok
+  const steegBlok = p => p.t === 'steeg' && !p.abs && !p.dak && (pathLifted(p) || p.rand === 'blok');   // zelf opgehoogde steeg of Bouwpad: de vakken eronder worden een bouwblok
+  const BOUW_RAND = 4.5;   // Bouwpad: de strook van het blok langs het pad (de rand, wit); wat erachter ligt is de kavel (later een huis)
   function skirtInto(L, pts, sg, path) {   // wand langs een lijn van de weg (bovenkant stoep) tot het maaiveld, waar de weg erboven ligt
     if (pts.length < 2) return;
     pts = densify(pts, 1.5);
@@ -777,7 +778,7 @@
     return n;
   }
   const padRand = p => p.rand || (p.t === 'steeg' ? 'muur' : 'geen');
-  const RAND_NAMEN = { geen: 'niets', muur: 'muurtjes', vul: 'kavels (vul-elementen)' };
+  const RAND_NAMEN = { geen: 'niets', muur: 'muurtjes', vul: 'kavels (vul-elementen)', blok: 'bouwblokken met kavels' };
   // Vul-elementen langs een pad (path.rand 'vul'): de KAVELS naast het pad, om later met huizen in te vullen. Een kavel is
   // precies het stuk van een zeshoek van het raster dat naast het pad overblijft: het vak min de strook van het pad (en van
   // andere paden en wegen op die hoogte die erdoor lopen). De randen blijven dus op het raster (de zijden van het vak) en
@@ -786,9 +787,10 @@
   // is een plaat van 10 cm boven het pad, met de zijkanten tot in de grond; zonder blokken (stackOf) en niet op een brugdek.
   function kavelsLangsPaden() {
     const P = pathsOf(), uit = [], klaar = new Set();
+    let minOpp = 0.01;   // kleinere stukjes vallen weg (een kavel); bij een Bouwpad bijna niets, anders een gaatje in de bovenkant
     const knip = (poly, nx, nz, c) => { const A = [], B = []; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length], dp = p[0] * nx + p[1] * nz - c, dq = q[0] * nx + q[1] * nz - c;
         if (dp <= 1e-9) A.push(p); if (dp >= -1e-9) B.push(p); if ((dp < -1e-9 && dq > 1e-9) || (dp > 1e-9 && dq < -1e-9)) { const t = dp / (dp - dq), x = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; A.push(x); B.push(x); } }
-      return [A, B].filter(X => X.length >= 3 && opp(X) > 0.01); };   // een stukje van bijna nul (een knip vlak langs een rand) telt niet: anders verdwijnt de rand van de kavel daar
+      return [A, B].filter(X => X.length >= 3 && opp(X) > minOpp); };   // een stukje van bijna nul (een knip vlak langs een rand) telt niet: anders verdwijnt de rand van de kavel daar
     const opp = poly => { let a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
     const zwaart = poly => { let x = 0, z = 0, a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length], c = p[0] * q[1] - q[0] * p[1]; a += c; x += (p[0] + q[0]) * c; z += (p[1] + q[1]) * c; } return Math.abs(a) < 1e-9 ? poly[0] : [x / (3 * a), z / (3 * a)]; };
     // alle stroken: dezelfde (vloeiende) middenlijn als waarmee het pad getekend wordt, en de halve breedte tot de buitenrand
@@ -800,7 +802,9 @@
     const afst = (x, z, S) => distSeg(x, z, S.a, S.b);
     for (const path of P) {
       const blok = steegBlok(path) && padRand(path) !== 'vul';   // alleen het bouwblok onder een steeg op hoogte (geen kavels om op te bouwen)
-      if ((path.t !== 'pad' && path.t !== 'steeg') || (padRand(path) !== 'vul' && !blok) || !path.p || path.p.length < 2 || isLone(path)) continue;
+      const bouw = padRand(path) === 'blok';   // Bouwpad: blokken om het pad heen, één laag hoger dan het pad, met een rand en kavels
+      minOpp = bouw ? 1e-5 : 0.01;
+      if ((path.t !== 'pad' && path.t !== 'steeg') || (padRand(path) !== 'vul' && !blok && !bouw) || !path.p || path.p.length < 2 || isLone(path)) continue;
       const eigen = stroken.filter(S => S.o === path); if (!eigen.length) continue;
       const vakken = new Set();
       for (const S of eigen) for (const q of densify([S.a, S.b], 2)) for (let dx = -12; dx <= 12; dx += 3) for (let dz = -12; dz <= 12; dz += 3) { const c = worldToCell(q[0] + dx, q[1] + dz); vakken.add(c[0] + ',' + c[1]); }
@@ -810,8 +814,8 @@
         let h0 = pathH(path, c.x, c.z); const hRef = h0; if (isDeck(path, c.x, c.z, h0 + 0.1)) continue;
         if (steegBlok(path)) {   // bouwblok: zo hoog als het laagste stuk steeg in dit vak (een helling loopt erop omhoog, met een wand eronder)
           for (const S of eigen) for (const q of densify([S.a, S.b], 1)) if (Math.hypot(q[0] - c.x, q[1] - c.z) < 3) h0 = Math.min(h0, pathH(path, q[0], q[1]));   // het vlakke stuk rond het midden: daar ligt de steeg gelijk met het blok
-          h0 = Math.floor(h0 / 3 + 1e-3) * 3;   // op een hele laag (3 m), zoals een Blok: op een helling staat het blok een laag lager en de steeg klimt erover
-          if (h0 - terrainHeightAt(c.x, c.z) < 0.5) continue;   // het stuk op de grond: geen blok
+          h0 = Math.floor(h0 / 3 + 0.05) * 3;   // (15 cm speling: het profiel ligt soms op 2,99 m)   // op een hele laag (3 m), zoals een Blok: op een helling staat het blok een laag lager en de steeg klimt erover
+          if (!bouw && h0 - terrainHeightAt(c.x, c.z) < 0.5) continue;   // het stuk op de grond: geen blok (een Bouwpad wel: daar staan de blokken om het pad heen)
         }
         // de stroken die dit vak raken: op dezelfde hoogte; bij een bouwblok elke strook die er niet bovenover gaat (anders begraaft het blok hem)
         const raak = stroken.filter(S => afst(c.x, c.z, S) < R + S.w + 0.2 && (blok ? pathH(S.o, c.x, c.z) < hRef + 2.5 : Math.abs(pathH(S.o, c.x, c.z) - h0) < 2.5));
@@ -821,20 +825,41 @@
         let stukken = [hex];
         for (const S of raak) { const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = -uz, nz = ux, cn = S.a[0] * nx + S.a[1] * nz, ct = S.a[0] * ux + S.a[1] * uz;
           const lijnen = [[nx, nz, cn + S.w], [nx, nz, cn - S.w]];
+          if (bouw) lijnen.push([nx, nz, cn + S.w + BOUW_RAND], [nx, nz, cn - S.w - BOUW_RAND]);   // de grens tussen rand en kavel, evenwijdig aan het pad   // de grens tussen rand en kavel, evenwijdig aan het pad
+          if (bouw) for (const [eind, E, sg] of [[S.eindEind, S.b, 1], [S.beginEind, S.a, -1]]) if (eind) for (let g = -60; g <= 60; g += 30) { const th = g * Math.PI / 180, vx = sg * (ux * Math.cos(th)) + nx * Math.sin(th), vz = sg * (uz * Math.cos(th)) + nz * Math.sin(th); lijnen.push([vx, vz, E[0] * vx + E[1] * vz + S.w + BOUW_RAND]); }   // om de kop: de rand als veelhoek (om de 30°, op het raster)
           // aan een uiteinde: de ronde kop, als veelhoek eromheen (raaklijnen om de 10°: hooguit 1 cm ernaast)
           for (const [eind, E, sg] of [[S.eindEind, S.b, 1], [S.beginEind, S.a, -1]]) if (eind) for (let g = -90; g <= 90; g += 10) { const th = g * Math.PI / 180, vx = sg * (ux * Math.cos(th)) + nx * Math.sin(th), vz = sg * (uz * Math.cos(th)) + nz * Math.sin(th); lijnen.push([vx, vz, E[0] * vx + E[1] * vz + S.w]); }
           for (const [lx, lz, lc] of lijnen) stukken = stukken.flatMap(X => knip(X, lx, lz, lc)); }
         // wat over is na de stroken (en hun koppen): het zwaartepunt ligt niet op een strook
         const delen = stukken.filter(X => { const m = zwaart(X); return !raak.some(S => afst(m[0], m[1], S) < S.w); });
         // delen die een rand delen horen bij dezelfde kavel (een knip door een andere strook verderop maakt anders losse stukjes)
-        const zelfde = (A, B) => { for (let i = 0; i < A.length; i++) { const a = A[i], b = A[(i + 1) % A.length], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        // ligt een stuk in de rand (binnen BOUW_RAND van de strook)? Voorbij de kop van een pad meten we langs dezelfde veelhoek
+        // als de knip (om de 30°), anders wisselt rand/kavel per snipper en krijg je een zaagrand
+        const randAfst = (x, z, S) => { const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, t = (x - S.a[0]) * ux + (z - S.a[1]) * uz;
+          const kop = t > L && S.eindEind ? [S.b, 1] : t < 0 && S.beginEind ? [S.a, -1] : null; if (!kop) return afst(x, z, S);
+          const [E, sg] = kop, nx = -uz, nz = ux; let d = -1e9; for (let g = -90; g <= 90; g += 30) { const th = g * Math.PI / 180, vx = sg * ux * Math.cos(th) + nx * Math.sin(th), vz = sg * uz * Math.cos(th) + nz * Math.sin(th); d = Math.max(d, (x - E[0]) * vx + (z - E[1]) * vz); } return d; };
+        const isRand = X => { const m = zwaart(X); return bouw && raak.some(S => randAfst(m[0], m[1], S) < S.w + BOUW_RAND); };
+        const zelfde = (A, B) => { if (isRand(A) !== isRand(B)) return false; for (let i = 0; i < A.length; i++) { const a = A[i], b = A[(i + 1) % A.length], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
             for (let j = 0; j < B.length; j++) if (distSeg(m[0], m[1], B[j], B[(j + 1) % B.length]) < 0.01) return true; } return false; };
         const groep = delen.map((_, i) => i), wortel = i => groep[i] === i ? i : (groep[i] = wortel(groep[i]));
         for (let i = 0; i < delen.length; i++) for (let j = i + 1; j < delen.length; j++) if (zelfde(delen[i], delen[j])) groep[wortel(i)] = wortel(j);
         const per = new Map(); delen.forEach((X, i) => { const g = wortel(i); if (!per.has(g)) per.set(g, []); per.get(g).push(X.map(p => [+p[0].toFixed(3), +p[1].toFixed(3)])); });
-        for (const D of per.values()) uit.push({ q, r, delen: D, y: h0, pad: path, blok });
+        for (const D of per.values()) { const rand = bouw && isRand(D[0]); uit.push({ q, r, delen: D, y: bouw ? h0 + 3 : h0, pad: path, blok: blok || bouw, bouw: bouw ? (rand ? 'rand' : 'kavel') : null }); }
       }
     }
+    // Bouwpad: een vak dat helemaal door bouwpaden is ingesloten (binnen een ring) wordt één hele kavel, op de hoogte van
+    // het laagste blok eromheen (zoals de twee kavels midden in Joeps schets)
+    { const top = new Map(); for (const k of uit) if (k.bouw) { const kk = k.q + ',' + k.r; top.set(kk, Math.min(top.has(kk) ? top.get(kk) : 1e9, k.y)); }
+      const dicht = new Set();
+      for (const kk of top.keys()) { const [q0, r0] = kk.split(',').map(Number);
+        for (const [dq, dr] of NEIGH) { const s0 = (q0 + dq) + ',' + (r0 + dr); if (top.has(s0) || klaar.has(s0) || dicht.has(s0)) continue;
+          const zee = [s0], gezien = new Set([s0]); let open = false;   // vullen vanaf hier: komt het buiten de ring (meer dan 40 vakken), dan is het niet ingesloten
+          while (zee.length && !open) { const c = zee.pop(), [q, r] = c.split(',').map(Number); if (stackOf(q, r).length) { open = true; break; }
+            for (const [a, b] of NEIGH) { const n = (q + a) + ',' + (r + b); if (top.has(n) || gezien.has(n)) continue; gezien.add(n); zee.push(n); if (gezien.size > 40) { open = true; break; } } }
+          if (open) continue;
+          for (const c of gezien) { dicht.add(c); const [q, r] = c.split(',').map(Number), w = cellToWorld(q, r), hex = []; for (let i = 0; i < 6; i++) { const a = Math.PI / 2 - i * Math.PI / 3; hex.push([+(w.x + R * Math.cos(a)).toFixed(3), +(w.z + R * Math.sin(a)).toFixed(3)]); }
+            let y = 1e9; for (const [a, b] of NEIGH) { const n = (q + a) + ',' + (r + b); if (top.has(n)) y = Math.min(y, top.get(n)); }
+            uit.push({ q, r, delen: [hex], y: y < 1e9 ? y : 3, pad: null, blok: true, bouw: 'kavel' }); } } } }
     return uit;
   }
   function buildPathNet(quick, voorbeeld) { if (!quick) sluitPadenAan(); const t0 = performance.now(); try { return buildPathNet_(quick, voorbeeld); } finally { wegTijd.n++; wegTijd.ms += performance.now() - t0;
@@ -865,8 +890,8 @@
   function pathBuild(P, lightReg, quick) {   // lint-meshes voor een lijst vrije wegen; ook gebruikt door de 3D-weergave in de schets
     const pathGroup = new THREE.Group();
     if (!P || !P.length) return pathGroup;
-    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), muur = newLayer(), kavelVlak = newLayer(), kavelZij_ = newLayer(), kavelRand_ = newLayer(), blokTop = newLayer(), blokZij = newLayer(), blokRand = newLayer(), Y = 0.1, steegMuren = [];
-    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink, muur, kavelVlak, kavelZij_, kavelRand_, blokTop, blokZij, blokRand);
+    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), muur = newLayer(), kavelVlak = newLayer(), kavelZij_ = newLayer(), kavelRand_ = newLayer(), blokTop = newLayer(), blokZij = newLayer(), blokRand = newLayer(), bouwRand = newLayer(), bouwKavel = newLayer(), bouwZij = newLayer(), Y = 0.1, steegMuren = [];
+    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink, muur, kavelVlak, kavelZij_, kavelRand_, blokTop, blokZij, blokRand, bouwRand, bouwKavel, bouwZij);
     const surfOf = n => GR.nodes[n].edges.every(id => GR.edges.get(id).t === 'klink') ? klink : asph;   // knoop met alleen klinkerstraten: klinkers
     // gemengd (klinkers op asfalt): het asfaltvlak iets hoger, anders vechten het vlak en het klinkerlint (even hoog) om dezelfde pixels
     const surfY = n => surfOf(n) === asph && GR.nodes[n].edges.some(id => GR.edges.get(id).t === 'klink') ? Y + 0.04 : Y + 0.02;
@@ -1151,19 +1176,29 @@
     }
     // kavels (vul-elementen) langs paden met de keuze 'vul'; oude SketchUp-vulstukken van de vorige versie (cells.skp met vul) weg
     if (!quick && cells.skp && cells.skp.some(x => x.vul)) { cells.skp = cells.skp.filter(x => !x.vul); try { skpBouw.build(); } catch (e) { /* nog niet geladen */ } }
-    { const K = kavelsLangsPaden(); pathGroup.userData.kavels = K.filter(k => !k.blok).map(k => ({ q: k.q, r: k.r, delen: k.delen, y: k.y }));
-      for (const k of K) { const top = k.y + Y + 0.1, kavel = k.blok ? blokTop : kavelVlak, kavelZij = k.blok ? blokZij : kavelZij_, kavelRand = k.blok ? blokRand : kavelRand_; ctx(null, gid++);
+    { const K = kavelsLangsPaden(); pathGroup.userData.kavels = K.filter(k => !k.blok || k.bouw === 'kavel').map(k => ({ q: k.q, r: k.r, delen: k.delen, y: k.y }));
+      // Bouwpad: een zijde die een ander stuk op dezelfde hoogte raakt (rand naast kavel, of het blok in het buurvak) is geen
+      // buitenwand: geen wand, en je loopt er bovenop gewoon overheen
+      const gedeeld = (k, m) => K.some(k2 => k2 !== k && k2.bouw && Math.abs(k2.y - k.y) < 0.01 && k2.delen.some(Y2 => Y2.some((p, j) => distSeg(m[0], m[1], p, Y2[(j + 1) % Y2.length]) < 0.03)));
+      for (const k of K) { const top = k.y + Y + 0.1, kavel = k.bouw === 'kavel' ? bouwKavel : k.bouw === 'rand' ? bouwRand : k.blok ? blokTop : kavelVlak, kavelZij = k.bouw ? bouwZij : k.blok ? blokZij : kavelZij_, kavelRand = k.blok ? blokRand : kavelRand_; ctx(null, gid++);
         for (const X of k.delen) polyInto(kavel, X, top);
         for (const X of k.delen) for (let i = 0; i < X.length; i++) { const a = X[i], b = X[(i + 1) % X.length], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
           if (k.delen.some(Y2 => Y2 !== X && Y2.some((p, j) => distSeg(m[0], m[1], p, Y2[(j + 1) % Y2.length]) < 0.01))) continue;   // binnen de kavel: geen rand
-          const ga = Math.min(terrainHeightAt(a[0], a[1]), k.y) - 0.3, gb = Math.min(terrainHeightAt(b[0], b[1]), k.y) - 0.3, base = kavelZij.pos.length / 3;
-          kavelZij.pos.push(a[0], ga, a[1], a[0], top, a[1], b[0], gb, b[1], b[0], top, b[1]); kavelZij.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
-          // een dunne donkere rand bovenop, zodat je elke kavel (en de grens met het buurvak) ziet
+          const binnen = k.bouw && gedeeld(k, m);
+          if (!binnen) { const ga = Math.min(terrainHeightAt(a[0], a[1]), k.y) - 0.3, gb = Math.min(terrainHeightAt(b[0], b[1]), k.y) - 0.3, base = kavelZij.pos.length / 3;
+          // een Bouwpad-wand 2 cm langer aan beide kanten, zodat twee wandstukken elkaar overlappen (anders een haarfijn kiertje)
+          const ll = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ex = k.bouw ? (b[0] - a[0]) / ll * 0.02 : 0, ez = k.bouw ? (b[1] - a[1]) / ll * 0.02 : 0;
+          kavelZij.pos.push(a[0] - ex, ga, a[1] - ez, a[0] - ex, top, a[1] - ez, b[0] + ex, gb, b[1] + ez, b[0] + ex, top, b[1] + ez); kavelZij.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+          if (k.bouw) steegMuren.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], y0: Math.min(ga, gb), y1: top, half: 0.05 }); }   // de wand van een bouwblok houdt je tegen (je loopt door de geul, niet door het blok)
+          // een dunne donkere rand bovenop, zodat je elke kavel (en de grens met het buurvak) ziet; bij een Bouwpad alleen aan de
+          // buitenkant en tussen rand en kavel (niet tussen twee snippers van hetzelfde soort: dat gaf stipjes)
+          if (k.bouw && Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.5) continue;   // een randje van een snipper (in een bocht): geen streepje
+          if (binnen && K.some(k2 => k2 !== k && k2.bouw === k.bouw && k2.q === k.q && k2.r === k.r && Math.abs(k2.y - k.y) < 0.01 && k2.delen.some(Y2 => Y2.some((p, j) => distSeg(m[0], m[1], p, Y2[(j + 1) % Y2.length]) < 0.01)))) continue;
           const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * 0.07, nz = (b[0] - a[0]) / L * 0.07, b2 = kavelRand.pos.length / 3;
           kavelRand.pos.push(a[0] - nx, top + 0.005, a[1] - nz, a[0] + nx, top + 0.005, a[1] + nz, b[0] - nx, top + 0.005, b[1] - nz, b[0] + nx, top + 0.005, b[1] + nz); kavelRand.idx.push(b2, b2 + 1, b2 + 2, b2 + 1, b2 + 3, b2 + 2); } } }
     ctx(null, -1);
-    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink], [muur, VM.muur], [kavelVlak, VM.kavel], [kavelZij_, VM.kavelZij], [kavelRand_, VM.kavelRand], [blokTop, VM.blokTop], [blokZij, VM.blokZij], [blokRand, VM.kavelRand]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
-    if (lightReg && !quick) { const cm = pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink, kavelVlak, blokTop]);
+    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink], [muur, VM.muur], [kavelVlak, VM.kavel], [kavelZij_, VM.kavelZij], [kavelRand_, VM.kavelRand], [blokTop, VM.blokTop], [blokZij, VM.blokZij], [blokRand, VM.kavelRand], [bouwRand, VM.bouwRand], [bouwKavel, VM.bouwKavel], [bouwZij, VM.bouwZij]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
+    if (lightReg && !quick) { const cm = pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink, kavelVlak, blokTop, bouwRand, bouwKavel]);
       for (const w of steegMuren) {   // de muurtjes van een steeg houden je tegen (per vak waar ze doorheen gaan)
         const col = { surfaces: [], walls: [w], tag: 'steegmuur' }, seen = new Set();
         for (let f = 0; f <= 1; f += 0.5) { const [q, r] = worldToCell(w.ax + (w.bx - w.ax) * f, w.az + (w.bz - w.az) * f), k = q + ',' + r; if (seen.has(k)) continue; seen.add(k); let L = cm.get(k); if (!L) cm.set(k, L = []); L.push(col); }

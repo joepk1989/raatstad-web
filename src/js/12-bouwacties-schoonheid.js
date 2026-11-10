@@ -405,12 +405,12 @@
     // het volgende materiaal (klinkers → beton → hout → stalen rooster → weer klinkers). In plaats van plaatsen of
     // stapelen (LOOPDEK_VAR_NAMEN/LOOPDEK_HOFJE_NAMEN/loopdekCijfers/loopdekCode, 05)
     // Ctrl+klik met Pad of Steeg (getekend) op zo'n pad: wat er langs staat, niets → muurtjes → vul-elementen → niets (path.rand, 07)
-    if (ctrl && (tool === 'vpad' || tool === 'vsteeg') && mode === 'build') {
+    if (ctrl && (tool === 'vpad' || tool === 'vsteeg' || tool === 'vbouw') && mode === 'build') {
       const pt = res.point || null; let best = null, bd = 1e9;
       if (pt) for (const p of cells.paths || []) { if ((p.t !== 'pad' && p.t !== 'steeg') || !p.p || p.p.length < 2) continue;
         const d = distPoly(pt.x, pt.z, smoothPts(p.p)); if (d < PATH_DEF[p.t].hw + 1.5 && Math.abs(pathH(p, pt.x, pt.z) - pt.y) < 2.5 && d < bd) { bd = d; best = p; } }
       if (best) {
-        const volg = { geen: 'muur', muur: 'vul', vul: 'geen' }, nu = volg[padRand(best)];
+        const volg = { geen: 'muur', muur: 'vul', vul: 'blok', blok: 'geen' }, nu = volg[padRand(best)];
         if (nu === (best.t === 'steeg' ? 'muur' : 'geen')) delete best.rand; else best.rand = nu;
         buildPathNet(); changed(); toast((best.t === 'steeg' ? 'Steeg' : 'Pad') + ': ' + RAND_NAMEN[nu] + ' langs de kanten · Ctrl+klik voor de volgende', 1600);
         return;
