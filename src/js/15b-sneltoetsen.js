@@ -1,16 +1,16 @@
   // ---------- Sneltoetsen ----------
   // Bouwen: WASD/pijltjes schuiven de kaart, Q/E draaien, + / − zoomen, 1–9 kiest een blok, Tab wisselt van
   // categorie, R draait, Delete is de gum, [ ] maakt het terreinpenseel groter of kleiner, G raster, P pauze,
-  // L lopen, M menu, ? dit overzicht. Tijdens het slepen van een weg: E/Q (of Page Up/Down, scrollwiel) hoger/lager.
+  // L lopen, M menu, ? dit overzicht. Met een weg, pad, stapelbaar blok of module: E/Q hoger/lager (vooraf de beginhoogte of de laag, tijdens het slepen het punt; ook Page Up/Down, scrollwiel).
   const keysPanel = document.getElementById('keysPanel'), keysBtn = document.getElementById('keysBtn'), keysList = document.getElementById('keysList');
   const K = (...k) => k.map(x => `<kbd>${x}</kbd>`).join(' ');
   const KEYS_BUILD = [
-    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien'], [K('+', '−'), 'in- en uitzoomen'],
+    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien (met een weg, pad, blok of module in de hand: een laag lager / hoger)'], [K('+', '−'), 'in- en uitzoomen'],
     ['Bouwen', null], [K('1') + '…' + K('9'), 'blok uit de snelbalk'], [K('Tab'), 'alle blokken (kies er één: hij komt in de snelbalk)'], [K('R'), 'draaien (Shift+R: terug)'],
     [K('K'), 'Raatmaker, overzicht: alle modules van boven; bekijken, bewerken, neerzetten of een nieuwe tekenen'], [K('V'), 'aanwijzen: klik op een module voor opties (draaien, spiegelen, variant, bewerken, verplaatsen)'], [K('Del'), 'gum aan/uit'], [K('Ctrl', 'Z'), 'ongedaan maken'], [K('PgUp', 'PgDn'), 'laag kiezen (wat erboven ligt wordt doorzichtig)'], [K('[', ']'), 'penseel: 1, 7, 19 of 37 vakken'], [K('Shift') + '+wiel', 'volgende in de snelbalk'],
     ['Modules', null], [K(',', '.'), 'vorige / volgende module'], [K('F'), 'module spiegelen'], [K('/'), 'zoek een module (Enter kiest de eerste)'],
     ['Terrein', null], ['slepen', 'boetseren (ingedrukt houden)'], [K('Shift') + '+slepen', 'andersom (ophogen ↔ afgraven)'],
-    ['Weg slepen', null], [K('E', 'Q'), 'hoger / lager (ook Page Up/Down, wiel)'], ['stilhouden', 'hoekpunt: bocht in één sleep'],
+    ['Weg of pad', null], [K('E', 'Q'), 'hoger / lager: vooraf de beginhoogte, tijdens het slepen het punt waar je bent (ook Page Up/Down, wiel)'], ['stilhouden', 'hoekpunt: bocht in één sleep'],
     ['Cameramodus', null], [K('Spatie'), 'aan / uit (of Esc)'], ['muis', 'rondkijken'], [K('W', 'A', 'S', 'D'), 'vliegen'], [K('E', 'Q'), 'omhoog / omlaag'], [K('Shift') + ' / ' + K('Ctrl'), 'sneller / langzamer'], ['wiel', 'zoomen'], ['klik', 'kogel schieten (rechts: zware sloopkogel)'], [K('F'), 'foto (png, zonder knoppen)'], [K('P'), 'tijd stilzetten'], [K('O'), 'ander weer'],
     ['Overig', null], [K('G'), 'raster aan/uit'], [K('P'), 'tijd pauze / verder'], [K('O'), 'weer: volgende (Shift: vorige)'], [K('L'), 'lopen'], [K('M'), 'menu'], [K('?'), 'dit overzicht'],
   ];
@@ -64,7 +64,7 @@
   // ingedrukte toetsen in bouwmodus: schuiven en draaien, elke frame een stukje
   function updateBuildKeys(dt) {
     if (mode !== 'build' || roadDrag.on) return;
-    const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), mz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), rot = (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0);
+    const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), mz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), rot = eqHoogte() ? 0 : (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0);   // met een weg, pad of stapelbaar blok zijn E/Q de hoogte
     if (!mx && !mz && !rot) return;
     const mmOpen = (document.getElementById('mmApp') || {}).hidden === false; if (mmOpen) return;
     if (mx || mz) pan(-mx * 520 * dt, -mz * 520 * dt);

@@ -186,6 +186,14 @@
     if (e.code === 'Space' && mode === 'build' && !e.repeat && !(e.target.closest && e.target.closest('input, textarea, select')) && (typeof sheet === 'undefined' || sheet.hidden)) { e.preventDefault(); if (flyCam.on) flyStop(); else flyStart(); return; }
     if (mode === 'walk' && e.code === 'Space') { e.preventDefault(); jump(); }
     const n = parseInt(e.key, 10);
+    // E/Q (niet aan het slepen): met een getekende weg of pad de hoogte waarop je begint, met een stapelbaar blok of een
+    // module de laag (zoals Ctrl+scrollen); met ander gereedschap draaien ze de camera (updateBuildKeys, 15b)
+    if (mode === 'build' && !roadDrag.on && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select')) && eqHoogte()) {
+      e.preventDefault(); if (e.repeat) return; const dir = e.code === 'KeyE' ? 1 : -1;
+      if (VEC_TOOLS.has(tool)) roadHeightStep(dir);
+      else if (typeof HUD !== 'undefined' && HUD) { const L = HUD.layer; HUD.setLayer(L === null ? (dir > 0 ? 1 : null) : (L + dir <= 0 ? null : L + dir)); }
+      return;
+    }
     if (roadDrag.on && roadDrag.vp && e.code === 'KeyL') { e.preventDefault(); roadAbsToggle(); return; }
     if (roadDrag.on && roadDrag.vp && ['KeyE', 'KeyQ', 'PageUp', 'PageDown', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'].includes(e.code)) { e.preventDefault(); roadHeightStep(['KeyE', 'PageUp', 'Equal', 'NumpadAdd'].includes(e.code) ? 1 : -1); return; }
     if (mode === 'walk' && e.code === 'KeyQ') { const H = ['kijken', 'bouwen', 'hamer']; setHand(H[(H.indexOf(hand) + 1) % 3]); toast(hand === 'kijken' ? 'Kijken' : hand === 'bouwen' ? 'Bouwen: ' + (TYPES[toolBase(tool)] ? TYPES[toolBase(tool)].name : tool) : 'Hamer: klik om te slopen', 1200); return; }
@@ -408,6 +416,8 @@
     D.last = null; if (D.vp) vecPaintTo(D.vend || D.vstart);
     toast(D.abs ? 'Vaste laag: hoogte in modulelagen van 3 m, los van het terrein' : 'Hoogte volgt het terrein', 1600);
   }
+  // Gebruiken E/Q met dit gereedschap de hoogte (in plaats van de camera te draaien)?
+  function eqHoogte() { if (VEC_TOOLS.has(tool) || tool === 'module') return true; const b = baseOf(toolBase(tool)); return !!(RULES[b] && RULES[b].includes('blok')); }
   function roadHeightStep(dir) {
     const D = roadDrag;
     if (!D.on || !D.vp) {   // nog niet aan het slepen: de beginhoogte van de volgende weg

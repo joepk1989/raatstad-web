@@ -565,6 +565,13 @@ Menu → **Stegentoren**: een getrapte toren van 5 lagen (tot 15 m), helemaal ui
 - er zijn vijf hellingen;
 - de speler loopt zelf de ingangshelling op tot 3 m.
 
+**E/Q ook vooraf** (`eqHoogte` en de toetsafhandeling in 14, november 2026). Eerst werkten E en Q alleen tijdens het slepen van een getekende weg; ervoor of erna draaiden ze de camera, dus voor de hoogte "deden ze niks". Nu hangt het af van wat je in de hand hebt:
+- **een getekende weg, pad of steeg:** vooraf de beginhoogte, net als ▲▼ (bij pad en steeg een laag van 3 m per druk), en tijdens het slepen het punt waar je bent;
+- **een stapelbaar blok** (Steeg, Helling, Trap, Blok …) **of een module:** de laag, net als Ctrl+scrollen of de laagkiezer (Q op laag 1 = weer alle lagen);
+- **ander gereedschap:** E/Q draaien de camera, zoals vroeger.
+
+Test: `test/visueel/eq_hoogte.js`.
+
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).
 - **Totale chaos** (de oude knop "Roekeloos rijgedrag", intern nog `cars.reckless`): mensen rennen (×1,6–3,5), pauzeren en kletsen niet, schreeuwen af en toe (`sound.scream`, opnames in `assets/schreeuw.mp3`: paniek, korte kreten, een gruwelkreet bij een explosie en een kreet die bij het bloed hoort) en de spreekballonnen tonen paniek en verwarring (`PANIC`, plus brand- en instortzinnen als dat echt gebeurt).
