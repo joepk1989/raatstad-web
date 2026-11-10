@@ -84,7 +84,7 @@
     return parts.filter(pp => pp.length > 1 && plen(pp) > 0.5);
   }
   const vmat = (color, n) => std({ color, polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n, side: THREE.DoubleSide });
-  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), muur: std({ color: '#cdbfa6', roughness: 0.9, side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
+  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), muur: std({ color: '#cdbfa6', roughness: 0.9, side: THREE.DoubleSide }), kavel: vmat('#cfc4a6', 2), kavelZij: std({ color: '#a99f86', side: THREE.DoubleSide }), kavelRand: vmat('#7d735d', 4), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
   let pathGroup = null;
   // Welke vakken beslaat een getekende weg? Een vak hoort erbij als zijn midden dicht genoeg bij de lijn ligt
   // (breedte van de weg plus een half vak). Die vakken krijgen een zandkleurige vloer en zijn niet meer bebouwbaar.
@@ -750,77 +750,53 @@
     return n;
   }
   const padRand = p => p.rand || (p.t === 'steeg' ? 'muur' : 'geen');
-  const RAND_NAMEN = { geen: 'niets', muur: 'muurtjes', vul: 'vul-elementen' };
-  // Vul-elementen langs een pad (path.rand 'vul'): de halve-zeshoekstukken uit de SketchUp-bibliotheek van de Raatmaker
-  // (SKP_FORTEN, 08n) in de strook naast het pad. Per vak naast het pad kiezen we het stuk en de draaiing (6 × 60°)
-  // waarvan een rechte kant het langst tegen de rand van het pad komt; het stuk schuift daarvoor hooguit 9,5 m naar het
-  // pad toe (zo min mogelijk). Het mag niet over het pad, een ander pad of weg op die hoogte, een blok of een ander vulstuk heen. De stukken
-  // staan in cells.skp met vul: 1 en worden bij elke volledige opbouw opnieuw uitgerekend (dus ze volgen het pad); hun
-  // omtrek krijgt muren voor de botsing (SketchUp-stukken hebben zelf geen botsing).
-  const VUL_STUKKEN = ['Gebouw · halve zeshoek aan de weg', 'Blok · halve zeshoek met rand', 'Blok · halve zeshoek', 'Vulstuk · halve zeshoek'];
-  let vulVorm = null;   // naam → { pts: omtrek in SketchUp-meters t.o.v. het midden van het vak (convex), h: hoogte }
-  function vulVormen() {
-    if (vulVorm) return vulVorm; vulVorm = {};
-    if (typeof SKP_FORTEN === 'undefined') return vulVorm;
-    for (const m of SKP_FORTEN.mods) { if (!VUL_STUKKEN.includes(m.n)) continue;
-      const V = m.v.flat(Infinity); let z0 = 1e9, z1 = -1e9; for (let i = 2; i < V.length; i += 3) { z0 = Math.min(z0, V[i]); z1 = Math.max(z1, V[i]); }
-      const P = []; for (let i = 0; i + 2 < V.length; i += 3) if (V[i + 2] > z0 + 1) P.push([(V[i] - m.c[0]) / 100, (V[i + 1] - m.c[1]) / 100]);   // wat boven de grond uitsteekt (Gebouw · aan de weg heeft een plat voorplein van 6,6 m dat niet meetelt)
-      P.sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
-      for (const p of P) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
-      for (const p of P.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
-      vulVorm[m.n] = { pts: lo.slice(0, -1).concat(up.slice(0, -1)), h: (z1 - z0) / 100 }; }
-    return vulVorm;
-  }
-  const polyOverlap = (A, B) => { for (const P of [A, B]) for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], nx = a[1] - b[1], nz = b[0] - a[0];
-      let a0 = 1e9, a1 = -1e9, b0 = 1e9, b1 = -1e9; for (const p of A) { const d = p[0] * nx + p[1] * nz; a0 = Math.min(a0, d); a1 = Math.max(a1, d); } for (const p of B) { const d = p[0] * nx + p[1] * nz; b0 = Math.min(b0, d); b1 = Math.max(b1, d); }
-      const L = Math.hypot(nx, nz) || 1; if (a1 / L <= b0 / L + 0.08 || b1 / L <= a0 / L + 0.08) return false; } return true; };
-  function vulLangsPaden(walls) {
-    const V = vulVormen(), P = pathsOf(), out = [], fps = [];
+  const RAND_NAMEN = { geen: 'niets', muur: 'muurtjes', vul: 'kavels (vul-elementen)' };
+  // Vul-elementen langs een pad (path.rand 'vul'): de KAVELS naast het pad, om later met huizen in te vullen. Een kavel is
+  // precies het stuk van een zeshoek van het raster dat naast het pad overblijft: het vak min de strook van het pad (en van
+  // andere paden en wegen op die hoogte die erdoor lopen). De randen blijven dus op het raster (de zijden van het vak) en
+  // langs de rand van het pad; niets schuift. Uitgerekend door het vak te knippen langs de randlijnen van elke strook (een
+  // knip langs een rechte lijn houdt een stuk convex) en dan de stukken weg te gooien die op een strook liggen. Een kavel
+  // is een plaat van 10 cm boven het pad, met de zijkanten tot in de grond; zonder blokken (stackOf) en niet op een brugdek.
+  function kavelsLangsPaden() {
+    const P = pathsOf(), uit = [], klaar = new Set();
+    const knip = (poly, nx, nz, c) => { const A = [], B = []; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length], dp = p[0] * nx + p[1] * nz - c, dq = q[0] * nx + q[1] * nz - c;
+        if (dp <= 0) A.push(p); if (dp >= 0) B.push(p); if ((dp < 0 && dq > 0) || (dp > 0 && dq < 0)) { const t = dp / (dp - dq), x = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; A.push(x); B.push(x); } }
+      return [A, B].filter(X => X.length >= 3); };
+    const opp = poly => { let a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
+    const zwaart = poly => { let x = 0, z = 0; for (const p of poly) { x += p[0]; z += p[1]; } return [x / poly.length, z / poly.length]; };
+    // alle stroken: per stuk van elk pad of weg zijn middenlijn (ruwe punten) en halve breedte tot de buitenrand
+    const stroken = [];
+    for (const o of P) { if (o.t === 'rot' || !PATH_DEF[o.t] || !o.p || o.p.length < 2 || isLone(o)) continue;
+      const d = PATH_DEF[o.t], w = o.t === 'pad' ? d.hw + 0.3 : o.t === 'steeg' ? d.hw + 0.35 : o.t === 'fiets' ? d.hw + 0.3 : d.hw + d.walk + 0.1, pts = [];
+      for (const q of o.p) if (!pts.length || Math.hypot(q[0] - pts[pts.length - 1][0], q[1] - pts[pts.length - 1][1]) > 0.5) pts.push(q);
+      { const e = o.p[o.p.length - 1]; if (pts[pts.length - 1] !== e) pts[pts.length - 1] = e; }   // het staartje van 0,15 m aan het eind telt mee (aan het begin is het het eerste punt)
+      for (let i = 0; i < pts.length - 1; i++) stroken.push({ o, a: pts[i], b: pts[i + 1], w, beginEind: i === 0, eindEind: i === pts.length - 2 }); }
+    const afst = (x, z, S) => distSeg(x, z, S.a, S.b);
     for (const path of P) {
       if ((path.t !== 'pad' && path.t !== 'steeg') || padRand(path) !== 'vul' || !path.p || path.p.length < 2 || isLone(path)) continue;
-      const line = smoothPts(path.p), def = PATH_DEF[path.t], rand = def.hw + (path.t === 'steeg' ? 0.35 : 0.3);
-      const others = P.filter(o => o !== path && o.t !== 'rot' && PATH_DEF[o.t] && o.p && o.p.length > 1).map(o => ({ o, pts: smoothPts(o.p), w: PATH_DEF[o.t].hw + (CAR_T.has(o.t) ? PATH_DEF[o.t].walk : 0.35) + 0.2 }));
-      // vakken naast het pad, in volgorde langs het pad
-      const vak = new Map(); let s = 0;
-      const DL = densify(line, 3);
-      for (let i = 0; i < DL.length; i++) { const q = DL[i], dv = dirAt(DL, i); s += 3; for (const sg of [1, -1]) for (const off of [5, 10, 14]) {
-        const x = q[0] - dv[1] * sg * off, z = q[1] + dv[0] * sg * off, c = worldToCell(x, z), k = c[0] + ',' + c[1]; if (!vak.has(k)) vak.set(k, s); } }
-      for (const [k] of [...vak.entries()].sort((a, b) => a[1] - b[1])) {
-        const [q, r] = k.split(',').map(Number); if (stackOf(q, r).length) continue;
-        const cw = cellToWorld(q, r); let best = null;
-        for (const naam of VUL_STUKKEN) { const F = V[naam]; if (!F) continue;
-          for (let rk = 0; rk < 6; rk++) {
-            const th = rk * Math.PI / 3, co = Math.cos(th), si = Math.sin(th);
-            let W = F.pts.map(([x, y]) => { const X = co * x - si * y, Y = si * x + co * y; return [cw.x + X, cw.z - Y]; });   // SketchUp (x, y) → wereld (x, −y)
-            // dichtstbijzijnde punt van de omtrek tot de middenlijn, en daarheen schuiven tot tegen de rand
-            let dm = 1e9, pn = null; for (const p of W) { const d = distPoly(p[0], p[1], line); if (d < dm) { dm = d; pn = p; } }
-            if (dm < rand - 0.05 || dm > rand + 9.5) continue;
-            const sh = dm - rand; if (sh > 0.01) { const cp = (() => { let b2 = null, bd = 1e9; for (let i = 0; i < line.length - 1; i++) { const A = line[i], B = line[i + 1], dx = B[0] - A[0], dz = B[1] - A[1], L2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((pn[0] - A[0]) * dx + (pn[1] - A[1]) * dz) / L2)), x = A[0] + dx * t, z = A[1] + dz * t, d = Math.hypot(pn[0] - x, pn[1] - z); if (d < bd) { bd = d; b2 = [x, z]; } } return b2; })();
-              const ux = (cp[0] - pn[0]) / dm, uz = (cp[1] - pn[1]) / dm; W = W.map(p => [p[0] + ux * sh, p[1] + uz * sh]); }
-            // niet over het pad (ook de randen tussen de hoeken), en hoe lang ligt de omtrek tegen de rand (de gevel)
-            let mis = false, gevel = 0;
-            for (let i = 0; i < W.length && !mis; i++) { const a = W[i], b = W[(i + 1) % W.length], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.8));
-              for (let j = 0; j <= n; j++) { const x = a[0] + (b[0] - a[0]) * j / n, z = a[1] + (b[1] - a[1]) * j / n, d = distPoly(x, z, line); if (d < rand - 0.1) { mis = true; break; } if (d < rand + 0.4 && j < n) gevel += Math.hypot(b[0] - a[0], b[1] - a[1]) / n;
-                if (others.some(O => distPoly(x, z, O.pts) < O.w && Math.abs(pathH(O.o, x, z) - pathH(path, x, z)) < F.h + 1.5)) { mis = true; break; }
-                const [cq, cr] = worldToCell(x, z); if (stackOf(cq, cr).length) { mis = true; break; } } }
-            if (mis || gevel < 2.5) continue;
-            if (fps.some(G => polyOverlap(W, G))) continue;
-            let ax = 0, az = 0; for (const p of W) { ax += p[0]; az += p[1]; } let area = 0; for (let i = 0; i < W.length; i++) { const a = W[i], b = W[(i + 1) % W.length]; area += a[0] * b[1] - b[0] * a[1]; } area = Math.abs(area / 2);
-            const score = gevel * 10 + area - sh * 3; if (!best || score > best.score) best = { score, naam, rk, W, off: [W[0][0] - (cw.x + (co * F.pts[0][0] - si * F.pts[0][1])), W[0][1] - (cw.z - (si * F.pts[0][0] + co * F.pts[0][1]))], h: F.h };
-          } }
-        if (!best) continue;
-        fps.push(best.W);
-        const mid = best.W.reduce((a, p) => [a[0] + p[0] / best.W.length, a[1] + p[1] / best.W.length], [0, 0]), y = +pathH(path, ...(() => { let bp = null, bd = 1e9; for (const p of densify(line, 1)) { const d = Math.hypot(p[0] - mid[0], p[1] - mid[1]); if (d < bd) { bd = d; bp = p; } } return bp; })()).toFixed(3);
-        const c = Math.cos(best.rk * Math.PI / 3), sn = Math.sin(best.rk * Math.PI / 3), rec = { n: best.naam, q, r, y, vul: 1 };
-        if (best.rk) rec.a = [c, sn, 0, -sn, c, 0, 0, 0, 1].map(v => +v.toFixed(5));
-        if (Math.abs(best.off[0]) + Math.abs(best.off[1]) > 0.005) rec.o = [+best.off[0].toFixed(3), +(-best.off[1]).toFixed(3)];   // wereld (x, z) → SketchUp (x, −z)
-        out.push(rec);
-        for (let i = 0; i < best.W.length; i++) { const a = best.W[i], b = best.W[(i + 1) % best.W.length]; walls.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], y0: y - 0.2, y1: y + best.h, half: 0.1 }); }
+      const eigen = stroken.filter(S => S.o === path); if (!eigen.length) continue;
+      const vakken = new Set();
+      for (const S of eigen) for (const q of densify([S.a, S.b], 2)) for (let dx = -12; dx <= 12; dx += 3) for (let dz = -12; dz <= 12; dz += 3) { const c = worldToCell(q[0] + dx, q[1] + dz); vakken.add(c[0] + ',' + c[1]); }
+      for (const k of vakken) {
+        if (klaar.has(k)) continue; const [q, r] = k.split(',').map(Number), c = cellToWorld(q, r);
+        if (stackOf(q, r).length) continue;
+        const h0 = pathH(path, c.x, c.z); if (isDeck(path, c.x, c.z, h0 + 0.1)) continue;
+        const raak = stroken.filter(S => afst(c.x, c.z, S) < R + S.w + 0.2 && Math.abs(pathH(S.o, c.x, c.z) - h0) < 2.5);
+        if (!raak.some(S => S.o === path && afst(c.x, c.z, S) < R + S.w)) continue;   // het pad komt niet door of langs dit vak
+        klaar.add(k);
+        const hex = []; for (let i = 0; i < 6; i++) { const a = Math.PI / 2 - i * Math.PI / 3; hex.push([c.x + R * Math.cos(a), c.z + R * Math.sin(a)]); }
+        let stukken = [hex];
+        for (const S of raak) { const dx = S.b[0] - S.a[0], dz = S.b[1] - S.a[1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = -uz, nz = ux, cn = S.a[0] * nx + S.a[1] * nz, ct = S.a[0] * ux + S.a[1] * uz;
+          const lijnen = [[nx, nz, cn + S.w], [nx, nz, cn - S.w]]; if (S.eindEind) lijnen.push([ux, uz, ct + L + S.w]); if (S.beginEind) lijnen.push([ux, uz, ct - S.w]);
+          for (const [lx, lz, lc] of lijnen) stukken = stukken.flatMap(X => knip(X, lx, lz, lc)); }
+        for (const X of stukken) {
+          if (opp(X) < 2.5) continue; const m = zwaart(X);
+          if (raak.some(S => afst(m[0], m[1], S) < S.w + 0.3)) continue;   // dit stuk ligt op een pad of weg
+          uit.push({ q, r, poly: X.map(p => [+p[0].toFixed(3), +p[1].toFixed(3)]), y: h0, pad: path });
+        }
       }
     }
-    // alleen bijwerken als er iets verandert (de SketchUp-stukken opnieuw opbouwen kost wat)
-    const oud = (cells.skp || []).filter(x => x.vul), sig = JSON.stringify(out);
-    if (JSON.stringify(oud) !== sig) { cells.skp = (cells.skp || []).filter(x => !x.vul).concat(out); try { skpBouw.build(); } catch (e) { /* nog niet geladen: rebuildAll bouwt ze straks */ } }
+    return uit;
   }
   function buildPathNet(quick, voorbeeld) { if (!quick) sluitPadenAan(); const t0 = performance.now(); try { return buildPathNet_(quick, voorbeeld); } finally { wegTijd.n++; wegTijd.ms += performance.now() - t0;
     // een pad dat op een Steeg, Helling … uitkomt (of er niet meer op uitkomt) verandert diens open kanten: die vakken opnieuw
@@ -850,8 +826,8 @@
   function pathBuild(P, lightReg, quick) {   // lint-meshes voor een lijst vrije wegen; ook gebruikt door de 3D-weergave in de schets
     const pathGroup = new THREE.Group();
     if (!P || !P.length) return pathGroup;
-    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), muur = newLayer(), Y = 0.1, steegMuren = [];
-    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink, muur);
+    const grass = newLayer(), walk = newLayer(), kerb = newLayer(), asph = newLayer(), pave = newLayer(), dash = newLayer(), skirt = newLayer(), bike = newLayer(), rail = newLayer(), barrier = newLayer(), klink = newLayer(), muur = newLayer(), kavel = newLayer(), kavelZij = newLayer(), kavelRand = newLayer(), Y = 0.1, steegMuren = [];
+    ALL_L.length = 0; ALL_L.push(grass, walk, kerb, asph, pave, dash, skirt, bike, rail, barrier, klink, muur, kavel, kavelZij, kavelRand);
     const surfOf = n => GR.nodes[n].edges.every(id => GR.edges.get(id).t === 'klink') ? klink : asph;   // knoop met alleen klinkerstraten: klinkers
     // gemengd (klinkers op asfalt): het asfaltvlak iets hoger, anders vechten het vlak en het klinkerlint (even hoog) om dezelfde pixels
     const surfY = n => surfOf(n) === asph && GR.nodes[n].edges.some(id => GR.edges.get(id).t === 'klink') ? Y + 0.04 : Y + 0.02;
@@ -925,7 +901,7 @@
     // wegengraaf, dus de openingen bepalen we zelf: een stuk muur vervalt waar een ander pad of een weg op dezelfde
     // hoogte (minder dan 2,5 m verschil) eroverheen ligt — zo blijft een zijsteeg, pad of straat die aansluit open
     // Wat er langs een pad of steeg staat (path.rand, Ctrl+klik met het gereedschap, 12): 'geen', 'muur' (de muurtjes)
-    // of 'vul' (de vul-elementen uit de Raatmaker, zie vulLangsPaden). Zonder keuze: steeg muurtjes, pad niets
+    // of 'vul' (kavels om later met huizen in te vullen, zie kavelsLangsPaden). Zonder keuze: steeg muurtjes, pad niets
     for (const path of P) {
       if ((path.t !== 'steeg' && path.t !== 'pad') || padRand(path) !== 'muur' || !path.p || path.p.length < 2 || isLone(path)) continue;
       ctx(pathHF(path), gid++);
@@ -1128,10 +1104,18 @@
       { const tr = new THREE.Mesh(G.trunk, M.trunk); tr.scale.set(1, 1.4, 1); tr.position.set(C[0], PW_H + h0, C[1]); tr.castShadow = true; pathGroup.add(tr);
         const cr = new THREE.Mesh(G.crown, M.leaf[1]); cr.scale.set(1.35, 1.5, 1.35); cr.position.set(C[0], PW_H + 4.2 + h0, C[1]); cr.castShadow = true; pathGroup.add(cr); }
     }
+    // kavels (vul-elementen) langs paden met de keuze 'vul'; oude SketchUp-vulstukken van de vorige versie (cells.skp met vul) weg
+    if (!quick && cells.skp && cells.skp.some(x => x.vul)) { cells.skp = cells.skp.filter(x => !x.vul); try { skpBouw.build(); } catch (e) { /* nog niet geladen */ } }
+    { const K = kavelsLangsPaden(); pathGroup.userData.kavels = K.map(k => ({ q: k.q, r: k.r, poly: k.poly, y: k.y }));
+      for (const k of K) { const top = k.y + Y + 0.1; ctx(null, gid++); polyInto(kavel, k.poly, top);
+        for (let i = 0; i < k.poly.length; i++) { const a = k.poly[i], b = k.poly[(i + 1) % k.poly.length], ga = Math.min(terrainHeightAt(a[0], a[1]), k.y) - 0.3, gb = Math.min(terrainHeightAt(b[0], b[1]), k.y) - 0.3, base = kavelZij.pos.length / 3;
+          kavelZij.pos.push(a[0], ga, a[1], a[0], top, a[1], b[0], gb, b[1], b[0], top, b[1]); kavelZij.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+          // een dunne donkere rand bovenop, zodat je elke kavel (en de grens met het buurvak) ziet
+          const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L * 0.07, nz = (b[0] - a[0]) / L * 0.07, b2 = kavelRand.pos.length / 3;
+          kavelRand.pos.push(a[0] - nx, top + 0.005, a[1] - nz, a[0] + nx, top + 0.005, a[1] + nz, b[0] - nx, top + 0.005, b[1] - nz, b[0] + nx, top + 0.005, b[1] + nz); kavelRand.idx.push(b2, b2 + 1, b2 + 2, b2 + 1, b2 + 3, b2 + 2); } } }
     ctx(null, -1);
-    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink], [muur, VM.muur]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
-    if (!quick) vulLangsPaden(steegMuren);
-    if (lightReg && !quick) { const cm = pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink]);
+    [[grass, VM.grass], [walk, VM.walk], [kerb, VM.kerb], [asph, VM.asph], [pave, VM.pave], [dash, VM.dash], [skirt, VM.skirt], [bike, VM.bike], [rail, VM.rail], [barrier, VM.barrier], [klink, VM.klink], [muur, VM.muur], [kavel, VM.kavel], [kavelZij, VM.kavelZij], [kavelRand, VM.kavelRand]].forEach(([L, mat]) => { const m = layerMesh(L, mat); if (m) pathGroup.add(m); });
+    if (lightReg && !quick) { const cm = pathGroup.userData.col = roadCollision([asph, walk, pave, grass, bike, klink, kavel]);
       for (const w of steegMuren) {   // de muurtjes van een steeg houden je tegen (per vak waar ze doorheen gaan)
         const col = { surfaces: [], walls: [w], tag: 'steegmuur' }, seen = new Set();
         for (let f = 0; f <= 1; f += 0.5) { const [q, r] = worldToCell(w.ax + (w.bx - w.ax) * f, w.az + (w.bz - w.az) * f), k = q + ',' + r; if (seen.has(k)) continue; seen.add(k); let L = cm.get(k); if (!L) cm.set(k, L = []); L.push(col); }

@@ -1,7 +1,7 @@
 // Vul-elementen langs een pad of steeg (path.rand 'vul', Ctrl+klik met het gereedschap op het pad: niets → muurtjes →
-// vul-elementen): de halve-zeshoekstukken uit de SketchUp-bibliotheek van de Raatmaker (Gebouw · halve zeshoek aan de weg,
-// Blok · halve zeshoek (met rand), Vulstuk) naast het pad. Een steeg met een zijsteeg (T): bij de T blijft een opening,
-// je loopt niet door de stukken heen. Screenshots: steeg_vul.png, steeg_vul_dichtbij.png, steeg_vul_lopen.png
+// kavels): de kavels zijn precies de stukken van de zeshoeken van het raster die naast het pad overblijven (het vak min de
+// strook van het pad), om later met huizen in te vullen. Ze blijven binnen hun zeshoek en sluiten op de rand van het pad
+// aan, ook bij een T met een zijsteeg. Screenshots: steeg_vul.png, steeg_vul_dichtbij.png, steeg_vul_lopen.png
 const { open, OUT } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
@@ -29,16 +29,24 @@ const { open, OUT } = require('./helper');
   await ctrlKlik(-2, 1);
   const r1 = await p.evaluate(() => (window.__SC().getCells().paths || []).map(x => x.rand || null));
   zeg(r1[0] === 'vul' && r1[1] === null, 'Ctrl+klik op de steeg: muurtjes worden vul-elementen (de zijsteeg houdt muurtjes)', r1);
-  const r = await p.evaluate(() => { const S = window.__SC(), D = window.__modDbg(), a = S.cellToWorld(-2, 1), k = S.cellToWorld(0, 1);
-    const V = (S.getCells().skp || []).filter(x => x.vul), soorten = [...new Set(V.map(x => x.n))];
-    const bl = (x, z) => D.blockedAt(x, z, 0.15);
-    // langs de hele steeg: op hoeveel plekken houdt aan beide kanten (vlak naast de rand) een vulstuk je tegen?
-    let dicht = 0, n = 0; for (let x = -50; x <= 50; x += 2) { n++; if (bl(x, 13.5 + 2.1) && bl(x, 13.5 - 2.1)) dicht++; }
-    return { stukken: V.length, soorten, dicht, n, midden: bl(a.x, a.z), opening: bl(k.x - 3.5 * 7.8 / 13.5, k.z - 3.5), muurZij: bl(k.x - 12 * 7.8 / 13.5 + 1.7, k.z - 12) }; });
+  const r = await p.evaluate(() => {
+    const S = window.__SC(); let K = []; S.scene.traverse(o => { if (o.userData && o.userData.kavels) K = K.concat(o.userData.kavels); });
+    const opp = poly => { let a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
+    const dseg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); return Math.hypot(a[0] + t * dx - x, a[1] + t * dz - z); };
+    const P = S.getCells().paths, randVan = p => p.t === 'steeg' ? 1.85 : 1.9;
+    // binnen de zeshoek: elk punt binnen de zes zijden van zijn vak (pointy-top, R = 9)
+    const inHex = (q, r, x, z) => { const c = S.cellToWorld(q, r), dx = x - c.x, dz = z - c.z; for (let i = 0; i < 6; i++) { const a = Math.PI / 2 - (i + 0.5) * Math.PI / 3; if (dx * Math.cos(a) + dz * Math.sin(a) > 9 * Math.sqrt(3) / 2 + 0.02) return false; } return true; };
+    let buiten = 0, opPad = 0; const dicht = []; for (const k of K) for (const p of k.poly) { if (!inHex(k.q, k.r, p[0], p[1])) buiten++; for (const o of P) for (let i = 0; i < o.p.length - 1; i++) if (dseg(p[0], p[1], o.p[i], o.p[i + 1]) < randVan(o) - 0.05) { opPad++; dicht.push([k.q, k.r, p, o.t, o.p[i], o.p[i + 1], +dseg(p[0], p[1], o.p[i], o.p[i + 1]).toFixed(2)]); } }
+    const vak = K.filter(k => k.q === -2 && k.r === 1), oppVak = vak.reduce((a, k) => a + opp(k.poly), 0), verwacht = 1.5 * Math.sqrt(3) * 81 - 2 * 1.85 * 9 * Math.sqrt(3);
+    const k0 = S.cellToWorld(0, 1);
+    return { dicht, kavels: K.length, vakken: new Set(K.map(k => k.q + ',' + k.r)).size, buiten, opPad, oppVak: +oppVak.toFixed(1), verwacht: +verwacht.toFixed(1), stukjesVak: vak.length,
+      opening: K.some(k => { const m = k.poly.reduce((a, p) => [a[0] + p[0] / k.poly.length, a[1] + p[1] / k.poly.length], [0, 0]); return Math.hypot(m[0] - (k0.x - 3.5 * 7.8 / 13.5), m[1] - (k0.z - 3.5)) < 1.5; }) }; });
   console.log(JSON.stringify(r));
-  zeg(r.stukken >= 6, 'vul-elementen uit de Raatmaker langs de steeg', { stukken: r.stukken, soorten: r.soorten });
-  zeg(r.dicht >= r.n * 0.5 && !r.midden, 'aan beide kanten stukken waar je niet door kunt, de steeg zelf vrij', { dicht: r.dicht, van: r.n });
-  zeg(!r.opening, 'bij de zijsteeg geen vulstuk: de opening blijft vrij', r.opening);
+  zeg(r.kavels >= 10 && r.vakken >= 8, 'kavels langs de steeg', { kavels: r.kavels, vakken: r.vakken });
+  zeg(r.buiten === 0, 'elke kavel blijft binnen zijn zeshoek (op het raster)', r.buiten);
+  zeg(r.opPad === 0, 'geen kavel op een pad (ook niet op de zijsteeg)', r.opPad);
+  zeg(Math.abs(r.oppVak - r.verwacht) < 1 && r.stukjesVak === 2, 'een vak waar de steeg recht doorheen gaat: twee kavels, samen precies het vak min de steeg', { opp: r.oppVak, verwacht: r.verwacht, stukken: r.stukjesVak });
+  zeg(!r.opening, 'bij de zijsteeg geen kavel: de opening blijft vrij', r.opening);
   // pad: Ctrl+klik geeft muurtjes
   await p.evaluate(() => window.__SC().selectTool('vpad')); await sleep([[-4, 4], [2, 4]], []);
   await ctrlKlik(-1, 4);
@@ -55,10 +63,11 @@ const { open, OUT } = require('./helper');
     await p.waitForTimeout(200); await p.keyboard.down('KeyW'); await p.waitForTimeout(n); await p.keyboard.up('KeyW'); await p.waitForTimeout(200);
     return p.evaluate(() => { const P = window.__SC().player; return [P.x, P.z]; }); };
   const a = await p.evaluate(() => { const w = window.__SC().cellToWorld(-2, 1); return [w.x, w.z]; });
-  const naHuis = await loop(a, Math.PI, 4000);
-  zeg(Math.abs(naHuis[1] - a[1]) < 2.4, 'dwars lopen: een vulstuk houdt je tegen', { dz: +(naHuis[1] - a[1]).toFixed(2) });
+  const naKavel = await loop(a, Math.PI, 5000);
+  const yk = await p.evaluate(() => +window.__SC().player.y.toFixed(2));
+  zeg(naKavel[1] - a[1] > 2.5 && yk > 0.15 && yk < 0.4, 'dwars lopen: je stapt de kavel op (10 cm boven het pad)', { dz: +(naKavel[1] - a[1]).toFixed(2), y: yk });
   const k = await p.evaluate(() => { const w = window.__SC().cellToWorld(0, 1); return [w.x, w.z]; });
-  const naT = await loop(k, Math.PI / 6, 6000);
+  const naT = await loop(k, Math.PI / 6, 8000);
   zeg(k[1] - naT[1] > 3, 'door de opening de zijsteeg in', { dz: +(naT[1] - k[1]).toFixed(2) });
   await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(-1, 1); S.player.x = w.x; S.player.z = w.z; S.player.y = 0.1; S.player.yaw = -Math.PI / 2; S.player.pitch = 0.05; }); await p.waitForTimeout(900);
   await p.screenshot({ path: OUT + '/steeg_vul_lopen.png' });
