@@ -412,13 +412,15 @@
     const D = roadDrag;
     if (!D.on || !D.vp) {   // nog niet aan het slepen: de beginhoogte van de volgende weg
       if (!VEC_TOOLS.has(tool)) return false;
-      const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
+      const st0 = tool === 'vpad' || tool === 'vsteeg' ? 3 : 1.5;   // paden en stegen alleen in lagen van 3 m
+      const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs || st0 === 3 ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
       D.preset = nv; dragHText();
       toast(nv ? 'Volgende weg begint ' + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') + ' · tijdens het slepen: E/Q of scrollwiel' : 'Volgende weg ligt op het terrein', 1800);
       return true;
     }
     const atStart = !D.vend || (D.vend[0] === D.vstart[0] && D.vend[1] === D.vstart[1] && !D.vcorners.length);
-    const cur = atStart ? D.voff0 : D.voff, st = D.abs ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
+    const laag3 = D.abs || D.tool === 'vpad' || D.tool === 'vsteeg';   // paden en stegen verspringen alleen in lagen van 3 m
+    const cur = atStart ? D.voff0 : D.voff, st = laag3 ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, laag3 ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
     if (atStart) { D.voff0 = nv; D.voff = nv; D.voffMan = nv; D.manS = true; } else { D.voff = nv; D.voffMan = nv; if (D.vend) D.manE = D.vend[0] + ',' + D.vend[1]; const lc = D.vcorners[D.vcorners.length - 1]; if (lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1]) D.voffs[D.voffs.length - 1] = nv; }   // op een hoekpunt: dat punt
     D.last = null; vecPaintTo(D.vend || D.vstart); dragHText();
     toast(nv ? (atStart ? 'Begin van de weg ' : 'Weg hier ') + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') : (atStart ? 'Begin van de weg' : 'Weg hier') + ' op het terrein', 1100);

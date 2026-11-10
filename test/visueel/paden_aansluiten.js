@@ -28,11 +28,11 @@ const { open, OUT } = require('./helper');
   const r1 = await p.evaluate(() => { const S = window.__SC(), P = S.getCells().paths.filter(x => x.t === 'pad'), a = S.cellToWorld(1, 0), c = S.cellToWorld(2, 0), m = [(a.x + c.x) / 2 - 0.5, (a.z + c.z) / 2];
     return { y: P[0] && P[0].y, rand: S.roadTop(m[0], m[1], 5) }; });
   zeg(r1.y && r1.y[0] === 0 && r1.y[r1.y.length - 1] === 3 && r1.rand > 2.9 && r1.rand < 3.3, 'pad naast een Steeg op 3 m: eind vanzelf op 3 m', r1);
-  // (3) pad op 3 m (E 2× vooraf), daarna een Steeg-blok naast het eind
+  // (3) pad op 3 m (▲ 1× vooraf: één laag), daarna een Steeg-blok naast het eind
   const hoger = () => p.evaluate(() => { const b = document.querySelector('#dragH button[data-d="1"]'); if (!b) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return true; });
-  await hoger(); await hoger();
+  await hoger();   // één laag: 3 m (paden gaan per laag van 3 m)
   await sleep([[-3, 4], [0, 4]]);
-  await p.evaluate(() => { const b = document.querySelector('#dragH button[data-d="-1"]'); for (let i = 0; i < 2; i++) b && b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); });
+  await p.evaluate(() => { const b = document.querySelector('#dragH button[data-d="-1"]'); for (let i = 0; i < 1; i++) b && b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); });
   const y2 = await p.evaluate(() => { const P = window.__SC().getCells().paths.filter(x => x.t === 'pad'); return P[1] && P[1].y; });
   await kies('tool-looppad');
   const c = await scherm(1, 4); await p.mouse.move(c[0], c[1]); await p.waitForTimeout(300); await p.mouse.click(c[0], c[1]); await p.waitForTimeout(700);
