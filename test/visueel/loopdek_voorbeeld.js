@@ -1,7 +1,7 @@
-// Voorbeeld van Loopdek met afwisselende hoogtes, bochten en kruisingen (op verzoek van Joep, november 2026).
+// Voorbeeld van Steeg met afwisselende hoogtes, bochten en kruisingen (op verzoek van Joep, november 2026).
 // Grond (0 m): een rechte met een bocht, en een T-kruising opzij. Via een helling naar 3 m: weer een rechte met
 // bocht. Via een tweede helling naar 6 m: een Y-kruising met drie armen. Alles met de echte blokken (Loopdek, Helling)
-// en het echte loopnetwerk (geen losse decoratie). Screenshots: loopdek_voorbeeld_boven.png, loopdek_voorbeeld_schuin.png,
+// en het echte loopnetwerk (geen losse decoratie; Loopdek heet nu Steeg). Screenshots: loopdek_voorbeeld_boven.png, loopdek_voorbeeld_schuin.png,
 // loopdek_voorbeeld_lopen_*.png
 const { open, OUT } = require('./helper');
 (async () => {

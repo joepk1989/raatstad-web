@@ -1,4 +1,4 @@
-// Loopdek (vroeger "Looppad", hernoemd om niet te verwarren met Pad/Paden) sluit vanzelf aan op de hoogte van een
+// Steeg (vroeger "Looppad", toen kort "Loopdek" — beide botsten met iets anders) sluit vanzelf aan op de hoogte van een
 // helling, trap of een ander loopdek ernaast (loopdekHoogte/loopdekStuk in 05-blokken-netwerken.js): op een leeg vak
 // komen er vanzelf blokken onder, zodat je in één klik (of één sleep) een gelaagde loopstad bouwt.
 // Screenshots: loopdek_helling.png, loopdek_slepen.png, echt_1_helling.png, echt_2_loopdek.png, echt_3_lopen.png
@@ -9,9 +9,9 @@ const { open, OUT } = require('./helper');
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(44), typeof info === 'string' ? info : JSON.stringify(info)); };
   await p.evaluate(() => { const S = window.__SC(); S.doAct('empty'); });
-  // naam: het gereedschap heet nu Loopdek, niet Looppad
+  // naam: het gereedschap heet nu Steeg (eerst Looppad, toen even Loopdek, botste beide met iets anders)
   const naam = await p.evaluate(() => document.getElementById('tool-looppad').textContent.trim());
-  zeg(naam === 'Loopdek', 'gereedschap heet Loopdek (niet Looppad)', naam);
+  zeg(naam === 'Steeg', 'gereedschap heet Steeg', naam);
   // ---------- 1. klikken: helling + loopdek op het buurvak sluit vanzelf aan ----------
   const r1 = await p.evaluate(() => {
     const S = window.__SC();

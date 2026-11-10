@@ -669,7 +669,7 @@
       if (top && baseOf(top) === toolBase(T) && !(T === 'heuvel' && terrOnly(q, r))) continue;
       if (canPlace(q, r, T)) continue;
       // Over een leeg vak heen slepen: op hoogte aansluiten zoals bij één klik (vulBlokken/metVulling, 05) — een
-      // gekozen laag, of voor Loopdek een buur die er al op uitkomt
+      // gekozen laag, of voor Steeg een buur die er al op uitkomt
       const n = st.length ? 0 : vulBlokken(q, r, T); if (n === null) continue;
       const stuk = metVulling(itemsFor(q, r, T, 0), n);
       if (columnTop(q, r) + stuk.reduce((s, t) => s + TY(t).h, 0) > MAX_H + 0.01) continue;
@@ -691,7 +691,7 @@
     roadDrag.on = false; roadDrag.last = null; roadDrag.roofY = null;
     if (VEC_TOOLS.has(roadDrag.tool)) return vecDragEnd();
     if (roadDrag.tool === 'module') return lineDragEnd();
-    const what = { pad: 'pad', fietspad: 'fietspad', kuil: 'uitgraving', heuvel: 'verhoging', looppad: 'loopdek', tunnel: 'tunnel', water: 'gracht', meer: 'meer' }[roadDrag.tool] || 'blokken';
+    const what = { pad: 'pad', fietspad: 'fietspad', kuil: 'uitgraving', heuvel: 'verhoging', looppad: 'steeg', tunnel: 'tunnel', water: 'gracht', meer: 'meer' }[roadDrag.tool] || 'blokken';
     if (roadDrag.count > 1) toast(`${roadDrag.count} vakken ${what} aangelegd`, 1400);
   }
   const placeBtn = document.getElementById('placeBtn');

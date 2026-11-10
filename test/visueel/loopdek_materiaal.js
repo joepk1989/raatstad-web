@@ -1,4 +1,4 @@
-// Loopdek: materiaalvarianten (klinkers, beton, hout, stalen rooster) en Ctrl+klik om door te schakelen.
+// Steeg: materiaalvarianten (klinkers, beton, hout, stalen rooster) en Ctrl+klik om door te schakelen.
 // Een gewone klik (zonder Ctrl) stapelt nog steeds gewoon (bestaand gedrag); Ctrl+klik op iets anders dan een loopdek
 // doet niets bijzonders. Screenshot: loopdek_materiaal.png
 const { open, OUT } = require('./helper');

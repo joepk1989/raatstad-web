@@ -300,7 +300,7 @@
     // Verlagen op een heuvel: één verhoging eraf
     if (T === 'kuil' && terrOnly(q, r)) { st0.pop(); if (!st0.length) cells.delete(key(q, r)); rebuildAround(q, r); terrainChanged([[q, r]]); changed(); toast(terrN(q, r) ? 'Verlaagd tot ' + terrN(q, r) * 3 + ' m' : 'Weer op straatniveau', 900); return; }
     // Op een leeg vak op hoogte bouwen zonder zelf eerst blok te stapelen: een gekozen laag (Ctrl+scrollen of de
-    // laagkiezer rechts), of voor Loopdek een buur (helling/trap/opgang/loopdek) die er al op uitkomt
+    // laagkiezer rechts), of voor Steeg een buur (helling/trap/opgang/loopdek) die er al op uitkomt
     // (vulBlokken/loopdekHoogte, 05).
     if (!st0.length) {
       const n = vulBlokken(q, r, tool);
@@ -407,7 +407,7 @@
       if (top && baseOf(top) === 'looppad') {
         const nv = (loopdekVar(top) + 1) % LOOPDEK_VAR_NAMEN.length;
         st[st.length - 1] = nv ? 'looppad' + nv : 'looppad';
-        rebuildAround(q, r); changed(); toast('Loopdek: ' + LOOPDEK_VAR_NAMEN[nv], 1400);
+        rebuildAround(q, r); changed(); toast('Steeg: ' + LOOPDEK_VAR_NAMEN[nv], 1400);
         return;
       }
     }
@@ -593,7 +593,7 @@
       ghost.position.set(x, colTopW(q, r) - TY(t).h - 0.02, z); ghost.scale.setScalar(1.05);
     } else {
       const [q, r] = res.place; const { x, z } = cellToWorld(q, r);
-      // Op hoogte bouwen (Ctrl+scrollen/laagkiezer, of Loopdek naast een buur): het voorbeeld staat net zo hoog
+      // Op hoogte bouwen (Ctrl+scrollen/laagkiezer, of Steeg naast een buur): het voorbeeld staat net zo hoog
       const nVul = vulBlokken(q, r, tool), teHoog = nVul === null, n = nVul || 0;
       const valid = !canPlace(q, r, tool) && !teHoog;
       showPreview(q, r, valid);
