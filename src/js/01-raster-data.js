@@ -133,7 +133,7 @@
     if (b === 'looppad' || b === 'blok' || b === 'tunnel') return ['blok', 'dakvlak'];
     return [];
   }
-  const allowedOn = (t, top, under) => supportsOf(top, under).some(sp => RULES[baseOf(t)].includes(sp));
+  const allowedOn = (t, top, under) => { const regels = RULES[baseOf(t)] || RULES[baseOf(toolBase(t))]; return !!regels && supportsOf(top, under).some(sp => regels.includes(sp)); };   // zonder regels: nergens bovenop
   function whyNot(t, top) {
     const b = baseOf(t), verb = b === 'zuilen' ? 'kunnen' : 'kan';
     const where = top ? NOUN[baseOf(top)][1] : 'de grond';

@@ -24,6 +24,13 @@ const { open, OUT } = require('./helper');
   await p.evaluate(() => window.__SC().selectTool('park')); await p.waitForTimeout(300);
   const c0 = await stand(); await p.keyboard.down('KeyE'); await p.waitForTimeout(500); await p.keyboard.up('KeyE'); await p.waitForTimeout(200); const c1 = await stand();
   zeg(c1.theta !== c0.theta && c1.laag === null, 'Park: E draait de camera (zoals vroeger)', { voor: c0.theta, na: c1.theta });
+  // 4. een laag kiezen met E en dan van gereedschap wisselen naar iets zonder eigen stapelregels (Fietspad): slepen gaf
+  //    "Cannot read properties of undefined (reading 'includes')" in vulBlokken (november 2026, opgelost)
+  await p.evaluate(() => window.__SC().selectTool('looppad')); await druk('KeyE');
+  await p.evaluate(() => window.__SC().selectTool('fietspad')); await p.mouse.move(560, 400); await p.mouse.down();
+  for (let i = 0; i < 8; i++) { await p.mouse.move(560 + i * 20, 400 + i * 5); await p.waitForTimeout(40); } await p.mouse.up(); await p.waitForTimeout(400);
+  zeg(!errs.length, 'laag gekozen, dan slepen met Fietspad: geen fout', errs);
+  await p.evaluate(() => window.__HUD.setLayer(null, true));
   await p.screenshot({ path: OUT + '/eq_hoogte.png' });
   console.log(uit.every(Boolean) && !errs.length ? 'GOED' : 'FOUT ' + JSON.stringify(uit)); console.log('fouten', errs);
   await b.close();
