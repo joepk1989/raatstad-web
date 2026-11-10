@@ -2,7 +2,7 @@
 // kavels): de kavels zijn precies de stukken van de zeshoeken van het raster die naast het pad overblijven (het vak min de
 // strook van het pad), om later met huizen in te vullen. Ze blijven binnen hun zeshoek en sluiten op de rand van het pad
 // aan, ook bij een T met een zijsteeg. Screenshots: steeg_vul.png, steeg_vul_dichtbij.png, steeg_vul_lopen.png
-const { open, OUT } = require('./helper');
+const { open, OUT, loopAfstand } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -67,7 +67,7 @@ const { open, OUT } = require('./helper');
   // zelf lopen: dwars tegen een huis, en door de opening de zijsteeg in
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
   const loop = async (van, yaw, n) => { await p.evaluate(([v, yaw]) => { const S = window.__SC(); S.player.x = v[0]; S.player.z = v[1]; S.player.y = 0.1; S.player.yaw = yaw; S.player.pitch = 0; }, [van, yaw]);
-    await p.waitForTimeout(200); await p.keyboard.down('KeyW'); await p.waitForTimeout(n); await p.keyboard.up('KeyW'); await p.waitForTimeout(200);
+    await p.waitForTimeout(200); await loopAfstand(p, (n) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(200);
     return p.evaluate(() => { const P = window.__SC().player; return [P.x, P.z]; }); };
   const a = await p.evaluate(() => { const w = window.__SC().cellToWorld(-2, 1); return [w.x, w.z]; });
   const naKavel = await loop(a, Math.PI, 5000);

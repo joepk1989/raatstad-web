@@ -4,7 +4,7 @@
 // komt daar vanzelf op 3 m uit (blokAanHoogte, 05). (3) Andersom: een Steeg-blok naast het eind van een getekend
 // pad op 3 m komt vanzelf op 3 m (padEindHoogte, 05). (4) Zelf lopen: van het pad de steeg op.
 // Screenshots: paden_aansluiten.png, paden_aansluiten_lopen.png
-const { open, OUT } = require('./helper');
+const { open, OUT, loopAfstand } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -43,7 +43,7 @@ const { open, OUT } = require('./helper');
   // (4) zelf lopen: van het pad de steeg op
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
   await p.evaluate(() => { const S = window.__SC(), a = S.cellToWorld(1, 0); S.player.x = a.x + 5.5; S.player.z = a.z; S.player.y = S.roadTop(a.x + 5.5, a.z, 3) || 3; S.player.yaw = -Math.PI / 2; S.player.pitch = -0.1; });
-  await p.waitForTimeout(200); await p.keyboard.down('KeyW'); await p.waitForTimeout(10000); await p.keyboard.up('KeyW'); await p.waitForTimeout(300);
+  await p.waitForTimeout(200); await loopAfstand(p, (10000) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(300);
   const pl = await p.evaluate(() => { const S = window.__SC(), P = S.player, c = S.worldToCell(P.x, P.z); return { vak: c.join(), y: +P.y.toFixed(2), x: +P.x.toFixed(1) }; });
   zeg(pl.vak === '2,0' && pl.y > 2.8, 'zelf lopen: van het pad de steeg op (3 m)', pl);
   await p.screenshot({ path: OUT + '/paden_aansluiten_lopen.png' });

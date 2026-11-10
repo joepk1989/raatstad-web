@@ -13,6 +13,7 @@ async function open(viewport, opts = {}) {
   await p.route(/^https?:/, r => r.abort());   // niets van buiten laden (zonder netwerk blijft de pagina anders hangen)
   await p.route('**/three.min.js', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(require.resolve('three/build/three.min.js', { paths: [path.join(ROOT, 'test')] })) }));
   await p.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
+  p.setDefaultTimeout(120000);   // onder belasting (meer tests tegelijk) is 30 s soms te kort
   await p.goto('file://' + path.join(ROOT, 'site/index.html'), { timeout: 180000 }); await p.waitForTimeout(2500);
   await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(300);
   await p.evaluate(() => window.__SC().doAct('start'));   // het startstadje: rotonde met drie wegen
@@ -26,4 +27,16 @@ async function open(viewport, opts = {}) {
 const PLATEAUS = JSON.parse(fs.readFileSync(path.join(__dirname, 'vast/plateaus.json'), 'utf8'));
 const testModules = p => p.evaluate(L => { for (const m of L) if (!window.__mods.some(x => x.id === m.id)) window.__mods.push(JSON.parse(JSON.stringify(m))); }, PLATEAUS);
 const click = (p, sel) => p.evaluate(s => document.querySelector(s).click(), sel);
-module.exports = { open, click, OUT, testModules };
+// Zelf lopen in een test: W ingedrukt tot de speler `meters` (horizontaal) verder is, of 3 s niet meer vooruitkomt
+// (tegen een muur), of na maxMs. Op afstand in plaats van op tijd: de testbrowser is wisselend traag, zeker als er
+// meer tests tegelijk draaien (reeks.js).
+async function loopAfstand(p, meters, maxMs = 120000) {
+  const pos = () => p.evaluate(() => { const P = window.__SC().player; return [P.x, P.z]; });
+  const a = await pos(), t0 = Date.now(); let laatst = a, stilT = Date.now();
+  await p.keyboard.down('KeyW');
+  while (Date.now() - t0 < maxMs) { await p.waitForTimeout(250); const q = await pos();
+    if (Math.hypot(q[0] - a[0], q[1] - a[1]) >= meters) break;
+    if (Math.hypot(q[0] - laatst[0], q[1] - laatst[1]) > 0.05) { laatst = q; stilT = Date.now(); } else if (Date.now() - stilT > 3000) break; }
+  await p.keyboard.up('KeyW');
+}
+module.exports = { open, click, OUT, testModules, loopAfstand };

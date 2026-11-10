@@ -6,7 +6,7 @@
 // - kavels langs een stuk steeg (path.rand 'vul').
 // Gebouwd als stadsgegevens (zoals een speler het tekent: vakmidden naar vakmidden, staartjes van 0,15 m), dan
 // zelf erdoorheen gelopen. Screenshots: steeg_voorbeeld*.png
-const { open, OUT } = require('./helper');
+const { open, OUT, loopAfstand } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -63,7 +63,7 @@ const { open, OUT } = require('./helper');
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
   // (de testbrowser loopt traag, ± 0,6 m/s: daarom beginnen we een eindje voorbij het midden van het eerste vak, f = 0..1 richting het doel)
   const loop = async (van, naar, y, ms, f = 0.4) => { await p.evaluate(([van, naar, y, f]) => { const S = window.__SC(), a0 = S.cellToWorld(...van), e = S.cellToWorld(...naar), a = { x: a0.x + (e.x - a0.x) * f / 2, z: a0.z + (e.z - a0.z) * f / 2 }; S.player.x = a.x; S.player.z = a.z; S.player.y = y; S.player.yaw = Math.atan2(a.x - e.x, a.z - e.z); S.player.pitch = -0.05; }, [van, naar, y, f]);
-    await p.waitForTimeout(250); await p.keyboard.down('KeyW'); await p.waitForTimeout(ms); await p.keyboard.up('KeyW'); await p.waitForTimeout(250);
+    await p.waitForTimeout(250); await loopAfstand(p, (ms) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(250);
     return p.evaluate(() => { const S = window.__SC(), P = S.player; return { vak: S.worldToCell(P.x, P.z).join(), y: +P.y.toFixed(2) }; }); };
   const l1 = await loop([-5, 0], [-3, 0], 0.1, 9000);
   await p.screenshot({ path: OUT + '/steeg_voorbeeld_lopen_hofje.png' });
