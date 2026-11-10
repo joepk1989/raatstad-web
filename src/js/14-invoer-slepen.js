@@ -373,7 +373,7 @@
     if (!same && D.roofY == null) {
       const dirK = (a, b) => { const dq = b[0] - a[0], dr = b[1] - a[1], n = hexDist(dq, dr); return NEIGH.findIndex(([x, y]) => x * n === dq && y * n === dr); };
       const nb = D.vcorners.length ? D.vcorners[0] : cell, kS = dirK(nb, D.vstart), kE = dirK(from, cell);
-      const hS = !D.manS && kS >= 0 ? blokAanHoogte(D.vstart[0], D.vstart[1], kS) : null, hE = kE >= 0 && D.manE !== cell[0] + ',' + cell[1] ? blokAanHoogte(cell[0], cell[1], kE) : null;
+      const hS = !D.manS && kS >= 0 ? blokAanHoogte(D.vstart[0], D.vstart[1], kS, D.preset || 0) : null, hE = kE >= 0 && D.manE !== cell[0] + ',' + cell[1] ? blokAanHoogte(cell[0], cell[1], kE, D.voffMan) : null;   // bij een toren: de vloer het dichtst bij de hoogte waarop je sleept
       if (!D.manS) D.voff0 = hS !== null ? hS : (D.preset || 0);
       D.voff = hE !== null ? hE : D.voffMan;
     }
@@ -412,13 +412,13 @@
     const D = roadDrag;
     if (!D.on || !D.vp) {   // nog niet aan het slepen: de beginhoogte van de volgende weg
       if (!VEC_TOOLS.has(tool)) return false;
-      const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 24 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
+      const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
       D.preset = nv; dragHText();
       toast(nv ? 'Volgende weg begint ' + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') + ' · tijdens het slepen: E/Q of scrollwiel' : 'Volgende weg ligt op het terrein', 1800);
       return true;
     }
     const atStart = !D.vend || (D.vend[0] === D.vstart[0] && D.vend[1] === D.vstart[1] && !D.vcorners.length);
-    const cur = atStart ? D.voff0 : D.voff, st = D.abs ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 24 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
+    const cur = atStart ? D.voff0 : D.voff, st = D.abs ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
     if (atStart) { D.voff0 = nv; D.voff = nv; D.voffMan = nv; D.manS = true; } else { D.voff = nv; D.voffMan = nv; if (D.vend) D.manE = D.vend[0] + ',' + D.vend[1]; const lc = D.vcorners[D.vcorners.length - 1]; if (lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1]) D.voffs[D.voffs.length - 1] = nv; }   // op een hoekpunt: dat punt
     D.last = null; vecPaintTo(D.vend || D.vstart); dragHText();
     toast(nv ? (atStart ? 'Begin van de weg ' : 'Weg hier ') + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') : (atStart ? 'Begin van de weg' : 'Weg hier') + ' op het terrein', 1100);

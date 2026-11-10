@@ -159,7 +159,7 @@
   // (optioneel, per punt) tilt de weg op dat punt op boven het terrein; daartussen loopt de ophoging lineair.
   const profCache = new Map();
   let terrVer = 0;   // telt op bij elke verandering van de vakken (terrein): profielen worden dan opnieuw berekend
-  const ROAD_MAX_OFF = 12;
+  const ROAD_MAX_OFF = 30;   // hooguit 30 m boven het terrein (10 lagen; was 12, te laag voor een stegentoren van 5 lagen)
   // Kruisingen op een helling: elke weg volgt het terrein op zijn eigen manier (gemiddeld over ±6 m), dus twee wegen die
   // elkaar raken kunnen daar meer dan een meter verschillen. Dan scheurt het kruispunt. Daarom krijgt elk kruispunt één
   // hoogte: een weg die óp een andere uitkomt sluit aan op de hoogte van de doorgaande weg, twee wegen die elkaar kruisen
@@ -237,7 +237,7 @@
     }
     if (live && Array.isArray(path.y) && path.y.some(v => v)) {   // ophoging per punt, lineair langs de weg
       const sAt = q => { let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; bi = i; } }); return S[bi]; };
-      const keys = path.p.map((q, i) => [sAt(q), Math.max(0, Math.min(path.abs ? 24 : ROAD_MAX_OFF, +path.y[i] || 0))]).sort((x, y) => x[0] - y[0]);
+      const keys = path.p.map((q, i) => [sAt(q), Math.max(0, Math.min(path.abs ? 48 : ROAD_MAX_OFF, +path.y[i] || 0))]).sort((x, y) => x[0] - y[0]);
       h = h.map((v, i) => { const s0 = S[i]; let j = 0; while (j < keys.length - 1 && keys[j + 1][0] < s0) j++; const A = keys[j], B = keys[Math.min(j + 1, keys.length - 1)], f = B[0] > A[0] ? Math.max(0, Math.min(1, (s0 - A[0]) / (B[0] - A[0]))) : 0; return (path.abs ? 0 : v) + A[1] + (B[1] - A[1]) * f; });   // abs: vaste laag, hoogte los van het terrein
     }
     // Over een snelweg gaat een andere weg altijd met een viaduct: 7 m boven de snelweg over de hele breedte, met
@@ -739,7 +739,7 @@
     const [q, r] = worldToCell(D.E[0] - D.dir[0], D.E[1] - D.dir[1]), c = cellToWorld(q, r);
     if (Math.hypot(c.x - D.E[0], c.z - D.E[1]) < R * SQ3 / 2 - 0.2) return false;   // niet op de rand van het vak
     const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * D.dir[0] + (w.z - c.z) / L * D.dir[1] > 0.995; });
-    if (k < 0) return false; const h = blokAanHoogte(q, r, k); return h !== null && Math.abs(pathH(path, D.E[0], D.E[1]) - h) < 0.35;
+    if (k < 0) return false; const hp = pathH(path, D.E[0], D.E[1]), h = blokAanHoogte(q, r, k, hp); return h !== null && Math.abs(hp - h) < 0.35;
   }
   function sluitPadenAan() {
     let n = 0;
@@ -759,7 +759,7 @@
       for (const End of padEinden(path)) {
         const [q, r] = worldToCell(End.E[0], End.E[1]), c = cellToWorld(q, r); if (Math.hypot(c.x - End.E[0], c.z - End.E[1]) > 0.3) continue;
         const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * End.dir[0] + (w.z - c.z) / L * End.dir[1] > 0.995; });
-        if (k < 0) continue; const h = blokAanHoogte(q, r, k); if (h === null || Math.abs(pathH(path, c.x, c.z) - h) > 0.35) continue;
+        if (k < 0) continue; const hp = pathH(path, c.x, c.z), h = blokAanHoogte(q, r, k, hp); if (h === null || Math.abs(hp - h) > 0.35) continue;
         const a = R * SQ3 / 2 + 0.3, edge = [Math.round((c.x + End.dir[0] * a) * 100) / 100, Math.round((c.z + End.dir[1] * a) * 100) / 100]   /* 30 cm over de vloer van het blok heen: die ligt iets lager, anders zie je een naadje gras */, tip = [Math.round((edge[0] + End.dir[0] * 0.15) * 100) / 100, Math.round((edge[1] + End.dir[1] * 0.15) * 100) / 100];
         const yv = path.y ? path.y[End.ci] : null; void tip;   // geen staartje: het eind ligt precies op de rand van het vak (recht af, zie padEindVlak)
         if (End.atS) { if (End.tip >= 0) { path.p.splice(0, 1, edge); if (path.y) path.y.splice(0, 1, yv); } else { path.p.unshift(edge); if (path.y) path.y.unshift(yv); } }
