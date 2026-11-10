@@ -650,6 +650,7 @@ body.coarse .keysbtn { display: none; }
 .sw-vklink { background: linear-gradient(90deg, #c3beb1 0 20%, transparent 20% 80%, #c3beb1 80%), repeating-linear-gradient(0deg, #9b5a45 0 4px, #7e4636 4px 5px), #9b5a45; }
 .sw-vpad { background: linear-gradient(90deg, #6aa84a 0 28%, #b0603f 28% 72%, #6aa84a 72%); }
 .sw-vsteeg { background: linear-gradient(90deg, #cdbfa6 0 22%, #b0603f 22% 78%, #cdbfa6 78%); }
+.sw-vbouw { background: linear-gradient(90deg, #d9c48f 0 18%, #f2efe8 18% 34%, #6d6a64 34% 66%, #f2efe8 66% 82%, #d9c48f 82%); }   /* Bouwpad: kavel, rand, pad, rand, kavel */
 .sw-vfiets { background: linear-gradient(90deg, #6aa84a 0 30%, #a54a3c 30% 70%, #6aa84a 70%); position: relative; }
 .sw-vfiets::after { content: ''; position: absolute; left: 49%; top: 10%; width: 2px; height: 80%; background: repeating-linear-gradient(180deg, #f1efe6 0 4px, transparent 4px 8px); }
 .sw-vrot { background: radial-gradient(circle, #6aa84a 0 22%, #9b5a45 22% 30%, #3c4045 30% 58%, #c3beb1 58% 70%, transparent 70%), #d9e6c3; }
