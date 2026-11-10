@@ -34,20 +34,9 @@
   const stoepHexTex = () => hexTegelTex(9 / 32, 4, 4, '#8f8b80', 0.012, (c, r) => `hsl(45, 6%, ${(77 + (hexH01(c + 2, r + 9) - 0.5) * 6).toFixed(1)}%)`);
   M.walkTop = std({ map: stoepHexTex(), roughness: 0.95 });
   M.kerb = std({ color: '#a7a499', roughness: 0.9 });
-  // Klinkers 20 x 10 cm in halfsteens verband; textuur beslaat 0,6 x 0,6 m
-  M.paver = (() => {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
-    const g = c.getContext('2d'), bw = 128 / 3, bh = 128 / 6;
-    g.fillStyle = '#7d4a3a'; g.fillRect(0, 0, 128, 128);
-    for (let row = 0; row < 6; row++) for (let i = -1; i < 4; i++) {
-      const x = i * bw + (row % 2) * bw / 2, v = Math.abs(Math.sin(i * 91.7 + row * 37.3) * 4375.85) % 1;
-      g.fillStyle = `hsl(${12 + v * 8}, ${38 + v * 10}%, ${36 + v * 9}%)`;
-      g.fillRect(x + 1.2, row * bh + 1.2, bw - 2.4, bh - 2.4);
-    }
-    const t = new THREE.CanvasTexture(c);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 0.6, 1 / 0.6); t.anisotropy = aniso;
-    return std({ map: t, roughness: 0.95 });
-  })();
+  // Klinkers: zeshoekige terracotta tegels (zijde 19 cm, net als stoepHexTex hierboven maar warmer en iets groter),
+  // gebruikt door alle paden: Pad (grond en getekend), Hof, Steeg, Helling, Trappad, Opgang (hexTegelTex)
+  M.paver = std({ map: hexTegelTex(0.19, 5, 6, '#3d241a', 0.013, (c, r) => { const v = hexH01(c + 3, r + 11); return `hsl(${12 + v * 9}, ${40 + v * 12}%, ${35 + v * 11}%)`; }, null, 110), roughness: 0.95 });
   M.paverPlain = std({ color: '#8a5141' });
   M.stone = std({ color: '#bdb5a5' });
   // Steeg, materiaalvarianten (Ctrl+klik op een geplaatst loopdek schakelt door, zie LOOPDEK_VAR in 05): naast de
