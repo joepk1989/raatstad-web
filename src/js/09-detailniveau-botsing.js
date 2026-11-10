@@ -83,6 +83,7 @@
     for (const k of todo) { const [cq, cr] = k.split(',').map(Number); buildColumn(cq, cr); }
     terrDirty([[q, r]]); terrFlush();   // plateau van het vak
     peopleDirty = true; peopleLocalEdit = true; carsDirty = true;
+    if ((cells.paths || []).length && sluitPadenAan()) buildPathNet();   // een nieuw blok naast het eind van een getekend pad: het pad loopt door tot de rand
   }
   // Veel vakken tegelijk (een laan trekken): de netwerken één keer bijwerken
   function rebuildMany(list) {
@@ -99,6 +100,7 @@
     for (const k of todo) { const [cq, cr] = k.split(',').map(Number); buildColumn(cq, cr); }
     terrDirty(list); terrFlush();
     peopleDirty = true; peopleLocalEdit = true; carsDirty = true;
+    if ((cells.paths || []).length && sluitPadenAan()) buildPathNet();   // een nieuw blok naast het eind van een getekend pad: het pad loopt door tot de rand
   }
   function rebuildAll() {
     nearbyClear();

@@ -348,7 +348,7 @@
   }
   function vecPaintTo(cell) {
     const D = roadDrag;
-    if (!D.vp) { D.vp = Object.assign({ t: VEC_T[D.tool], l: 0, r: 0, p: [] }, D.roofY != null ? { dak: true } : {}); D.vstart = cell; D.vcorners = []; D.voffs = []; D.voff0 = D.preset || 0; D.voff = D.voff0; pathsOf().push(D.vp); showDragH(true); }
+    if (!D.vp) { D.vp = Object.assign({ t: VEC_T[D.tool], l: 0, r: 0, p: [] }, D.roofY != null ? { dak: true } : {}); D.vstart = cell; D.vcorners = []; D.voffs = []; D.voff0 = D.preset || 0; D.voff = D.voff0; D.voffMan = D.voff0; D.manS = false; D.manE = null; pathsOf().push(D.vp); showDragH(true); }
     cell = vecAlignCell(D.vfrom ? D.vfrom() : D.vstart, cell);
     const L = D.last; if (L && L[0] === cell[0] && L[1] === cell[1]) return;
     D.last = cell;
@@ -368,6 +368,15 @@
     D.vend = cell;
     const W = c => { const w = cellToWorld(c[0], c[1]); return [Math.round(w.x * 100) / 100, Math.round(w.z * 100) / 100]; };
     const same = cell[0] === from[0] && cell[1] === from[1];
+    // Aansluiten op een blok: begint of eindigt de weg/het pad vlak naast een Steeg, Helling, Trap, Hof …, dan komt dat
+    // eind vanzelf op de hoogte van die vloer (blokAanHoogte, 05) — tenzij je daar zelf met E/Q een hoogte koos
+    if (!same && D.roofY == null) {
+      const dirK = (a, b) => { const dq = b[0] - a[0], dr = b[1] - a[1], n = hexDist(dq, dr); return NEIGH.findIndex(([x, y]) => x * n === dq && y * n === dr); };
+      const nb = D.vcorners.length ? D.vcorners[0] : cell, kS = dirK(nb, D.vstart), kE = dirK(from, cell);
+      const hS = !D.manS && kS >= 0 ? blokAanHoogte(D.vstart[0], D.vstart[1], kS) : null, hE = kE >= 0 && D.manE !== cell[0] + ',' + cell[1] ? blokAanHoogte(cell[0], cell[1], kE) : null;
+      if (!D.manS) D.voff0 = hS !== null ? hS : (D.preset || 0);
+      D.voff = hE !== null ? hE : D.voffMan;
+    }
     D.vp.core = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])].map(W); D.vp.p = D.vp.core.length > 1 ? vecExtend(D.vp.core, false) : D.vp.core;
     { const ys = [D.voff0, ...D.voffs, ...(same ? [] : [D.voff])]; if (ys.some(v => v)) D.vp.y = D.vp.p.length > ys.length ? [ys[0], ...ys, ys[ys.length - 1]] : ys; else delete D.vp.y; }   // ophoging per punt (m boven het terrein)
     if (D.vp.p.length < 2) D.vp.p = [];
@@ -410,7 +419,7 @@
     }
     const atStart = !D.vend || (D.vend[0] === D.vstart[0] && D.vend[1] === D.vstart[1] && !D.vcorners.length);
     const cur = atStart ? D.voff0 : D.voff, st = D.abs ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 24 : ROAD_MAX_OFF, D.abs ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
-    if (atStart) { D.voff0 = nv; D.voff = nv; } else { D.voff = nv; const lc = D.vcorners[D.vcorners.length - 1]; if (lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1]) D.voffs[D.voffs.length - 1] = nv; }   // op een hoekpunt: dat punt
+    if (atStart) { D.voff0 = nv; D.voff = nv; D.voffMan = nv; D.manS = true; } else { D.voff = nv; D.voffMan = nv; if (D.vend) D.manE = D.vend[0] + ',' + D.vend[1]; const lc = D.vcorners[D.vcorners.length - 1]; if (lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1]) D.voffs[D.voffs.length - 1] = nv; }   // op een hoekpunt: dat punt
     D.last = null; vecPaintTo(D.vend || D.vstart); dragHText();
     toast(nv ? (atStart ? 'Begin van de weg ' : 'Weg hier ') + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') : (atStart ? 'Begin van de weg' : 'Weg hier') + ' op het terrein', 1100);
     return true;

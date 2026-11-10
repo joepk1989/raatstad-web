@@ -46,7 +46,7 @@ const { open, OUT } = require('./helper');
 
   // Pad kan niet los op hoogte (RULES staat geen blok toe): met een laag gekozen gewoon op de grond, geen fout
   await p.evaluate(() => window.__HUD.setLayer(1, true));
-  await kijkNaar(24, 0); await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-pad'); await klik(24, 0);
+  await kijkNaar(24, 0); await p.evaluate(() => { const sh = document.getElementById('sheet'); if (sh) sh.hidden = true; window.__SC().selectTool('pad'); }); await klik(24, 0);   // (Pad staat niet meer in het palet; bestaande steden kunnen hem nog hebben)
   const rPad = await vak('24,0'); zeg(rPad.length === 1 && /^pad/.test(rPad[0]), 'Pad (mag niet op blok): laag genegeerd, gewoon op de grond', rPad);
 
   // slepen op de gekozen laag: een rijtje Loopdek in één keer, allemaal op dezelfde hoogte

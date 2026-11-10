@@ -20,7 +20,7 @@
     const hotbar = document.getElementById('hotbar'), hotName = document.getElementById('hotName'), catOpen = document.getElementById('catOpen');
     const rTools = document.getElementById('rTools'), layerPick = document.getElementById('layerPick');
     // ---------- snelbalk ----------
-    const DEF = ['vweg', 'pad', 'woning', 'kantoor', 'dak', 'park', 'water', 'tophoog', 'module'];
+    const DEF = ['vweg', 'vpad', 'woning', 'kantoor', 'dak', 'park', 'water', 'tophoog', 'module'];
     const valid = s => s && (s.t === 'module' || TOOLS.includes(s.t)) && s.t !== 'gum';
     let slots = null, idx = 0;
     try { const v = JSON.parse(localStorage.getItem('raatstad-snelbalk') || 'null'); if (v && Array.isArray(v.s) && v.s.length === 9) { slots = v.s.map(s => valid(s) ? s : null); idx = Math.max(0, Math.min(8, v.i | 0)); } } catch (e) { /* geen opslag */ }

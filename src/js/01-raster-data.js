@@ -59,8 +59,8 @@
   };
   // Het palet is in groepen verdeeld; het scrollwiel loopt ze allemaal door
   const CATS = [
-    { name: 'Wegen', tools: ['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vrot', 'spoor'], todo: [] },   // getekende wegen; de oude vakwegen zijn uit het palet (bestaande steden tonen ze nog)
-    { name: 'Paden', tools: ['vpad', 'vsteeg', 'pad', 'fietspad', 'looppad', 'randpad', 'trap', 'trappad'], todo: [] },
+    { name: 'Wegen', tools: ['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vrot', 'spoor'], todo: [] },   // getekende wegen; de oude vakwegen zijn uit het palet (bestaande steden tonen ze nog)
+    { name: 'Paden', tools: ['vpad', 'vsteeg', 'vfiets', 'looppad', 'trap', 'trappad'], todo: [] },   // alle paden getekend zoals de wegen (en aansluitend op Steeg, Helling, Trap); de oude vak-paden Pad, Fietspad en Randpad zijn uit het palet (bestaande steden tonen ze nog)
     { name: 'Gebouwen', tools: ['woning', 'kantoor', 'dak'], todo: [] },
     { name: 'Groen en water', tools: ['park', 'meer', 'water'], todo: [] },
     { name: 'Terrein', tools: ['tophoog', 'tafgraaf', 'tvlak', 'tglad', 'thelling', 'kuil', 'helling', 'hofhelling'], todo: ['Klif'] },

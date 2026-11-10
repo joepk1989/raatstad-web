@@ -185,6 +185,7 @@ button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
   padding: 9px 14px; border-radius: 999px;
   font-size: 13px; text-align: center; text-wrap: balance;
   transition: opacity 0.25s ease;
+  pointer-events: none;   /* alleen tekst: klikken gaan erdoorheen naar het spel (ook een vervaagde melding ving ze anders op) */
 }
 .toast.fade { opacity: 0; }
 body.walk .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); }

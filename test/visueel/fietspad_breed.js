@@ -13,7 +13,7 @@ const { open, OUT } = require('./helper');
   });
   console.log('vormen zonder materiaal', r.leeg, '· fietsstroken', r.strook);
   // muis eroverheen met het fietspad-gereedschap: hier crashte het aanwijzen
-  await p.evaluate(() => document.getElementById('tool-fietspad').click());
+  await p.evaluate(() => window.__SC().selectTool('fietspad'));   // (niet meer in het palet; oude steden hebben hem nog)
   for (const [x, y] of [[450, 320], [380, 330], [520, 310]]) { await p.mouse.move(x, y); await p.waitForTimeout(200); }
   await p.waitForTimeout(800); await p.screenshot({ path: OUT + '/fietspad_breed.png' });
   console.log('fouten', errs);
