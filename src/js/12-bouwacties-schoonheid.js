@@ -400,14 +400,25 @@
     if (tool === 'kies') { if (mode === 'build') kiesTap(cx, cy); return; }   // aanwijzen: opties voor een module of blok (15g)
     const res = pick(cx, cy); lastPickRes = res;
     if (!res) return;
-    // Ctrl+klik op een geplaatst loopdek: volgend materiaal (klinkers → beton → hout → stalen rooster → weer klinkers),
-    // in plaats van plaatsen of stapelen (LOOPDEK_VAR_NAMEN/loopdekVar, 05)
+    // Ctrl+klik op een geplaatste steeg: bij een kruising (een "plein" van drie of meer paden) het volgende hofje
+    // (kaal → boom → bankjes → bloemperk → lantaarns → weer kaal); op een rechte of een bocht, waar geen plein is,
+    // het volgende materiaal (klinkers → beton → hout → stalen rooster → weer klinkers). In plaats van plaatsen of
+    // stapelen (LOOPDEK_VAR_NAMEN/LOOPDEK_HOFJE_NAMEN/loopdekCijfers/loopdekCode, 05)
     if (ctrl && tool === 'looppad' && mode === 'build' && res.place) {
       const [q, r] = res.place, st = stackOf(q, r), top = st[st.length - 1];
       if (top && baseOf(top) === 'looppad') {
-        const nv = (loopdekVar(top) + 1) % LOOPDEK_VAR_NAMEN.length;
-        st[st.length - 1] = nv ? 'looppad' + nv : 'looppad';
-        rebuildAround(q, r); changed(); toast('Steeg: ' + LOOPDEK_VAR_NAMEN[nv], 1400);
+        const baseY = columnTop(q, r) - TY(top).h, mask = pathMask(q, r, baseY);
+        let armen = 0; for (let k = 0; k < 6; k++) if ((mask >> k) & 1) armen++;
+        const [mat, hofje] = loopdekCijfers(top);
+        if (armen >= 3) {
+          const nh = (hofje + 1) % LOOPDEK_HOFJE_NAMEN.length;
+          st[st.length - 1] = loopdekCode(mat, nh);
+          rebuildAround(q, r); changed(); toast('Hofje: ' + LOOPDEK_HOFJE_NAMEN[nh], 1400);
+        } else {
+          const nm = (mat + 1) % LOOPDEK_VAR_NAMEN.length;
+          st[st.length - 1] = loopdekCode(nm, hofje);
+          rebuildAround(q, r); changed(); toast('Steeg: ' + LOOPDEK_VAR_NAMEN[nm], 1400);
+        }
         return;
       }
     }

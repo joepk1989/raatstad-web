@@ -25,11 +25,18 @@
     });
     return out;
   }
-  // ---------- Steeg: materiaal (klinkers, beton, hout, een stalen rooster) ----------
-  // Bewaard als een cijfer achter 'looppad' (looppad1, looppad2, …), net als de richting bij een helling — alleen is
-  // dit geen richting maar welk materiaal. Ctrl+klik op een geplaatst loopdek schakelt door (handleTap, 12).
+  // ---------- Steeg: materiaal (klinkers, beton, hout, een stalen rooster) en een hofje op een kruising ----------
+  // Bewaard als twee cijfers achter 'looppad' (looppad23 = materiaal 2, hofje 3), net als de richting bij een
+  // helling — alleen is dit geen richting maar materiaal + vorm. Eén cijfer (oude steden, of net na de vorige
+  // stap): dat is het materiaal, hofje blijft 0. Ctrl+klik schakelt door (handleTap, 12): bij een kruising (een
+  // "plein" van drie of meer paden, zie channelShapes) het hofje, anders het materiaal — dat is op een rechte of
+  // een bocht het enige dat je ervan ziet.
   const LOOPDEK_VAR_NAMEN = ['Klinkers', 'Beton', 'Hout', 'Stalen rooster'];
-  const loopdekVar = t => +((/\d+$/.exec(t) || ['0'])[0]) % LOOPDEK_VAR_NAMEN.length;
+  const LOOPDEK_HOFJE_NAMEN = ['Kaal', 'Boom in het midden', 'Bankjes in een kring', 'Bloemperk', 'Lantaarns'];
+  const loopdekCijfers = t => { const m = /(\d)(\d)?$/.exec(t); return m ? [+m[1], +(m[2] ?? 0)] : [0, 0]; };
+  const loopdekVar = t => loopdekCijfers(t)[0] % LOOPDEK_VAR_NAMEN.length;
+  const loopdekHofje = t => loopdekCijfers(t)[1] % LOOPDEK_HOFJE_NAMEN.length;
+  const loopdekCode = (mat, hofje) => 'looppad' + (mat || hofje ? mat + '' + hofje : '');
   const LOOPDEK_VAR = [M.paver, M.loopBeton, M.loopHout, M.loopStaal];
   // ---------- Op hoogte bouwen zonder zelf te stapelen: een gekozen laag, of (Steeg) een buur die er op uitkomt ----------
   // Steeg sluit vanzelf aan op een buurvak: het boveneind van een helling/trap/trappad/tribune/opgang in die richting,
@@ -452,6 +459,50 @@
     g.applyMatrix4(m);
     return g;
   }
+  // ---------- Hofje: het pleintje op een kruising van drie of meer paden (channelShapes, radius PLAZA_R) kan een
+  // van de LOOPDEK_HOFJE_NAMEN krijgen, net als bankjes/lantaarns/bloemperken/een speeltuin bij Park (06), maar
+  // dan kleiner: een boom, bankjes in een kring, een bloemperk of lantaarns. Eigen, zelfstandige geometrie (niet
+  // afhankelijk van of er al eens een park gebouwd is).
+  function hofjeInit() {
+    if (G.hofjeBank) return;
+    G.hofjeBank = new THREE.BoxGeometry(1.6, 0.08, 0.42).translate(0, 0.5, 0);
+    G.hofjeLeg = new THREE.BoxGeometry(0.08, 0.48, 0.38).translate(0, 0.24, 0);
+    G.hofjePlanter = new THREE.CylinderGeometry(1.1, 1.2, 0.4, 12).translate(0, 0.2, 0);
+    G.hofjeBed = new THREE.CylinderGeometry(0.75, 0.8, 0.3, 8).translate(0, 0.15, 0);
+    G.hofjeFlower = new THREE.SphereGeometry(0.15, 6, 5);
+    G.hofjePost = new THREE.CylinderGeometry(0.055, 0.07, 2.6, 6).translate(0, 1.3, 0);
+    G.hofjeLamp = new THREE.SphereGeometry(0.17, 8, 6).translate(0, 2.62, 0);
+    M.hofjeFlower = ['#e0573e', '#f2b233', '#d96cb0', '#f1efe6'].map(c => std({ color: c }));
+    M.hofjeLamp = new THREE.MeshBasicMaterial({ color: '#fff1c4' });
+  }
+  function hofjeDecor(o, kind, baseY, cx, cz, col, hv) {
+    if (!kind) return;   // 0 = kaal, geen decoratie
+    hofjeInit();
+    const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(cx + x, baseY + 0.05, cz + z); if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
+    if (kind === 1) {   // boom in het midden, met een laag plantvak
+      add(G.hofjePlanter, M.stone, 0, 0);
+      col.walls.push({ ax: cx, az: cz, bx: cx, bz: cz, y0: baseY, y1: baseY + 0.45, half: 1.1 });
+      const trunk = G.trunk.clone(); trunk.translate(0, 0.4, 0); add(trunk, M.trunk, 0, 0);
+      const crown = G.crown.clone(); crown.scale(1.05, 1.2, 1.05); crown.translate(0, 0.4 + 2.4 + 2.1, 0); add(crown, M.leaf[hv % 3], 0, 0);
+    } else if (kind === 2) {   // drie bankjes in een kring, naar het midden toe
+      for (let k = 0; k < 3; k++) {
+        const a = (hv % 6) * Math.PI / 3 + k * Math.PI * 2 / 3, bx = Math.cos(a) * 2.6, bz = Math.sin(a) * 2.6, ry = a + Math.PI / 2;
+        add(G.hofjeBank, M.bench, bx, bz, ry);
+        add(G.hofjeLeg, M.bench, bx + Math.cos(ry) * 0.68, bz + Math.sin(ry) * 0.68, ry); add(G.hofjeLeg, M.bench, bx - Math.cos(ry) * 0.68, bz - Math.sin(ry) * 0.68, ry);
+      }
+    } else if (kind === 3) {   // een bloemperk in drieën
+      for (let k = 0; k < 3; k++) {
+        const a = (hv % 6) * Math.PI / 3 + k * Math.PI * 2 / 3, bx = Math.cos(a) * 2.7, bz = Math.sin(a) * 2.7;
+        add(G.hofjeBed, M.stone, bx, bz);
+        for (let f = 0; f < 5; f++) { const fa = f * 1.26 + k, fr = f ? 0.55 : 0; const fl = add(G.hofjeFlower, M.hofjeFlower[(f + k + hv) % 4], bx + Math.cos(fa) * fr, bz + Math.sin(fa) * fr); fl.position.y += 0.38; }
+      }
+    } else if (kind === 4) {   // twee lantaarns
+      for (let k = 0; k < 2; k++) {
+        const a = (hv % 6) * Math.PI / 3 + k * Math.PI, lx = Math.cos(a) * 3.1, lz = Math.sin(a) * 3.1;
+        add(G.hofjePost, M.rail, lx, lz); add(G.hofjeLamp, M.hofjeLamp, lx, lz);
+      }
+    }
+  }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
     const b = baseOf(t), upper = i > 0;
     const addMesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
@@ -466,6 +517,8 @@
     if (b === 'looppad' && geos.floor) {
       addMesh(geos.floor, [LOOPDEK_VAR[loopdekVar(t)], M.kerb]);
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
+      let armen = 0; for (let k = 0; k < 6; k++) if ((mask >> k) & 1) armen++;
+      if (armen >= 3) hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i));
     }
     if (b === 'helling') {
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
