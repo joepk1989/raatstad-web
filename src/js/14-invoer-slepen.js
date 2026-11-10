@@ -356,8 +356,21 @@
   }
   function vecPaintTo(cell) {
     const D = roadDrag;
-    if (!D.vp) { D.vp = Object.assign({ t: VEC_T[D.tool], l: 0, r: 0, p: [] }, D.roofY != null ? { dak: true } : {}); D.vstart = cell; D.vcorners = []; D.voffs = []; D.voff0 = D.preset || 0; D.voff = D.voff0; D.voffMan = D.voff0; D.manS = false; D.manE = null; pathsOf().push(D.vp); showDragH(true); }
+    if (!D.vp) { D.vp = Object.assign({ t: VEC_T[D.tool], l: 0, r: 0, p: [] }, D.roofY != null ? { dak: true } : {}); D.vstart = cell; D.vcorners = []; D.voffs = []; D.vramp = []; D.vlock = null; D.vlockN = 0; D.voff0 = D.preset || 0; D.voff = D.voff0; D.voffMan = D.voff0; D.manS = false; D.manE = null; pathsOf().push(D.vp); showDragH(true); }
+    // Vanzelf een hoekpunt. Is het stuk dat je tekent twee vakken lang, dan ligt zijn richting vast (D.vlock, een stap in
+    // vakken): blijf je binnen 11 m van die lijn, dan groeit het stuk alleen langs die lijn; ga je er verder vanaf (en niet
+    // terug), dan wordt het laatste vak op die lijn een hoekpunt en begint daar een nieuw stuk. Stilhouden werkt ook nog.
+    if (D.vfrom && D.vlock && D.vcorners.length < 30) {
+      const f0 = D.vfrom(), st = D.vlock, F = cellToWorld(f0[0], f0[1]), S1 = cellToWorld(f0[0] + st[0], f0[1] + st[1]), C = cellToWorld(cell[0], cell[1]);
+      const sl = Math.hypot(S1.x - F.x, S1.z - F.z), ux = (S1.x - F.x) / sl, uz = (S1.z - F.z) / sl, langs = (C.x - F.x) * ux + (C.z - F.z) * uz, dwars = Math.abs(-(C.x - F.x) * uz + (C.z - F.z) * ux);
+      const n = Math.max(1, Math.round(langs / sl)), opLijn = [f0[0] + st[0] * n, f0[1] + st[1] * n];
+      if (dwars > 11 && langs > sl * 0.5) { const hk = [f0[0] + st[0] * Math.max(1, Math.round(Math.min(langs, (D.vlockN || n) * sl) / sl)), f0[1] + st[1] * Math.max(1, Math.round(Math.min(langs, (D.vlockN || n) * sl) / sl))];
+        D.vcorners.push(hk); D.voffs.push(D.voff); D.vramp.push(false); D.vend = hk; D.vlock = null; D.vlockN = 0; D.last = null; }
+      else if (langs > 0) { cell = opLijn; D.vlockN = n; }
+    }
     cell = vecAlignCell(D.vfrom ? D.vfrom() : D.vstart, cell);
+    if (D.vfrom && !D.vlock) { const f0 = D.vfrom(), dq = cell[0] - f0[0], dr = cell[1] - f0[1], g = (x, y) => y ? g(y, x % y) : Math.abs(x), k = g(dq, dr);
+      if (k && hexDist(dq / k, dr / k) * k >= 2 && hexDist(dq, dr) >= 2) { D.vlock = [dq / k, dr / k]; D.vlockN = k; } }
     const L = D.last; if (L && L[0] === cell[0] && L[1] === cell[1]) return;
     D.last = cell;
     if (D.abs) D.vp.abs = true; else delete D.vp.abs;
@@ -367,7 +380,7 @@
       const still = performance.now() - (D.vmoveT || 0);
       const need = Math.min(2000, 600 + Math.max(0, frameMs - 20) * 8);   // bij een trage weergave komen muisbewegingen later binnen
       if (still < need) { arm(need - still); return; }   // de muis bewoog nog (bijvoorbeeld een trage weergave): nog even wachten
-      if (D.on && D.vp && D.vend && !(D.vend[0] === D.vfrom()[0] && D.vend[1] === D.vfrom()[1])) { D.vcorners.push(D.vend); D.voffs.push(D.voff); D.last = null; vecPaintTo(D.vend); toast('Hoekpunt · sleep verder voor de bocht', 1200); }
+      if (D.on && D.vp && D.vend && !(D.vend[0] === D.vfrom()[0] && D.vend[1] === D.vfrom()[1])) { D.vcorners.push(D.vend); D.voffs.push(D.voff); D.vramp.push(false); D.vlock = null; D.last = null; vecPaintTo(D.vend); toast('Hoekpunt · sleep verder voor de bocht', 1200); }
     }, ms); };
     arm(650);
     D.vfrom = () => D.vcorners.length ? D.vcorners[D.vcorners.length - 1] : D.vstart;
@@ -385,8 +398,14 @@
       if (!D.manS) D.voff0 = hS !== null ? hS : (D.preset || 0);
       D.voff = hE !== null ? hE : D.voffMan;
     }
-    D.vp.core = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])].map(W); D.vp.p = D.vp.core.length > 1 ? vecExtend(D.vp.core, false) : D.vp.core;
-    { const ys = [D.voff0, ...D.voffs, ...(same ? [] : [D.voff])]; if (ys.some(v => v)) D.vp.y = D.vp.p.length > ys.length ? [ys[0], ...ys, ys[ys.length - 1]] : ys; else delete D.vp.y; }   // ophoging per punt (m boven het terrein)
+    { // de punten van de weg (begin, hoekpunten, eind) met hun hoogte; na een hoekpunt met een helling (E/Q tijdens het slepen
+      // van een pad of steeg) komt één vak verder een extra punt op de nieuwe laag: een helling van 15,6 m, daarna vlak
+      const pts = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])].map(W), ys0 = [D.voff0, ...D.voffs, ...(same ? [] : [D.voff])], core = [], ys = [];
+      for (let i = 0; i < pts.length; i++) { core.push(pts[i]); ys.push(ys0[i]);
+        if (i >= 1 && D.vramp[i - 1] && i + 1 < pts.length) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = R * SQ3 / L;
+          if (t < 0.97) { core.push([Math.round((a[0] + (b[0] - a[0]) * t) * 100) / 100, Math.round((a[1] + (b[1] - a[1]) * t) * 100) / 100]); ys.push(ys0[i + 1]); } } }
+      D.vp.core = core; D.vp.p = core.length > 1 ? vecExtend(core, false) : core;
+      if (ys.some(v => v)) D.vp.y = D.vp.p.length > ys.length ? [ys[0], ...ys, ys[ys.length - 1]] : ys; else delete D.vp.y; }   // ophoging per punt (m boven het terrein)
     if (D.vp.p.length < 2) D.vp.p = [];
     D.count = 0; for (let i = 1; i < D.vp.p.length; i++) D.count += 1;
     { const pts = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])]; D.count = pts.length < 2 ? 0 : 1 + pts.slice(1).reduce((n, c, i) => n + hexDist(c[0] - pts[i][0], c[1] - pts[i][1]), 0); }
@@ -431,6 +450,16 @@
     const atStart = !D.vend || (D.vend[0] === D.vstart[0] && D.vend[1] === D.vstart[1] && !D.vcorners.length);
     const laag3 = D.abs || D.tool === 'vpad' || D.tool === 'vsteeg';   // paden en stegen verspringen alleen in lagen van 3 m
     const cur = atStart ? D.voff0 : D.voff, st = laag3 ? 3 : 1.5, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, laag3 ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * st) * 2) / 2));
+    const helling = !atStart && laag3 && !D.abs && nv !== cur && (D.tool === 'vpad' || D.tool === 'vsteeg');
+    if (helling) {   // pad of steeg: waar je nu bent een hoekpunt op de oude hoogte, dan een helling van één vak naar de nieuwe laag
+      const lc = D.vcorners[D.vcorners.length - 1], opHoek = lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1];
+      if (!opHoek && D.vend) { D.vcorners.push(D.vend); D.voffs.push(cur); D.vramp.push(true); D.vlock = null; }
+      else if (opHoek) D.vramp[D.vramp.length - 1] = true;
+      D.voff = nv; D.voffMan = nv; D.manE = null;
+      D.last = null; vecPaintTo(D.vend || D.vstart); dragHText();
+      toast((dir > 0 ? 'Een laag hoger' : 'Een laag lager') + ' (' + nv.toLocaleString('nl') + ' m): sleep verder, de helling komt in die richting', 1500);
+      return true;
+    }
     if (atStart) { D.voff0 = nv; D.voff = nv; D.voffMan = nv; D.manS = true; } else { D.voff = nv; D.voffMan = nv; if (D.vend) D.manE = D.vend[0] + ',' + D.vend[1]; const lc = D.vcorners[D.vcorners.length - 1]; if (lc && D.vend && lc[0] === D.vend[0] && lc[1] === D.vend[1]) D.voffs[D.voffs.length - 1] = nv; }   // op een hoekpunt: dat punt
     D.last = null; vecPaintTo(D.vend || D.vstart); dragHText();
     toast(nv ? (atStart ? 'Begin van de weg ' : 'Weg hier ') + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') : (atStart ? 'Begin van de weg' : 'Weg hier') + ' op het terrein', 1100);
