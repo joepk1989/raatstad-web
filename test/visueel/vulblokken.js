@@ -52,7 +52,8 @@ const { open, OUT } = require('./helper');
   // slepen op de gekozen laag: een rijtje Loopdek in één keer, allemaal op dezelfde hoogte
   await kijkNaar(31, 0); await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-looppad');
   const a = await scherm(30, 0), e = await scherm(32, 0);
-  await p.mouse.move(a[0], a[1]); await p.waitForTimeout(150); await p.mouse.down();
+  await p.waitForFunction(() => { const sh = document.getElementById('sheet'); return !sh || sh.hidden; }, null, { timeout: 15000 }).catch(() => {});   // het palet eerst echt dicht (onder belasting duurt dat even)
+  await p.mouse.move(a[0], a[1]); await p.waitForTimeout(400); await p.mouse.down(); await p.waitForTimeout(200);
   for (let i = 1; i <= 8; i++) { await p.mouse.move(a[0] + (e[0] - a[0]) * i / 8, a[1] + (e[1] - a[1]) * i / 8, { steps: 1 }); await p.waitForTimeout(60); }   // een korte pauze per stap: een trage browser mist anders bewegingen
   await p.waitForTimeout(150); await p.mouse.up(); await p.waitForTimeout(400);
   const r5 = { a: await vak('30,0'), b: await vak('31,0'), c: await vak('32,0') };
