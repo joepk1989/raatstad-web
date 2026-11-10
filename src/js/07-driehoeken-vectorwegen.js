@@ -1063,10 +1063,15 @@
         // dek op pijlers: onderkant van het dek en om de 12 m een zeshoekige pijler tot de grond (of het dak eronder)
         { const dp = densify(e.pts, 1.5); let since = 99, run = [];
           const under = [];
-          for (const q of dp) { const top = hy(q[0], q[1]) + Y; const dk = isDeck(e.src, q[0], q[1], top); if (dk) run.push(q); else { if (run.length > 1) under.push(run); run = []; } }
+          // waar het dek overgaat in de wand tot de grond (de lage oprit): een dichte kopwand dwars onder de weg, anders kijk je onder het dek de holle oprit in
+          const kop = i => { const q = dp[i], u = dp[Math.min(dp.length - 1, i + 1)], v = dp[Math.max(0, i - 1)], dx = u[0] - v[0], dz = u[1] - v[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l * (hw + 0.02), nz = dx / l * (hw + 0.02);
+            const lo = terrainHeightAt(q[0], q[1]) - 0.05, hi = hy(q[0], q[1]) + Y; if (hi - lo < 0.35) return; const base = skirt.pos.length / 3;
+            skirt.pos.push(q[0] + nx, lo, q[1] + nz, q[0] + nx, hi, q[1] + nz, q[0] - nx, lo, q[1] - nz, q[0] - nx, hi, q[1] - nz); skirt.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); };
+          let prev = null;
+          dp.forEach((q, i) => { const top = hy(q[0], q[1]) + Y; const dk = isDeck(e.src, q[0], q[1], top); if (prev !== null && dk !== prev) kop(dk ? i : i - 1); prev = dk; if (dk) run.push(q); else { if (run.length > 1) under.push(run); run = []; } });
           if (run.length > 1) under.push(run);
           for (const seg of under) { const keep = HF; ribbonInto(skirt, seg, hw + 0.02, Y - 1.3); HF = keep;
-            since = 99;
+            since = 6;   // de eerste pijler 6 m na het begin van het dek (niet tegen de kopwand aan)
             for (const q of seg) { since += 1.5; if (since < 12) continue; const top = hy(q[0], q[1]) + Y - 1.3; if (typeof onCarriage === 'function' && (cells.paths || []).some(p2 => p2 !== e.src && p2.t !== 'rot' && p2.p && p2.p.length > 1 && distPoly(q[0], q[1], pathProf(p2).pts) < PATH_DEF[p2.t].hw + 1)) continue;   // niet midden op een lagere weg
               let low = Math.max(0, terrainHeightAt(q[0], q[1])); const dkb = typeof deckAt === 'function' ? deckAt(q[0], q[1], false, true) : null; if (dkb !== null && dkb < top - 0.5) low = Math.max(low, dkb);
               const hgt = top - low; if (hgt < 1.2) continue; since = 0;
