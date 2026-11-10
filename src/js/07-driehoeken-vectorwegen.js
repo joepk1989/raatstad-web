@@ -84,7 +84,7 @@
     return parts.filter(pp => pp.length > 1 && plen(pp) > 0.5);
   }
   const vmat = (color, n) => std({ color, polygonOffset: true, polygonOffsetFactor: -n, polygonOffsetUnits: -n, side: THREE.DoubleSide });
-  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: vmat('#9b5a45', 3) };
+  const VM = { klink: vmat('#7d4c3f', 3), bike: vmat('#a54a3c', 2), rail: std({ color: '#b9bcbf', metalness: 0.4, roughness: 0.45, side: THREE.DoubleSide }), barrier: std({ color: '#c9c7c0', side: THREE.DoubleSide }), skirt: vmat('#a9a59a', 0), grass: vmat('#6aa84a', 1), walk: (() => { const m = vmat('#ffffff', 1); m.map = stoepHexTex(); m.userData.uvMeter = true; return m; })(), kerb: vmat('#8f8b82', 2), asph: vmat('#3c4045', 3), dash: vmat('#f1efe6', 4), pave: (() => { const m = vmat('#ffffff', 3); m.map = M.paver.map; m.userData.uvMeter = true; return m; })() };
   let pathGroup = null;
   // Welke vakken beslaat een getekende weg? Een vak hoort erbij als zijn midden dicht genoeg bij de lijn ligt
   // (breedte van de weg plus een half vak). Die vakken krijgen een zandkleurige vloer en zijn niet meer bebouwbaar.
