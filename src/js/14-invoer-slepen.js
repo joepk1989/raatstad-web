@@ -399,10 +399,10 @@
       D.voff = hE !== null ? hE : D.voffMan;
     }
     { // de punten van de weg (begin, hoekpunten, eind) met hun hoogte; na een hoekpunt met een helling (E/Q tijdens het slepen
-      // van een pad of steeg) komt één vak verder een extra punt op de nieuwe laag: een helling van 15,6 m, daarna vlak
+      // van een pad of steeg) komt een extra punt op de nieuwe laag: per laag één vak helling (15,6 m voor 3 m), daarna vlak
       const pts = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])].map(W), ys0 = [D.voff0, ...D.voffs, ...(same ? [] : [D.voff])], core = [], ys = [];
       for (let i = 0; i < pts.length; i++) { core.push(pts[i]); ys.push(ys0[i]);
-        if (i >= 1 && D.vramp[i - 1] && i + 1 < pts.length) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = R * SQ3 / L;
+        if (i >= 1 && D.vramp[i - 1] && i + 1 < pts.length) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = R * SQ3 * Math.max(1, Math.round(Math.abs(ys0[i + 1] - ys0[i]) / 3)) / L;   /* één vak helling per laag */
           if (t < 0.97) { core.push([Math.round((a[0] + (b[0] - a[0]) * t) * 100) / 100, Math.round((a[1] + (b[1] - a[1]) * t) * 100) / 100]); ys.push(ys0[i + 1]); } } }
       D.vp.core = core; D.vp.p = core.length > 1 ? vecExtend(core, false) : core;
       if (ys.some(v => v)) D.vp.y = D.vp.p.length > ys.length ? [ys[0], ...ys, ys[ys.length - 1]] : ys; else delete D.vp.y; }   // ophoging per punt (m boven het terrein)

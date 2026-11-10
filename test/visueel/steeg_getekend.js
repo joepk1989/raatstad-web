@@ -24,7 +24,7 @@ const { open, OUT } = require('./helper');
     await p.mouse.up(); await p.waitForTimeout(700); };
   await sleep([[-4, 1], [4, 1]], []);
   await sleep([[0, -3], [0, 1]], []);   // zijsteeg die op de eerste uitkomt: een T
-  await sleep([[3, -3], [3, 1], [3, 5]], [2, -2]);   // over de eerste heen, 6 m hoog
+  await sleep([[3, -5], [3, -2], [3, 2], [3, 5]], [2, -2]);   // bij (3, -2) E 2× (per laag één vak helling: op (3, 0) 6 m), bij (3, 2) Q 2×   // over de eerste heen, 6 m hoog
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'steeg'), D = window.__modDbg();
     const a = S.cellToWorld(-3, 1), k = S.cellToWorld(0, 1), w3 = S.cellToWorld(3, 1), muur = 1.9 + 0.17;
     const bl = (x, z) => D.blockedAt(x, z, 0.1);
