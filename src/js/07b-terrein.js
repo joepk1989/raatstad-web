@@ -59,6 +59,7 @@
   // 4: langs de wegen. Een weg die boven het veld ligt geeft een dijkje, eronder een ingraving; flank minstens 3 m
   // en zo flauw dat het niet steiler dan ~40° wordt.
   function roadAdjust(x, z, v, segs = tRoadSegs) {
+    { const [q, r] = worldToCell(x, z); if (stackOf(q, r).length) return v; }   // een vak met blokken: geen dijkje of ingraving
     if (roofMap_ && roofMap_.size && deckAt(x, z, true, true) !== null) return v;   // onder een wegdek blijft het maaiveld liggen (08l)
     let wBest = 0, tBest = v, dBest = 1e9;
     for (const s of segs) {
@@ -151,7 +152,7 @@
   function lpHeight(x, z, roads) {
     const [q, r] = worldToCell(x, z), C = lpCell(q, r);
     if (C.cut) return 0;
-    if (C.occ && (!roads || C.g > 0.01)) return C.g;
+    if (C.occ && (!roads || C.g > 0.01 || stackOf(q, r).length)) return C.g;   // een vak met blokken: geen dijkje of ingraving van een weg ernaast (dat staakt anders door de vloer van het blok)
     if (roads && tField.nearAny(x, z, 0)) { const [A0, B0, D0] = lpTri(q, r, x, z, false), d0 = (B0[1] - D0[1]) * (A0[0] - D0[0]) + (D0[0] - B0[0]) * (A0[1] - D0[1]), m1 = ((B0[1] - D0[1]) * (x - D0[0]) + (D0[0] - B0[0]) * (z - D0[1])) / d0, m2 = ((D0[1] - A0[1]) * (x - D0[0]) + (A0[0] - D0[0]) * (z - D0[1])) / d0; return Math.max(0, roadCapH(x, z, tField.at(x, z, A0[2] * m1 + B0[2] * m2 + D0[2] * (1 - m1 - m2)))); }   // het veld (07a): wat je ziet
     const [A, B, D] = lpTri(q, r, x, z, roads), det = (B[1] - D[1]) * (A[0] - D[0]) + (D[0] - B[0]) * (A[1] - D[1]);
     const l1 = ((B[1] - D[1]) * (x - D[0]) + (D[0] - B[0]) * (z - D[1])) / det, l2 = ((D[1] - A[1]) * (x - D[0]) + (A[0] - D[0]) * (z - D[1])) / det;
@@ -167,9 +168,9 @@
         const C = lpCell(q, r); if (C.cut || (C.occ && C.g > 0.01)) continue;
         for (let i = 0; i < 6; i++) {
           const a = (30 + 60 * i + 30) * Math.PI / 180, px = w.x + Math.cos(a), pz = w.z + Math.sin(a);
-          const T0 = lpTri(q, r, px, pz, false);
-          if (tField.cutTriangle(T0[0], T0[1], T0[2], (A, B, D) => addTri(A, B, D, q, r, i))) continue;   // langs een weg op een niveau: het veld snijdt de driehoek in vlakke stukjes
-          const [A, B, D] = lpTri(q, r, px, pz, true); addTri(A, B, D, q, r, i);
+          const T0 = lpTri(q, r, px, pz, false), blok = stackOf(q, r).length > 0;   // onder blokken blijft het terrein zoals het is
+          if (!blok && tField.cutTriangle(T0[0], T0[1], T0[2], (A, B, D) => addTri(A, B, D, q, r, i))) continue;   // langs een weg op een niveau: het veld snijdt de driehoek in vlakke stukjes
+          const [A, B, D] = blok ? T0 : lpTri(q, r, px, pz, true); addTri(A, B, D, q, r, i);
         }
       }
     }

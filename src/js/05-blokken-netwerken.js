@@ -46,9 +46,9 @@
   // Welke hoogte biedt de kolom naast (q, r), in richting k, aan een pad dat er vanaf (q, r) op aansluit? De hoogste
   // beloopbare vloer van die buur die naar (q, r) open is (de vloer van een steeg, het onder- of boveneind van een
   // helling/trap/trappad, een hof …); null als daar niets is. Gebruikt door de getekende paden (14, vecPaintTo).
-  function blokAanHoogte(q, r, k) {
+  function blokAanHoogte(q, r, k, bij) {   // bij: de hoogte van het pad; heeft de buur meer vloeren (een toren van Steeg-blokken), dan die het dichtst erbij
     const nq = q + NEIGH[k][0], nr = r + NEIGH[k][1]; if (!cells.has(key(nq, nr))) return null;
-    let best = null; for (const f of ifacesOfColumn(nq, nr)) if (!f.passive && ((f.sides >> ((k + 3) % 6)) & 1) && (best === null || f.y > best)) best = f.y;
+    let best = null; for (const f of ifacesOfColumn(nq, nr)) if (!f.passive && ((f.sides >> ((k + 3) % 6)) & 1) && (best === null || (bij === undefined ? f.y > best : Math.abs(f.y - bij) < Math.abs(best - bij)))) best = f.y;
     return best;
   }
   // Hoogte van een getekend pad of weg dat precies op de rand tussen (q, r) en buur k ophoudt (op een veelvoud van 3 m,
