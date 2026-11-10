@@ -532,6 +532,16 @@ Wat er gedaan is om kleine foutjes te voorkomen:
 - **Geen staartje:** een pad dat midden op een ander pad uitkomt, verliest zijn staartje van 0,15 m (`sluitPadenAan`). Anders steekt zijn ronde kop aan de overkant net uit.
 - **Test op gaatjes:** de test prikt in elk vak met kavels om de 25 cm een punt, en elk punt moet op een pad of een kavel liggen.
 
+**Voorbeeld: stegen met verhoging, kruisingen en hofjes** (`test/visueel/steeg_voorbeeld.js`, november 2026). Een wijkje met de getekende stegen en Steeg-blokken als hofjes:
+- **Op de grond:** een steeg west-oost en een steeg die hem kruist (op de kruising zijn de muurtjes open), en een hofje met bankjes waar vier stegen op uitkomen.
+- **Omhoog:** een steeg die van 0 naar 6 m gaat, met een brug op pijlers over de hoofdsteeg, en die uitkomt op een hofje met een boom op 6 m (twee blokken eronder). Van daar loopt een steeg op 6 m verder en zakt dan weer naar de grond.
+- **Kavels** langs een stuk van de hoofdsteeg.
+
+De speler loopt zelf het hofje in en over de brug het hoge hofje op. Bij het bouwen kwamen drie foutjes boven, die zijn opgelost:
+1. **De hofje-versiering stond een vak verderop.** Bankjes, boom, bloemperk en lantaarns kregen de plek van het vak dubbel (`hofjeDecor` in 05). In de oude test stond het hofje toevallig op vak (0, 0), dus daar viel het niet op. De test controleert het nu.
+2. **De doorgang in een Steeg-blok was 4,2 m** (`CH_HALF` 2,1). Die is nu 4,5 m, net als het raster van de Raatmaker en de getekende steeg. Dat geldt ook voor helling, tunnel en hofhelling.
+3. **Een steeg die op een blok uitkwam, had een ronde kop** (een grijze halve cirkel op de vloer van het blok) **en een naadje gras.** Zo'n eind loopt nu recht af (`padEindVlak`) en 30 cm over de vloer van het blok heen, die iets lager ligt.
+
 ## Cameramodus en totale chaos
 - **Cameramodus** (`13-camera-modus-geluid.js`, `flyCam`): in de bouwmodus zet Spatie het aan en uit (Esc ook). Geen interface en geen bouwvoorbeeld. De muis kijkt (aanwijzer vastgezet), W/A/S/D vliegt met wat vaart in de kijkrichting, E/Q omhoog/omlaag, Shift ×3, Ctrl ×0,25, het wiel zoomt (beeldhoek 12–95°), F slaat een foto op (`flyPhoto`, png zonder knoppen). Bij het stoppen komt het draaipunt op wat je aankijkt (`flyStop`).
 - **Totale chaos** (de oude knop "Roekeloos rijgedrag", intern nog `cars.reckless`): mensen rennen (×1,6–3,5), pauzeren en kletsen niet, schreeuwen af en toe (`sound.scream`, opnames in `assets/schreeuw.mp3`: paniek, korte kreten, een gruwelkreet bij een explosie en een kreet die bij het bloed hoort) en de spreekballonnen tonen paniek en verwarring (`PANIC`, plus brand- en instortzinnen als dat echt gebeurt).
