@@ -714,7 +714,44 @@
   let pathPre = null, pathBasis = null;
   const pathWeg = G => { if (!G) return; G.traverse(m => { if (m.isMesh && m.userData.own) m.geometry.dispose(); }); scene.remove(G); };
   const wegTijd = window.__wegTijd = { n: 0, ms: 0, vol: 0 };   // voor tests: hoe vaak en hoe lang de wegen opgebouwd worden
-  function buildPathNet(quick, voorbeeld) { const t0 = performance.now(); try { return buildPathNet_(quick, voorbeeld); } finally { wegTijd.n++; wegTijd.ms += performance.now() - t0; } }
+  // Uiteinden van een getekende weg/pad: per eind het laatste echte punt (ci: index in p, zonder het staartje van
+  // 0,15 m), de richting waarin de lijn daar ophoudt en de index van het staartje (-1 als er geen is)
+  function padEinden(path) {
+    const P = path.p, n = P.length, out = []; if (!P || n < 2) return out;
+    for (const atS of [true, false]) {
+      const at = i => P[atS ? i : n - 1 - i], idx = i => atS ? i : n - 1 - i;
+      let c = 0; if (Math.hypot(at(0)[0] - at(1)[0], at(0)[1] - at(1)[1]) < 0.3 && n > 2) c = 1;
+      let j = c + 1; while (j < n - 1 && Math.hypot(at(j)[0] - at(c)[0], at(j)[1] - at(c)[1]) < 1) j++;
+      const E = at(c), A = at(j), L = Math.hypot(E[0] - A[0], E[1] - A[1]) || 1;
+      out.push({ atS, ci: idx(c), tip: c ? idx(0) : -1, E, dir: [(E[0] - A[0]) / L, (E[1] - A[1]) / L] });
+    }
+    return out;
+  }
+  // Getekende paden sluiten aan op de blokken: houdt een pad op in het midden van een vak, recht op een buurvak af met
+  // een beloopbare vloer op dezelfde hoogte (Steeg, Helling, Trap, Hof … — blokAanHoogte, 05), dan loopt het door tot
+  // de rand van dat vak (anders zit er een gat van een half vak tussen). Bij elke volledige opbouw, dus ook als je het
+  // blok pas na het pad neerzet; is het blok weg, dan blijft het pad gewoon iets langer.
+  function sluitPadenAan() {
+    let n = 0;
+    for (const path of pathsOf()) {
+      if (!PATH_DEF[path.t] || !path.p || path.p.length < 2 || isLone(path)) continue;
+      for (const End of padEinden(path)) {
+        const [q, r] = worldToCell(End.E[0], End.E[1]), c = cellToWorld(q, r); if (Math.hypot(c.x - End.E[0], c.z - End.E[1]) > 0.3) continue;
+        const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * End.dir[0] + (w.z - c.z) / L * End.dir[1] > 0.995; });
+        if (k < 0) continue; const h = blokAanHoogte(q, r, k); if (h === null || Math.abs(pathH(path, c.x, c.z) - h) > 0.35) continue;
+        const a = R * SQ3 / 2, edge = [Math.round((c.x + End.dir[0] * a) * 100) / 100, Math.round((c.z + End.dir[1] * a) * 100) / 100], tip = [Math.round((edge[0] + End.dir[0] * 0.15) * 100) / 100, Math.round((edge[1] + End.dir[1] * 0.15) * 100) / 100];
+        const yv = path.y ? path.y[End.ci] : null;
+        if (End.atS) { if (End.tip >= 0) { path.p.splice(0, 1, tip, edge); if (path.y) path.y.splice(0, 1, yv, yv); } else { path.p.unshift(edge); if (path.y) path.y.unshift(yv); } }
+        else { if (End.tip >= 0) { path.p.splice(path.p.length - 1, 1, edge, tip); if (path.y) path.y.splice(path.y.length - 1, 1, yv, yv); } else { path.p.push(edge); if (path.y) path.y.push(yv); } }
+        if (path.y && path.y.length !== path.p.length) delete path.y;   // (zou niet mogen; dan liever plat dan scheef)
+        profCache.delete(path); n++;
+      }
+    }
+    return n;
+  }
+  function buildPathNet(quick, voorbeeld) { if (!quick) sluitPadenAan(); const t0 = performance.now(); try { return buildPathNet_(quick, voorbeeld); } finally { wegTijd.n++; wegTijd.ms += performance.now() - t0;
+    // een pad dat op een Steeg, Helling … uitkomt (of er niet meer op uitkomt) verandert diens open kanten: die vakken opnieuw
+    if (!quick && typeof refreshPathLinks === 'function' && groups.size) { const ch = refreshPathLinks(); if (ch.size) { nearbyClear(); for (const k of ch) if (cells.has(k)) { const [q, r] = k.split(',').map(Number); buildColumn(q, r); } } } } }
   function buildPathNet_(quick, voorbeeld) {
     const V = quick && voorbeeld && voorbeeld[0] && (cells.paths || []).includes(voorbeeld[0]) ? voorbeeld : null;
     if (V) {

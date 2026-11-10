@@ -43,8 +43,30 @@
   // of een ander loopdek dat er al ligt (altijd aan alle kanten open). De hoogste zo'n hoogte van de zes buren wordt
   // gebruikt. Voor alle stapelbare soorten (Ctrl+scrollen, of de laagkiezer rechts, `hudLayer()`) geldt hetzelfde idee,
   // maar dan met de hoogte die je zelf kiest in plaats van een buur: dan kun je ook ergens los op hoogte beginnen.
+  // Welke hoogte biedt de kolom naast (q, r), in richting k, aan een pad dat er vanaf (q, r) op aansluit? De hoogste
+  // beloopbare vloer van die buur die naar (q, r) open is (de vloer van een steeg, het onder- of boveneind van een
+  // helling/trap/trappad, een hof …); null als daar niets is. Gebruikt door de getekende paden (14, vecPaintTo).
+  function blokAanHoogte(q, r, k) {
+    const nq = q + NEIGH[k][0], nr = r + NEIGH[k][1]; if (!cells.has(key(nq, nr))) return null;
+    let best = null; for (const f of ifacesOfColumn(nq, nr)) if (!f.passive && ((f.sides >> ((k + 3) % 6)) & 1) && (best === null || f.y > best)) best = f.y;
+    return best;
+  }
+  // Hoogte van een getekend pad of weg dat precies op de rand tussen (q, r) en buur k ophoudt (op een veelvoud van 3 m,
+  // de hoogte van een blok), of 0: zo sluit een Steeg-blok ook vanzelf aan op het eind van een getekend pad op hoogte
+  function padEindHoogte(q, r, k) {
+    if (typeof pathsOf !== 'function' || typeof padEinden !== 'function') return 0;
+    const a = cellToWorld(q, r), nb = cellToWorld(q + NEIGH[k][0], r + NEIGH[k][1]), L = Math.hypot(a.x - nb.x, a.z - nb.z), u = [(a.x - nb.x) / L, (a.z - nb.z) / L];
+    let best = 0;
+    for (const p of pathsOf()) { if (!PATH_DEF[p.t] || !p.p || p.p.length < 2) continue;
+      for (const E of padEinden(p)) {   // het pad houdt op in het midden van de buur (of al op de rand) en loopt recht op dit vak af
+        if (E.dir[0] * u[0] + E.dir[1] * u[1] < 0.995) continue;
+        const dc = Math.hypot(E.E[0] - nb.x, E.E[1] - nb.z), de = Math.hypot(E.E[0] - (a.x + nb.x) / 2, E.E[1] - (a.z + nb.z) / 2); if (dc > 0.3 && de > 0.3) continue;
+        const h = pathH(p, E.E[0], E.E[1]), n = Math.round(h / 3); if (n > 0 && Math.abs(h - n * 3) < 0.35 && n * 3 > best) best = n * 3; } }
+    return best;
+  }
   function loopdekHoogte(q, r) {
     let best = 0;
+    for (let k = 0; k < 6; k++) best = Math.max(best, padEindHoogte(q, r, k));
     for (let k = 0; k < 6; k++) {
       const nq = q + NEIGH[k][0], nr = r + NEIGH[k][1];
       if (!cells.has(key(nq, nr))) continue;
@@ -81,6 +103,18 @@
         else ifs.set(kk, { q, r, y: f.y, sides: f.sides, passive: !!f.passive });
       }
     }
+    // Het eind van een getekend pad of weg doet passief mee, net als een weg of voordeur: houdt het op in het midden of aan
+    // de rand van een vak, recht op een buurvak af, op een blokhoogte (veelvoud van 3 m), dan opent een Steeg, Helling …
+    // daar zijn kant naar het pad (zie ook sluitPadenAan in 07)
+    if (typeof padEinden === 'function') for (const p of (cells.paths || [])) { if (!PATH_DEF[p.t] || !p.p || p.p.length < 2 || isLone(p)) continue;
+      for (const E of padEinden(p)) {
+        const [q, r] = worldToCell(E.E[0] - E.dir[0], E.E[1] - E.dir[1]), c = cellToWorld(q, r);
+        const k = NEIGH.findIndex(([dq, dr]) => { const w = cellToWorld(q + dq, r + dr), L = Math.hypot(w.x - c.x, w.z - c.z); return (w.x - c.x) / L * E.dir[0] + (w.z - c.z) / L * E.dir[1] > 0.995; });
+        if (k < 0) continue;
+        const h = pathH(p, E.E[0], E.E[1]), n = Math.round(h / 3); if (Math.abs(h - n * 3) > 0.35) continue;
+        const kk = lk(q, r, n * 3), prev = ifs.get(kk);
+        if (prev) prev.sides |= 1 << k; else ifs.set(kk, { q, r, y: n * 3, sides: 1 << k, passive: true });
+      } }
     const has = (q, r, y, side) => { const f = ifs.get(lk(q, r, y)); return !!f && ((f.sides >> side) & 1) === 1; };
     const edges = [];
     for (const [ka, A] of ifs) {
@@ -312,10 +346,10 @@
     } else if (b === 'trap') {
       // Bordes beneden, 18 treden van 15,8 cm, bordes boven; 3 m breed met leuningen
       const d = dirOf(t), f = FRAMES[d], W = PATH_HALF, P1 = 2.6, H = 3, N = 18, run = 2 * P1 / N, rise = (H - 0.15) / N;
-      bag.put(M.paverPlain, boxAt(f, 0, (-INNER - P1) / 2, 0.075, 2 * W, 0.15, INNER - P1));
+      bag.put(M.paver, boxAt(f, 0, (-INNER - P1) / 2, 0.075, 2 * W, 0.15, INNER - P1));   // bordessen: dezelfde klinkers als alle paden (was M.paverPlain)
       for (let j = 0; j < N; j++) { const top = 0.15 + (j + 1) * rise; bag.put(M.stone, boxAt(f, 0, -P1 + (j + 0.5) * run, top / 2, 2 * W, top, run)); }
       bag.put(M.stone, boxAt(f, 0, (P1 + INNER) / 2, H / 2 - 0.08, 2 * W, H - 0.16, INNER - P1));
-      bag.put(M.paverPlain, boxAt(f, 0, (P1 + INNER) / 2, H - 0.075, 2 * W, 0.15, INNER - P1));
+      bag.put(M.paver, boxAt(f, 0, (P1 + INNER) / 2, H - 0.075, 2 * W, 0.15, INNER - P1));
       const len = Math.hypot(2 * P1, H - 0.15), tilt = -Math.atan2(H - 0.15, 2 * P1);
       for (const su of [-1, 1]) {
         const u = su * (W + 0.05);
