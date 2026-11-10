@@ -51,7 +51,8 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(300);
   let top = 0, bijKruis = null; const k = await p.evaluate(() => { const w = window.__SC().cellToWorld(0, 1); return [w.x, w.z]; });
   await p.keyboard.down('KeyW');
-  for (let t = 0; t < 120; t++) { await p.waitForTimeout(150); const q = await p.evaluate(() => { const S = window.__SC(), P = S.player; return [P.x, P.z, P.y, S.roadTop(P.x, P.z, P.y + 1), S.terrainHeightAt(P.x, P.z)]; }); top = Math.max(top, q[2]); if (Math.hypot(q[0] - k[0], q[1] - k[1]) < 3 && bijKruis === null) bijKruis = +q[2].toFixed(2); }
+  const a0 = await p.evaluate(() => [window.__SC().player.x, window.__SC().player.z]);
+  for (let t = 0; t < 800; t++) { await p.waitForTimeout(150); const q = await p.evaluate(() => { const S = window.__SC(), P = S.player; return [P.x, P.z, P.y, S.roadTop(P.x, P.z, P.y + 1), S.terrainHeightAt(P.x, P.z)]; }); top = Math.max(top, q[2]); if (Math.hypot(q[0] - k[0], q[1] - k[1]) < 3 && bijKruis === null) bijKruis = +q[2].toFixed(2); if (Math.hypot(q[0] - a0[0], q[1] - a0[1]) > 14) break; }   // tot voorbij de kruising (op afstand, niet op tijd)
   await p.keyboard.up('KeyW');
   zeg(bijKruis !== null && bijKruis > 5.5, 'zelf lopen: over de brug, boven de kruising op ~6 m', { bijKruis, top: +top.toFixed(2) });
   await p.screenshot({ path: OUT + '/paden_getekend_lopen.png' });

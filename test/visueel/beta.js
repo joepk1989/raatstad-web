@@ -5,7 +5,8 @@ const { OUT } = require('./helper');
  const errs = []; p.on('pageerror', e => errs.push(e.message));
  await p.route('**/three.min.js', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(require.resolve('three/build/three.min.js', { paths: [path.join(__dirname, '..')] })) }));
  await p.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
- await p.goto('file://' + path.resolve(__dirname, '../../site/index.html')); await p.waitForTimeout(2500);
+ p.setDefaultTimeout(120000);   // onder belasting (meer tests tegelijk, reeks.js) is 30 s soms te kort
+ await p.goto('file://' + path.resolve(__dirname, '../../site/index.html'), { timeout: 180000 }); await p.waitForTimeout(2500);
  await p.screenshot({ path: OUT + '/beta_welkom.png' });
  await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(400);
  const def = await p.evaluate(() => { const S = window.__SC(); return { instorten: S.collapse.on, bloed: S.cars.gore, chaos: document.getElementById('recklessBtn').getAttribute('aria-pressed'), versie: document.querySelector('#sheet .ver').textContent, tipSpoor: document.getElementById('tool-spoor').title, tipTab: document.querySelector('.pal-tab').title }; });

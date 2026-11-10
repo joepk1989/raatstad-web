@@ -3,7 +3,7 @@
 // De test stelt de looproute samen (grondsteeg → ingangshelling → ring 4 rond tot de helling → overloopje → ring 3 …
 // → het hofje op 15 m) en loopt hem om de 50 cm na: overal vloer, nergens tegen, geen trede hoger dan 30 cm, en elk
 // stuk vlak pad op een veelvoud van 3 m. Daarna loopt de speler zelf een helling op. Screenshots: stegen_toren*.png
-const { open, OUT } = require('./helper');
+const { open, OUT, loopAfstand } = require('./helper');
 const NEIGH = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]], RINGEN = 4, HELLING = { 4: 5, 3: 8, 2: 1 }, TOP = 4;
 const ring = n => { const out = []; let q = NEIGH[4][0] * n, r = NEIGH[4][1] * n; for (let i = 0; i < 6; i++) for (let j = 0; j < n; j++) { out.push([q, r]); q += NEIGH[i][0]; r += NEIGH[i][1]; } return out; };
 const buur = (a, b) => NEIGH.some(([dq, dr]) => a[0] + dq === b[0] && a[1] + dr === b[1]);
@@ -64,7 +64,7 @@ async function route(kies) {
   // zelf lopen: de ingangshelling op, van de grond naar ring 4 (3 m)
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
   const v = R.vakken; await p.evaluate(([a, e]) => { const S = window.__SC(), A = S.cellToWorld(...a), E = S.cellToWorld(...e); S.player.x = E.x; S.player.z = E.z; /* in het midden van het hellingvak, waar de helling begint (de testbrowser loopt traag) */ S.player.y = 0.1; S.player.yaw = Math.atan2(A.x - E.x, A.z - E.z); S.player.pitch = -0.05; }, [v[0], v[1]]);
-  await p.waitForTimeout(250); await p.keyboard.down('KeyW'); await p.waitForTimeout(26000); await p.keyboard.up('KeyW'); await p.waitForTimeout(300);
+  await p.waitForTimeout(250); await loopAfstand(p, (26000) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(300);
   const pl = await p.evaluate(() => { const S = window.__SC(), P = S.player; return { vak: S.worldToCell(P.x, P.z).join(), y: +P.y.toFixed(2) }; });
   await p.screenshot({ path: OUT + '/stegen_toren_lopen.png' });
   zeg(pl.y > 2.9, 'zelf lopen: de ingangshelling op, tot op 3 m', pl);

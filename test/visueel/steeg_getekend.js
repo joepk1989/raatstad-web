@@ -1,7 +1,7 @@
 // Steeg (getekend), knop 'vsteeg' bij Paden: een smalle steeg die je sleept zoals een weg (type 'steeg' in het wegsysteem, 07),
 // met klinkers en aan beide kanten een licht schuin muurtje van 1 m dat je tegenhoudt. Bij een aansluiting (T) blijft hij open.
 // Een derde steeg gaat er met E (3 m per druk) 6 m boven overheen. Screenshots: steeg_getekend.png, steeg_getekend_dichtbij.png
-const { open, OUT } = require('./helper');
+const { open, OUT, loopAfstand } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -44,7 +44,7 @@ const { open, OUT } = require('./helper');
   // zelf lopen: dwars tegen het muurtje aan, en dan de zijsteeg in
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
   const loop = async (van, yaw, n) => { await p.evaluate(([v, yaw]) => { const S = window.__SC(); S.player.x = v[0]; S.player.z = v[1]; S.player.y = 0.1; S.player.yaw = yaw; S.player.pitch = -0.1; }, [van, yaw]);
-    await p.waitForTimeout(200); await p.keyboard.down('KeyW'); await p.waitForTimeout(n); await p.keyboard.up('KeyW'); await p.waitForTimeout(200);
+    await p.waitForTimeout(200); await loopAfstand(p, (n) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(200);
     return p.evaluate(() => { const P = window.__SC().player; return [P.x, P.z]; }); };
   const a = await p.evaluate(() => { const w = window.__SC().cellToWorld(-3, 1); return [w.x, w.z]; });
   const naMuur = await loop(a, Math.PI, 4000);   // yaw π: naar +z (dwars op de steeg)

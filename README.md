@@ -461,6 +461,7 @@ Nog te doen:
 - Mensen met een doel (werk, winkel, thuis); dak op modules; rivieren; tunnels voor auto's
 
 ## Testen
+**Sneller testen:** `node test/visueel/reeks.js` draait de vaste reeks voor paden en wegen, vier tests tegelijk (16 tests in ±12 minuten in plaats van ±25). Je kunt ook zelf tests noemen: `node test/visueel/reeks.js -n 4 steeg_vul weg_bocht`. Tests waarin de speler zelf loopt, gebruiken `loopAfstand` uit `helper.js`: ze lopen een afstand in plaats van een tijd, want de testbrowser is wisselend traag. Werkwijze: na een stap alleen de tests die erbij horen, en de hele reeks pas voor het samenvoegen.
 
 In `test/` staan de simulaties en controles (Playwright, headless Chromium): verkeer op losse wegvormen en in de voorbeeldstad, een stad met alle bouwonderdelen, de Raatmaker, de standaardbibliotheek en lint. Zie `test/README.md`.
 
