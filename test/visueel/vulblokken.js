@@ -53,7 +53,7 @@ const { open, OUT } = require('./helper');
   await kijkNaar(31, 0); await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-looppad');
   const a = await scherm(30, 0), e = await scherm(32, 0);
   await p.mouse.move(a[0], a[1]); await p.waitForTimeout(150); await p.mouse.down();
-  for (let i = 1; i <= 8; i++) await p.mouse.move(a[0] + (e[0] - a[0]) * i / 8, a[1] + (e[1] - a[1]) * i / 8, { steps: 1 });
+  for (let i = 1; i <= 8; i++) { await p.mouse.move(a[0] + (e[0] - a[0]) * i / 8, a[1] + (e[1] - a[1]) * i / 8, { steps: 1 }); await p.waitForTimeout(60); }   // een korte pauze per stap: een trage browser mist anders bewegingen
   await p.waitForTimeout(150); await p.mouse.up(); await p.waitForTimeout(400);
   const r5 = { a: await vak('30,0'), b: await vak('31,0'), c: await vak('32,0') };
   zeg(r5.a.join() === 'blok,looppad' && r5.b.join() === 'blok,looppad' && r5.c.join() === 'blok,looppad', 'slepen op laag 1 (3 m): alle vakken op dezelfde hoogte', r5);
