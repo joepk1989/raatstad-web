@@ -25,14 +25,14 @@
     });
     return out;
   }
-  // ---------- Loopdek: materiaal (klinkers, beton, hout, een stalen rooster) ----------
+  // ---------- Steeg: materiaal (klinkers, beton, hout, een stalen rooster) ----------
   // Bewaard als een cijfer achter 'looppad' (looppad1, looppad2, …), net als de richting bij een helling — alleen is
   // dit geen richting maar welk materiaal. Ctrl+klik op een geplaatst loopdek schakelt door (handleTap, 12).
   const LOOPDEK_VAR_NAMEN = ['Klinkers', 'Beton', 'Hout', 'Stalen rooster'];
   const loopdekVar = t => +((/\d+$/.exec(t) || ['0'])[0]) % LOOPDEK_VAR_NAMEN.length;
   const LOOPDEK_VAR = [M.paver, M.loopBeton, M.loopHout, M.loopStaal];
-  // ---------- Op hoogte bouwen zonder zelf te stapelen: een gekozen laag, of (Loopdek) een buur die er op uitkomt ----------
-  // Loopdek sluit vanzelf aan op een buurvak: het boveneind van een helling/trap/trappad/tribune/opgang in die richting,
+  // ---------- Op hoogte bouwen zonder zelf te stapelen: een gekozen laag, of (Steeg) een buur die er op uitkomt ----------
+  // Steeg sluit vanzelf aan op een buurvak: het boveneind van een helling/trap/trappad/tribune/opgang in die richting,
   // of een ander loopdek dat er al ligt (altijd aan alle kanten open). De hoogste zo'n hoogte van de zes buren wordt
   // gebruikt. Voor alle stapelbare soorten (Ctrl+scrollen, of de laagkiezer rechts, `hudLayer()`) geldt hetzelfde idee,
   // maar dan met de hoogte die je zelf kiest in plaats van een buur: dan kun je ook ergens los op hoogte beginnen.
@@ -49,7 +49,7 @@
     return best;
   }
   // Hoeveel blok er op een LEEG vak onder een soort t moet, zodat hij op de goede hoogte komt: eerst een gekozen laag
-  // (Ctrl+scrollen of de laagkiezer), anders (alleen voor Loopdek) een buur die er al op uitkomt. Geeft 0 als er
+  // (Ctrl+scrollen of de laagkiezer), anders (alleen voor Steeg) een buur die er al op uitkomt. Geeft 0 als er
   // niets automatisch hoeft (gewoon op de grond, geen hoogte gekozen/gevonden, of deze soort mag niet op blok staan,
   // RULES) — dan gaat het gewoon door als vanouds. Geeft null bij een duidelijke fout: er was wél een hoogte, maar
   // die zou boven de 150 m komen (MAX_H). t is het gereedschap of de blokcode (helling3 mag ook).

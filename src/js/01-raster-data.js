@@ -31,7 +31,7 @@
     trap:    { name: 'Trap',    h: 3 },
     zuilen:  { name: 'Zuilen',  h: 3 },
     hof:     { name: 'Hof',     h: 3 },
-    looppad: { name: 'Loopdek', h: 3 },   // intern nog 'looppad' (oude steden), in beeld "Loopdek": een verhoogde vloer door blokken heen, te onderscheiden van Pad/Paden
+    looppad: { name: 'Steeg', h: 3 },   // intern nog 'looppad' (oude steden), in beeld "Steeg": een verhoogde vloer door blokken heen, te onderscheiden van Pad/Paden
     blok:    { name: 'Blok',    h: 3 },
     helling: { name: 'Helling', h: 3 },
     tunnel:  { name: 'Tunnel',  h: 3 },
@@ -101,12 +101,12 @@
     kantoor: ['grond', 'gebouw', 'zuilen', 'blok', 'heuvel'],
     dak:     ['gebouw'],
   };
-  const SUPPORT_LABEL = { grond: 'de grond', dakvlak: 'een plat dak', gebouw: 'een gebouw', zuilen: 'zuilen', blok: 'een blok of loopdek', water: 'water (als brug)', kuil: 'een uitgraving', kuilpad: 'een pad in een uitgraving', heuvel: 'verhoogd terrein', brug: 'een brug' };
+  const SUPPORT_LABEL = { grond: 'de grond', dakvlak: 'een plat dak', gebouw: 'een gebouw', zuilen: 'zuilen', blok: 'een blok of steeg', water: 'water (als brug)', kuil: 'een uitgraving', kuilpad: 'een pad in een uitgraving', heuvel: 'verhoogd terrein', brug: 'een brug' };
   const NOUN = {
     weg: ['Een weg', 'een weg'], laan: ['Een laan', 'een laan'], pad: ['Een pad', 'een pad'], trap: ['Een trap', 'een trap'], zuilen: ['Zuilen', 'zuilen'],
     hof: ['Een hof', 'een hof'], woning: ['Een woning', 'een woning'], kantoor: ['Een kantoor', 'een kantoor'],
     dak: ['Een dak', 'een dak'], park: ['Een park', 'een park'], water: ['Water', 'water'], meer: ['Een meer', 'een meer'],
-    looppad: ['Een loopdek', 'een loopdek'], blok: ['Een blok', 'een blok'], helling: ['Een helling', 'een helling'],
+    looppad: ['Een steeg', 'een steeg'], blok: ['Een blok', 'een blok'], helling: ['Een helling', 'een helling'],
     tunnel: ['Een tunnel', 'een tunnel'], muur: ['Een muur', 'een muur'], trappad: ['Een trappad', 'een trappad'],
     tribune: ['Een tribune', 'een tribune'], hofhelling: ['Een opgang', 'een opgang'],
     kuil: ['Een uitgraving', 'een uitgraving'], heuvel: ['Een verhoging', 'verhoogd terrein'], brug: ['Een brug', 'een brug'], brugp: ['Een brug', 'een brug'], fietspad: ['Een fietspad', 'een fietspad'],

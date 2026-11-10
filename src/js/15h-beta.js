@@ -121,14 +121,14 @@
     const TIPS = {
       'tool-vrot': 'Rotonde: klik op een vak; wegen die erin uitkomen sluiten erop aan',
       'tool-spoor': 'Spoor: klik vak na vak; de uiteinden lopen door tot voorbij de horizon. Een treinstation ernaast wordt een halte',
-      'tool-pad': 'Pad: sleep een voetpad over de vakken', 'tool-fietspad': 'Fietspad: sleep over de vakken', 'tool-looppad': 'Loopdek: een verhoogde vloer van 3 m, ook dwars door gebouwen; slepen, en op een blok stapelen voor hoger. Naast een trap of helling sluit hij vanzelf op de juiste hoogte aan',
+      'tool-pad': 'Pad: sleep een voetpad over de vakken', 'tool-fietspad': 'Fietspad: sleep over de vakken', 'tool-looppad': 'Steeg: een verhoogde vloer van 3 m, ook dwars door gebouwen; slepen, en op een blok stapelen voor hoger. Naast een trap of helling sluit hij vanzelf op de juiste hoogte aan',
       'tool-randpad': 'Randpad: een pad over de rand tussen twee vakken', 'tool-trap': 'Trap: klik nog eens om te draaien (R)', 'tool-trappad': 'Trappad: een pad met een trap omhoog',
       'tool-woning': 'Woning: tik op een vak; nog eens tikken stapelt een verdieping', 'tool-kantoor': 'Kantoor: tik op een vak; nog eens tikken stapelt een verdieping',
       'tool-dak': 'Dak: op een woning of kantoor; nog eens tikken geeft een dakkapel', 'tool-park': 'Park: tik op een park voor een andere inrichting',
       'tool-meer': 'Meer: water met natuurlijke oevers, slepen', 'tool-water': 'Gracht: water met kades, slepen',
       'tool-tophoog': 'Ophogen: ingedrukt houden; per 3 m (Instellingen → Terreinstap). Rechts of Shift: andersom', 'tool-tafgraaf': 'Afgraven: ingedrukt houden; per 3 m. Rechts of Shift: andersom',
       'tool-tvlak': 'Egaliseren: links naar het gemiddelde, rechts naar de hoogte van het startvak', 'tool-tglad': 'Gladstrijken: scherpe overgangen worden zacht',
-      'tool-thelling': 'Helling trekken: sleep van de hoge naar de lage kant', 'tool-kuil': 'Uitgraving: 3 m omlaag', 'tool-helling': 'Helling: een oprit van 3 m, komt uit op het vak ernaast · zet daar een loopdek neer en hij sluit vanzelf aan', 'tool-hofhelling': 'Opgang: een brede oprit van 3 m',
+      'tool-thelling': 'Helling trekken: sleep van de hoge naar de lage kant', 'tool-kuil': 'Uitgraving: 3 m omlaag', 'tool-helling': 'Helling: een oprit van 3 m, komt uit op het vak ernaast · zet daar een steeg neer en hij sluit vanzelf aan', 'tool-hofhelling': 'Opgang: een brede oprit van 3 m',
       menuBtn: 'Menu: steden, opslaan, Raatmaker, instellingen, feedback', optPeople: 'Mensen aan of uit', optCars: "Auto's aan of uit",
       recklessBtn: 'Totale chaos: roekeloze auto’s en paniek (met geweld, standaard uit)', jumpBtn: 'Springen (spatie)', placeBtn: 'Bouwen op het puntje in het midden', undoBtn: 'Ongedaan maken (Ctrl+Z)', todAutoBtn: 'De tijd loopt vanzelf door, of staat stil',
     };

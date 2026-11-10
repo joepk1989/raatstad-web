@@ -50,7 +50,7 @@
   })();
   M.paverPlain = std({ color: '#8a5141' });
   M.stone = std({ color: '#bdb5a5' });
-  // Loopdek, materiaalvarianten (Ctrl+klik op een geplaatst loopdek schakelt door, zie LOOPDEK_VAR in 05): naast de
+  // Steeg, materiaalvarianten (Ctrl+klik op een geplaatst loopdek schakelt door, zie LOOPDEK_VAR in 05): naast de
   // klinkers (M.paver, hierboven) ook beton (een nette elevated vloer), hout (een loopbrug/vlonder-gevoel) en een
   // stalen rooster (industrieel, passend bij een galerij door gebouwen heen).
   M.loopBeton = (() => {
