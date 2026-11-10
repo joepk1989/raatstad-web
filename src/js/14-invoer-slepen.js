@@ -604,7 +604,7 @@
       pathsOf()[i] = cl; vecPre.tmp = cl; vecPre.orig = o;
       const res = vecExtendPath(cl, plan.best.end, plan.W); if (res.same) { pathsOf()[i] = o; vecPre.tmp = null; vecPre.orig = null; if (wasVoorbeeld) buildPathNet(true); return; }
     } else { { const c0 = cellToWorld(cell[0], cell[1]); if (vecOpWeg([r2(c0.x), r2(c0.z)])) { if (wasVoorbeeld) buildPathNet(true); return; } }   // op een weg: geen voorbeeld (een klik zet hier niets neer)
-      const st = vecStartPts(cell); vecPre.tmp = { t, l: 0, r: 0, p: st.p, tipS: st.tipS, tipE: st.tipE }; pathsOf().push(vecPre.tmp); }
+      const st = vecStartPts(cell); vecPre.tmp = vecOpHoogte({ t, l: 0, r: 0, p: st.p, tipS: st.tipS, tipE: st.tipE }); pathsOf().push(vecPre.tmp); }
     vecPre.key = kk; buildPathNet(true, [vecPre.tmp, vecPre.orig]);   // alleen het voorbeeld opnieuw (de weg die doorgetrokken wordt, telt niet mee in de rest)
   }
   function vecChainEnd(quiet) {
@@ -627,6 +627,8 @@
   // weg (van dezelfde soort), dan sluit het daar op aan; anders begint er een nieuwe weg. Er is geen "knooppunt" dat je moet afsluiten.
   // Een weg heeft een staartje (half vak) voorbij zijn laatste vak, zodat het vak vol zit; dat schuift bij het doorklikken mee.
   const HALF = 0.15, r2 = v => Math.round(v * 100) / 100;
+  // een nieuw geklikt stuk weg op de vooraf gekozen hoogte (▲▼ of E/Q zonder te slepen; bij pad en steeg in lagen van 3 m)
+  const vecOpHoogte = path => { const h = roadDrag.preset || 0; if (h > 0) { path.y = path.p.map(() => h); if (roadDrag.abs) path.abs = true; } return path; };
   // Verleng een weg bij zijn begin (end 0) of eind met het vak op Wc; ook voor het voorbeeld (dan op een kopie)
   // Wegen lopen alleen onder hoeken van het raster (veelvouden van 30°: 60° en 90° bochten). Een aansluiting op een andere weg
   // wordt dus gezocht langs zo'n richting vanaf het vorige punt; lukt dat niet, dan sluit de weg niet aan (het vak blijft staan).
@@ -660,21 +662,21 @@
       const cc = atStart ? P[0] : P[1], dx = W[0] - cc[0], dz = W[1] - cc[1], L = Math.hypot(dx, dz) || 1, o = [r2(cc[0] - dx / L * HALF), r2(cc[1] - dz / L * HALF)];
       if (atStart) P[1] = o; else P[0] = o;
     }
-    if (atStart) { P.unshift(W); if (path.y) path.y.unshift(0); } else { P.push(W); if (path.y) path.y.push(0); }
+    if (atStart) { P.unshift(W); if (path.y) path.y.unshift(path.y[0] || 0); } else { P.push(W); if (path.y) path.y.push(path.y[path.y.length - 1] || 0); }   // doorklikken: op dezelfde hoogte als het eind waar je op doorgaat
     // driehoek of lus: ligt het nieuwe vak naast het andere eind van deze weg, dan sluit de weg zich daar
     if (!snapped) {
       const hasTip = atStart ? path.tipE : path.tipS, oi = atStart ? P.length - (hasTip ? 2 : 1) : (hasTip ? 1 : 0), O = P[oi], cores = P.length - (hasTip ? 1 : 0);   // (het staartje aan de kant van de klik is al weg)
       if (cores >= 4 && Math.hypot(O[0] - W[0], O[1] - W[1]) < R * SQ3 * 1.05 && Math.hypot(O[0] - W[0], O[1] - W[1]) > 3) {
         const oc = O.slice();
         if (hasTip) { if (atStart) { P.pop(); if (path.y) path.y.pop(); path.tipE = false; } else { P.shift(); if (path.y) path.y.shift(); path.tipS = false; } }
-        if (atStart) { P.unshift(oc); if (path.y) path.y.unshift(0); path.tipS = false; } else { P.push(oc); if (path.y) path.y.push(0); path.tipE = false; }
+        if (atStart) { P.unshift(oc); if (path.y) path.y.unshift(path.y[path.y.length - 1] || 0); path.tipS = false; } else { P.push(oc); if (path.y) path.y.push(path.y[0] || 0); path.tipE = false; }   // de lus sluit op de hoogte van het andere eind
         return { snapped: true, closed: true };
       }
     }
     if (!snapped) {
       const a = atStart ? P[1] : P[P.length - 2], b = atStart ? P[0] : P[P.length - 1], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, tp = [r2(b[0] + dx / L * HALF), r2(b[1] + dz / L * HALF)];
       if (atStart) { P.unshift(tp); path.tipS = true; } else { P.push(tp); path.tipE = true; }
-      if (path.y) { if (atStart) path.y.unshift(0); else path.y.push(0); }
+      if (path.y) { if (atStart) path.y.unshift(path.y[0] || 0); else path.y.push(path.y[path.y.length - 1] || 0); }   // het staartje op de hoogte van het eind
     } else if (atStart) path.tipS = false; else path.tipE = false;
     return { snapped };
   }
@@ -686,7 +688,7 @@
     const plan = vecClickPlan(cell, t);
     let path, gone = 0, snapped = false;
     if (!plan.best) {
-      const st = vecStartPts(cell); path = { t, l: 0, r: 0, p: st.p }; path.tipS = st.tipS; path.tipE = st.tipE; snapped = st.aan; pathsOf().push(path);   // naast een weg: een aftakking die meteen aansluit
+      const st = vecStartPts(cell); path = vecOpHoogte({ t, l: 0, r: 0, p: st.p }); path.tipS = st.tipS; path.tipE = st.tipE; snapped = st.aan; pathsOf().push(path);   // naast een weg: een aftakking die meteen aansluit
     } else {
       path = plan.best.p; const r = vecExtendPath(path, plan.best.end, Wc); if (r.same) { toast('Hier ligt al weg', 900); return; } snapped = r.snapped;
     }
