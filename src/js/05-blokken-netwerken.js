@@ -33,7 +33,7 @@
   // "plein" van drie of meer paden, zie channelShapes) het hofje, anders het materiaal — dat is op een rechte of
   // een bocht het enige dat je ervan ziet.
   const LOOPDEK_VAR_NAMEN = ['Klinkers', 'Beton', 'Hout', 'Stalen rooster'];
-  const LOOPDEK_HOFJE_NAMEN = ['Kaal', 'Boom in het midden', 'Bankjes in een kring', 'Bloemperk', 'Lantaarns'];
+  const LOOPDEK_HOFJE_NAMEN = ['Kaal', 'Boom in het midden', 'Bankjes in een kring', 'Bloemperk', 'Lantaarns', 'Groen hofje met bankjes'];
   const loopdekCijfers = t => { const m = /(\d)(\d)?$/.exec(t); return m ? [+m[1], +(m[2] ?? 0)] : [0, 0]; };
   const loopdekVar = t => loopdekCijfers(t)[0] % LOOPDEK_VAR_NAMEN.length;
   const loopdekHofje = t => loopdekCijfers(t)[1] % LOOPDEK_HOFJE_NAMEN.length;
@@ -512,17 +512,43 @@
     G.hofjeBank = new THREE.BoxGeometry(1.6, 0.08, 0.42).translate(0, 0.5, 0);
     G.hofjeLeg = new THREE.BoxGeometry(0.08, 0.48, 0.38).translate(0, 0.24, 0);
     G.hofjePlanter = new THREE.CylinderGeometry(1.1, 1.2, 0.4, 12).translate(0, 0.2, 0);
+    G.hofjeGras = new THREE.CylinderGeometry(2.0, 2.0, 0.2, 32).translate(0, 0.1, 0); G.hofjeGrasRand = new THREE.CylinderGeometry(2.15, 2.15, 0.16, 32, 1, true).translate(0, 0.08, 0);
     G.hofjeBed = new THREE.CylinderGeometry(0.75, 0.8, 0.3, 8).translate(0, 0.15, 0);
     G.hofjeFlower = new THREE.SphereGeometry(0.15, 6, 5);
     G.hofjePost = new THREE.CylinderGeometry(0.055, 0.07, 2.6, 6).translate(0, 1.3, 0);
     G.hofjeLamp = new THREE.SphereGeometry(0.17, 8, 6).translate(0, 2.62, 0);
     M.hofjeFlower = ['#e0573e', '#f2b233', '#d96cb0', '#f1efe6'].map(c => std({ color: c }));
     M.hofjeLamp = new THREE.MeshBasicMaterial({ color: '#fff1c4' });
+    M.hofjeGras = std({ color: '#6c9a45', roughness: 1 });
   }
-  function hofjeDecor(o, kind, baseY, cx, cz, col, hv) {
+  function hofjeDecor(o, kind, baseY, cx, cz, col, hv, mask = 63) {
     if (!kind) return;   // 0 = kaal, geen decoratie
     hofjeInit();
-    const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(x, baseY + 0.05, z);   /* het blok staat al op het vak: hier alleen de plek binnen het vak (de botsing hieronder rekent wél in de wereld) */ if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
+    const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(x, 0.05, z);   /* o staat al op baseY (makeBlock, 06): hier niet nog eens (op laag 1 en hoger zweefde het hofje 3 m per laag te hoog) */   /* het blok staat al op het vak: hier alleen de plek binnen het vak (de botsing hieronder rekent wél in de wereld) */ if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
+    const arms = [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1);
+    if (kind !== 5 && arms.length < 3) return;   // de andere hofjes alleen op een pleintje
+    if (kind === 5) {   // Groen hofje met bankjes (Joep): op een pleintje een grasperk met een boompje en bankjes langs de wanden; op een recht stuk een bankje aan de kant
+      const bank = (x, z, tx, tz, wx, wz) => {   // bankje op (x, z), lang in richting (tx, tz); (wx, wz): wereld voor de botsing
+        const ry = Math.atan2(-tz, tx); add(G.hofjeBank, M.bench, x, z, ry);
+        add(G.hofjeLeg, M.bench, x + tx * 0.68, z + tz * 0.68, ry); add(G.hofjeLeg, M.bench, x - tx * 0.68, z - tz * 0.68, ry);
+        col.walls.push({ ax: cx + x - tx * 0.8, az: cz + z - tz * 0.8, bx: cx + x + tx * 0.8, bz: cz + z + tz * 0.8, y0: baseY, y1: baseY + 0.55, half: 0.22 });
+      };
+      if (arms.length >= 3) {
+        const gras = add(G.hofjeGras, M.hofjeGras, 0, 0), rand = add(G.hofjeGrasRand, M.stone, 0, 0); void gras; void rand;
+        col.surfaces.push({ kind: 'poly', cx, cz, pts: Array.from({ length: 24 }, (_, j) => [Math.cos(j / 24 * Math.PI * 2) * 2.15, Math.sin(j / 24 * Math.PI * 2) * 2.15]), top: baseY + 0.2, bottom: baseY });   // je stapt op het gras
+        const trunk = G.trunk.clone(); trunk.scale(0.75, 0.8, 0.75); trunk.translate(0, 0.2, 0); add(trunk, M.trunk, 0, 0);   // een boompje
+        const crown = G.crown.clone(); crown.scale(0.7, 0.8, 0.7); crown.translate(0, 0.2 + 1.9 + 1.3, 0); add(crown, M.leaf[hv % 3], 0, 0);
+        col.walls.push({ ax: cx, az: cz, bx: cx, bz: cz, y0: baseY, y1: baseY + 2.5, half: 0.25 });
+        // bankjes in de hoeken tussen de armen, tegen de wand, met de zitkant naar het gras
+        const A = arms.map(k => Math.atan2(FRAMES[k].nz, FRAMES[k].nx)).sort((a, b) => a - b);
+        for (let i = 0; i < A.length; i++) { const a0 = A[i], a1 = i + 1 < A.length ? A[i + 1] : A[0] + Math.PI * 2; if (a1 - a0 < Math.PI * 2 / 3 - 1e-3) continue;
+          const a = (a0 + a1) / 2, rr = PLAZA_R - 0.75; bank(Math.cos(a) * rr, Math.sin(a) * rr, -Math.sin(a), Math.cos(a)); }
+      } else if (arms.length === 2 && (arms[1] - arms[0]) === 3) {   // recht stuk: een bankje op de rand, tegen de wand (welke kant: per vak)
+        const f = FRAMES[arms[0]], sg = hv % 2 ? 1 : -1, off = sg * (CH_HALF - 0.45);
+        bank(f.tx * off, f.tz * off, f.nx, f.nz);
+      }
+      return;
+    }
     if (kind === 1) {   // boom in het midden, met een laag plantvak
       add(G.hofjePlanter, M.stone, 0, 0);
       col.walls.push({ ax: cx, az: cz, bx: cx, bz: cz, y0: baseY, y1: baseY + 0.45, half: 1.1 });
@@ -603,7 +629,7 @@
       if (loopdekVar(t) === 0) { const pr = padRandGeos(mask), y = upper ? 0.052 : 0.052; if (pr.beton) { const m1 = addMesh(pr.beton, M.padRandBeton); m1.position.y = y; m1.raycast = () => {}; } for (const g of pr.band) { const m3 = addMesh(g, M.padBand); m3.position.y = y + 0.002; m3.raycast = () => {}; } for (const g of pr.midden) { const m2 = addMesh(g, M.padKlinker); m2.position.y = y + 0.004; m2.raycast = () => {}; } }   // klinkers: met een rand van betontegels (proef)
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
       let armen = 0; for (let k = 0; k < 6; k++) if ((mask >> k) & 1) armen++;
-      if (armen >= 3) hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i));
+      hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i), mask);   // de meeste alleen op een pleintje (drie of meer armen), het groene hofje ook bankjes op een recht stuk
     }
     if (b === 'helling') {
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
