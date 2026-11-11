@@ -611,6 +611,24 @@
     const w = CH_HALF - PAD_RAND, out = { beton: sh.floor ? vlakVorm(sh.floor) : null, band: vormen(w + BAND / 2), midden: vormen(w - BAND / 2) };   // de band ligt half over de rand, half over het midden
     padRandCache.set(mask, out); return out;
   }
+  // Dezelfde rand op het schuine vlak van een helling (richting d, van het midden tot de rand van het vak): linten die het
+  // vlak volgen (0,05 m bij het midden, 3 m vanaf RAMP_END), uv zoals vlakVorm (x, -z in het vak) zodat de tegels doorlopen
+  const rampRandCache = new Map();
+  function rampRandGeos(d) {
+    if (rampRandCache.has(d)) return rampRandCache.get(d);
+    const f = FRAMES[d], w = CH_HALF - PAD_RAND, BAND = 0.12, ps = [0, RAMP_END, INNER + 0.01], hy = pp => (pp <= RAMP_END ? 0.05 + 2.95 * pp / RAMP_END : 3) + 0.006;
+    const lint = (u0, u1) => { const pos = [], uv = [], idx = [];
+      ps.forEach(pp => { for (const uu of [u0, u1]) { const x = pp * f.nx + uu * f.tx, z = pp * f.nz + uu * f.tz; pos.push(x, hy(pp), z); uv.push(x, -z); } });
+      for (let i = 0; i < ps.length - 1; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+    const out = { beton: lint(-CH_HALF, CH_HALF), band: [lint(-(w + BAND / 2), w + BAND / 2)], midden: [lint(-(w - BAND / 2), w - BAND / 2)] };
+    rampRandCache.set(d, out); return out;
+  }
+  // de rand (beton), de band en het midden als kleurlagen op de vloer; niet aanklikbaar, geen botsing
+  function padRandLeggen(addMesh, pr, y) {
+    const leg = (g, m, dy) => { const mm = addMesh(g, m); mm.position.y = y + dy; mm.raycast = () => {}; mm.castShadow = false; };
+    if (pr.beton) leg(pr.beton, M.padRandBeton, 0); for (const g of pr.band) leg(g, M.padBand, 0.002); for (const g of pr.midden) leg(g, M.padKlinker, 0.004);
+  }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
     const b = baseOf(t), upper = i > 0;
     const addMesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
@@ -635,6 +653,7 @@
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
       const floor = cached('hellingvloer2' + d + upper, () => { const rh = [[-INNER, -W], [0, -W], [0, W], [-INNER, W]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]); return upper ? extrudePoly(rh, 0.25, -0.2) : extrudePoly(rh, 0.05); });   // als vorm (textuur in meters; een kubus rekte de klinkers uit over het hele vlak)
       addMesh(floor, M.padOker);   // dezelfde klinkers als Steeg (was M.paverPlain, een vlakke kleur zonder textuur — viel uit de toon naast een getextureerde steeg)
+      padRandLeggen(addMesh, padRandGeos(mask), 0.052); padRandLeggen(addMesh, rampRandGeos(d), 0);   // rand en band ook op de helling (het vlakke stuk onder het schuine vlak valt eronder weg)
       addMesh(rampGeo(f), [M.blockSide, M.padOker]);   // ExtrudeGeometry: groep 0 = de zijkanten (beton), groep 1 = het schuine vlak (klinkers)
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
@@ -647,6 +666,7 @@
       const stukken = cached(key + 'p', () => { if (!sh.floor) return []; const vl = sh.floor, hoog = clipHalf(vl, f.nx, f.nz, 0, true);
         return [clipHalf(vl, f.nx, f.nz, 0, false), clipHalf(hoog, f.tx, f.tz, W, true), clipHalf(hoog, f.tx, f.tz, -W, false)].filter(P => P.length >= 3); });   // vloer zonder de strook van het schuine stuk
       stukken.forEach((P, n) => { addMesh(cached(key + n, () => upper ? extrudePoly(P, 0.25, -0.2) : extrudePoly(P, 0.05)), M.padOker); col.surfaces.push({ kind: 'poly', cx, cz, pts: P, top: baseY + 0.05, bottom: baseY - 0.2 }); });
+      padRandLeggen(addMesh, padRandGeos(mask), 0.052); padRandLeggen(addMesh, rampRandGeos(d), 0);   // rand en band, ook door de bocht en de helling op
       addMesh(rampGeo(f), [M.blockSide, M.padOker]);
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
@@ -693,6 +713,7 @@
       geos.solids.forEach((g, n) => solid(sh.solids[n], g));
       if (geos.floor) {
         addMesh(geos.floor, [M.padOker, M.kerb]);
+        padRandLeggen(addMesh, padRandGeos(mask), 0.052);   // dezelfde rand als op het pad, ook onder het dek
         col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
         solid(sh.floor, cached('deck' + mask, () => extrudePoly(sh.floor, 0.5, 2.5)), 3, 2.5);
       }

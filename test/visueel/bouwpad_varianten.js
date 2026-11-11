@@ -96,7 +96,7 @@ const { open, OUT, tik } = require('./helper');
   // op ooghoogte vanaf een vak op het pad recht op de tunnel af kijken
   const ingang = async (n, van, naar) => { await p.evaluate(([van, naar]) => { const S = window.__SC(), a = S.cellToWorld(...van), b = S.cellToWorld(...naar); S.orbit.target.set(b.x, 1.2, b.z); S.orbit.theta = Math.atan2(a.x - b.x, a.z - b.z); S.orbit.phi = 1.53; S.orbit.dist = Math.hypot(a.x - b.x, a.z - b.z); S.applyOrbit(); }, [van, naar]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/bouwpad_var_' + n + '.png', timeout: 120000 }); };
   await shot('overzicht', 0, 0, 0.5, 0.8, 330, 0); await ingang('tunnel', [0, -3], [0, -1]); await ingang('muur', [2, 3], [4, 3]); await shot('muur_boven', 5, 3, -1.2, 1.1, 70, 6); await shot('over', 0, 7, 1.0, 1.05, 60);
-  await shot('bochten', -11, 3, 0.4, 0.95, 70); await shot('bocht_omhoog', -12, -4, 0.7, 0.9, 75, 2); await shot('wenteltrap', 0, -14, 2.2, 0.95, 55, 4); await shot('willekeurig', 2, -9, 0.6, 0.85, 180, 0);
+  await shot('bochten', -11, 3, 0.4, 0.95, 70); await shot('bocht_omhoog', -12, -4, 0.7, 0.9, 75, 2); await shot('wenteltrap', 0, -14, 2.2, 0.95, 55, 4); await shot('helling_dichtbij', -12, -6, 0.9, 0.85, 22, 2); await ingang('helling_op', [-14, -6], [-13, -6]); await shot('willekeurig', 2, -9, 0.6, 0.85, 180, 0);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT', JSON.stringify(uit)); console.log('fouten', JSON.stringify(errs));
   await b.close();
 })();
