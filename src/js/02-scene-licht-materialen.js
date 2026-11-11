@@ -59,7 +59,7 @@ gl_Position = projectionMatrix * mvPosition;`;
     let t0 = 0, step = 2, hits = [];
     for (let n = 0; n < 60 && t0 < 3000; n++) {
       const t1 = t0 + step, a = flat(t0), b = flat(t1), seg = b.clone().sub(a), L = seg.length();
-      rc.ray.origin.copy(a); rc.ray.direction.copy(seg.normalize()); rc.near = 0; rc.far = L;
+      rc.ray.origin.copy(a); rc.ray.direction.copy(seg.normalize()); rc.near = 0; rc.far = L + 0.02;   // 2 cm overlap: een punt precies op de grens van twee stukjes werd door afronding gemist (een klik die niets deed)
       hits = rc.intersectObjects(objs, true);
       if (hits.length) { for (const h of hits) h.distance += t0; break; }
       t0 = t1; step = Math.min(80, step * 1.25);

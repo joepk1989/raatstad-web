@@ -414,7 +414,11 @@
   function pick(cx, cy, withMods) {
     ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hits = hudPickFilter(curvedHits(raycaster, [ground, terrGroup, blocks, ...(withMods || tool === 'module' || tool === 'gum' || tool === 'kies' ? [...modGroups.values()].map(e => e.group) : [])]));   // laagkiezer: wat erboven ligt is doorzichtig en niet aan te klikken
+    const objs = [ground, terrGroup, blocks, ...(withMods || tool === 'module' || tool === 'gum' || tool === 'kies' ? [...modGroups.values()].map(e => e.group) : [])];
+    let hits = hudPickFilter(curvedHits(raycaster, objs));   // laagkiezer: wat erboven ligt is doorzichtig en niet aan te klikken
+    // niets geraakt: een straal precies over een naad tussen twee driehoeken van de grond valt er door afronding soms tussendoor
+    // (een klik die niets deed). Dan een haartje ernaast nog eens.
+    if (!hits.length) { ndc.x += 2e-4; ndc.y -= 2e-4; raycaster.setFromCamera(ndc, camera); hits = hudPickFilter(curvedHits(raycaster, objs)); }
     if (!hits.length) return null;
     const h = hits[0];
     if (mode === 'walk' && h.distance > REACH) return null;
