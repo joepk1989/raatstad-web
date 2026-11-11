@@ -547,6 +547,32 @@
       }
     }
   }
+  // Kavel bovenop een Steeg-blok (proef, naar Joeps schets): de driehoekjes van het fijnste Raatmaker-raster (1,125 m) op
+  // het blok die meer dan KAVEL_RAND van de rand van het pad liggen. Wat dichterbij ligt is de rand (het beton). Zo valt de
+  // grens tussen rand en kavel vanzelf op het raster.
+  const KAVEL_RAND = 2.25, kavelCache = new Map();
+  function kavelGeo(mask) {
+    if (kavelCache.has(mask)) return kavelCache.get(mask);
+    const ts = R / 8, arms = [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1), n = arms.length, sh = channelShapes(mask), pos = [];
+    const randAfst = (x, z) => {   // afstand tot de rand van het pad (de geul)
+      let d = n >= 3 ? Math.hypot(x, z) - PLAZA_R : Math.hypot(x, z) - (n === 1 ? END_R : CH_HALF);
+      for (const k of arms) { const f = FRAMES[k], s = x * f.nx + z * f.nz; if (s < 0 || s > INNER + 1) continue; d = Math.min(d, Math.abs(x * f.tx + z * f.tz) - CH_HALF); }
+      return d;
+    };
+    const iM = 12, jM = 24;
+    for (let i = -iM; i <= iM; i++) for (let j = -jM; j <= jM; j++) for (const t of [0, 1]) {
+      const v = mv2TriVerts(i, j, t, ts), x = (v[0][0] + v[1][0] + v[2][0]) / 3, z = (v[0][1] + v[1][1] + v[2][1]) / 3;
+      if (!sh.solids.some(P => inPoly(x, z, P))) continue;
+      // per hele betontegel (zeshoek van zes driehoekjes rond een rasterpunt, zie M.blockTop): het midden van de tegel beslist
+      const bb = Math.round(z / (1.5 * ts)); let tc = null, td = 1e9;
+      for (let db = -1; db <= 1; db++) { const b2 = bb + db, a0 = Math.round((x - b2 * SQ3 / 2 * ts) / (SQ3 * ts)); for (let da = -1; da <= 1; da++) { const cxx = (a0 + da) * SQ3 * ts + b2 * SQ3 / 2 * ts, czz = b2 * 1.5 * ts, dd = Math.hypot(x - cxx, z - czz); if (dd < td) { td = dd; tc = [cxx, czz]; } } }
+      if (randAfst(tc[0], tc[1]) < KAVEL_RAND) continue;
+      for (const k of [0, 2, 1]) pos.push(v[k][0], 0, v[k][1]);
+    }
+    let g = null;
+    if (pos.length) { g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); }
+    kavelCache.set(mask, g); return g;
+  }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
     const b = baseOf(t), upper = i > 0;
     const addMesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
@@ -555,6 +581,7 @@
     if (b === 'helling') { const d = dirOf(t); mask = (1 << d) | (1 << ((d + 3) % 6)); }
     if (b === 'hellingb') { const [d, e] = hbKanten(t); mask = (1 << d) | (1 << e); }
     const sh = channelShapes(mask), geos = channelGeos(mask, upper);
+    if (mask && i === stackOf(q, r).length - 1) { const kg = kavelGeo(mask); if (kg) { const km = addMesh(kg, M.kavelTop); km.position.y = 3.012; km.castShadow = false; km.raycast = () => {}; } }   // bovenop: rand langs het pad, daarachter de kavel (proef); alleen om te zien, de muis gaat erdoor naar het blok
     geos.solids.forEach((g, n) => {
       addMesh(g, [M.blockTop, M.blockSide]);
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.solids[n], top: baseY + 3, bottom: baseY });

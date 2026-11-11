@@ -89,6 +89,7 @@
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / M2, 1 / M2); t.anisotropy = aniso; return t;
   };
   M.blockSide = std({ map: betonTex(true), roughness: 0.95 });
+  M.kavelTop = std({ color: '#c7a874', roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });   // kavel bovenop een blok (proef, Joeps schets)
   // Bovenkant (Joep): zeshoekige betontegels precies op het fijnste raster van de Raatmaker (driehoeken van 1,125 m): elke
   // tegel is zes driehoekjes rond een rasterpunt, de hoeken op rasterpunten, de voegen op de rasterlijnen. De uv van een
   // blok is in meters vanaf het midden van het vak (ExtrudeGeometry), en de middens van de vakken liggen op het
