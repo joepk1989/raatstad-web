@@ -89,4 +89,9 @@
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / M2, 1 / M2); t.anisotropy = aniso; return t;
   };
   M.blockSide = std({ map: betonTex(true), roughness: 0.95 });
-  M.blockTop = std({ map: betonTex(false), roughness: 0.92 });
+  // Bovenkant (Joep): zeshoekige betontegels precies op het fijnste raster van de Raatmaker (driehoeken van 1,125 m): elke
+  // tegel is zes driehoekjes rond een rasterpunt, de hoeken op rasterpunten, de voegen op de rasterlijnen. De uv van een
+  // blok is in meters vanaf het midden van het vak (ExtrudeGeometry), en de middens van de vakken liggen op het
+  // tegelraster (8 tegels verder), dus het patroon loopt van vak tot vak door; de tint herhaalt zich om de 4 × 4 tegels.
+  M.blockTop = std({ map: hexTegelTex(1.125, 4, 4, '#a19d93', 0.03, (c, r) => `hsl(42, ${4 + hexH01(c + 5, r + 2) * 3}%, ${78 + (hexH01(c + 7, r + 4) - 0.5) * 7}%)`,
+    (g, x, y, rad, c, r) => { for (let i = 0; i < 70; i++) { const a = hexH01(c * 13 + i, r * 7 + 1) * Math.PI * 2, d = Math.sqrt(hexH01(c + i, r * 3 + 2)) * rad * 0.85, v = hexH01(i + c, r + 9); g.fillStyle = `rgba(${v > 0.5 ? '60,56,50' : '255,255,250'},${0.06 + Math.abs(v - 0.5) * 0.18})`; g.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.4, 1.4); } }, 64), roughness: 0.92 });   // spikkels per tegel
