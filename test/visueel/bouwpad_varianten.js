@@ -21,10 +21,11 @@ const { open, OUT, tik } = require('./helper');
   const klik = async (q, r) => { await p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.orbit.target.set(w.x, 0, w.z); S.applyOrbit(); }, [q, r]); await beeld(); await tik(p, 640, 400); };
   const toets = async (k, n = 1) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(50); } };
   const stapel = (q, r) => p.evaluate(([q, r]) => (window.__SC().getCells().get(q + ',' + r) || []).slice(), [q, r]);
-  const laag = async n => { await toets('Escape'); await toets('KeyQ', 12); await toets('KeyE', n); };   // nieuw pad, beginnend op laag n
+  const setLaag = n => p.evaluate(n => window.__SC().laag(n), n);   // de laag kiezen (in het spel: Ctrl+scrollen of de laagkiezer)
+  const laag = async n => { await toets('Escape'); await setLaag(n); };   // nieuw pad, beginnend op laag n
   // een pad klikken; acties: [q, r] of 'E' / 'Q'. Geeft per vak de verwachte laag van de vloer terug
   const pad = async (lv0, stappen) => { await laag(lv0); const route = []; let lv = lv0, doel = lv0, prev = null;
-    for (const s of stappen) { if (s === 'E') { doel++; await toets('KeyE'); continue; } if (s === 'Q') { doel--; await toets('KeyQ'); continue; }
+    for (const s of stappen) { if (s === 'E') { doel++; await setLaag(doel); continue; } if (s === 'Q') { doel--; await setLaag(doel); continue; }
       await klik(...s); let nieuw = lv; if (prev && doel > lv) nieuw = lv + 1; else if (prev && doel < lv) nieuw = lv - 1; route.push({ c: s, van: lv, naar: nieuw }); lv = nieuw; prev = s; }
     return route; };
   // controle van een route: het juiste stuk op de juiste laag, en lopen over de hartlijn
@@ -61,7 +62,7 @@ const { open, OUT, tik } = require('./helper');
   const G1 = await pad(0, [[-14, -6], [-13, -6], 'E', [-12, -6], [-11, -7], [-10, -7]]);           // helling op (oost), dan flauw naar noordoost
   const G2 = await pad(0, [[-14, -2], [-13, -2], 'E', [-12, -2], [-12, -1], [-12, 0]]);           // helling op (oost), dan flauw de andere kant op (zuidoost)
   // G5: een scherpe bocht op een helling mag niet (de vlakke arm zou tegen het schuine stuk aan komen): geweigerd, rechtdoor kan wel
-  await laag(0); await klik(-14, 12); await klik(-13, 12); await toets('KeyE'); await klik(-12, 12);
+  await laag(0); await klik(-14, 12); await klik(-13, 12); await setLaag(1); await klik(-12, 12);
   const G5voor = JSON.stringify(await stapel(-12, 11)); await klik(-12, 11);
   const G5geweigerd = JSON.stringify(await stapel(-12, 11)) === G5voor; await klik(-11, 12);
   zeg(G5geweigerd && /^helling0$/.test((await stapel(-12, 12)).pop()) && /^looppad/.test((await stapel(-11, 12)).pop()), 'G5: scherpe bocht op een helling geweigerd, rechtdoor wel', [await stapel(-12, 11), (await stapel(-12, 12)).pop(), (await stapel(-11, 12)).pop()]);
@@ -79,7 +80,7 @@ const { open, OUT, tik } = require('./helper');
     await laag(0); await klik(...start); const route = [{ c: start, van: 0, naar: 0 }]; let c = start, d = Math.floor(rnd() * 6), lv = 0, hell = false, eq = 0;
     for (let i = 0; i < 14; i++) {
       eq = rnd() < 0.3 ? (lv < 3 && rnd() < 0.7 ? 1 : lv > 0 ? -1 : 0) : 0;   // soms E, soms Q (ook meteen na een helling)
-      if (eq > 0) await toets('KeyE'); if (eq < 0) await toets('KeyQ');
+      await setLaag(lv + eq);
       const kandidaten = [d, (d + 1) % 6, (d + 5) % 6, (d + 2) % 6, (d + 4) % 6].sort(() => rnd() - 0.5);   // ook na een helling: dan wordt het een helling in een bocht
       let gelukt = false;
       for (const k of kandidaten) { const nc = [c[0] + NB[k][0], c[1] + NB[k][1]], voor = JSON.stringify(await stapel(...nc));
@@ -87,11 +88,11 @@ const { open, OUT, tik } = require('./helper');
         await klik(...nc); if (JSON.stringify(await stapel(...nc)) === voor && voor !== '[]' && !(JSON.parse(voor)[lv] || '').match(/looppad|tunnel/)) continue;   // geweigerd: een andere richting
         if (voor === JSON.stringify(await stapel(...nc)) && voor === '[]') continue;
         const naar = lv + eq; route.push({ c: nc, van: lv, naar }); hell = eq !== 0; lv = naar; c = nc; d = k; gelukt = true; break; }
-      if (!gelukt) { if (eq > 0) await toets('KeyQ'); if (eq < 0) await toets('KeyE'); break; }
+      if (!gelukt) { await setLaag(lv); break; }
     }
     await controleer('F' + n + ': willekeurig pad (' + route.length + ' vakken, tot laag ' + Math.max(...route.map(v => v.naar)) + ')', route);
   }
-  await toets('Escape');
+  await toets('Escape'); await setLaag(null);
   const shot = async (n, x, z, th, ph, d, y = 4) => { await p.evaluate(([x, z, th, ph, d, y]) => { const S = window.__SC(), w = S.cellToWorld(x, z); S.orbit.target.set(w.x, y, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [x, z, th, ph, d, y]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/bouwpad_var_' + n + '.png', timeout: 120000 }); };
   // op ooghoogte vanaf een vak op het pad recht op de tunnel af kijken
   const ingang = async (n, van, naar) => { await p.evaluate(([van, naar]) => { const S = window.__SC(), a = S.cellToWorld(...van), b = S.cellToWorld(...naar); S.orbit.target.set(b.x, 1.2, b.z); S.orbit.theta = Math.atan2(a.x - b.x, a.z - b.z); S.orbit.phi = 1.53; S.orbit.dist = Math.hypot(a.x - b.x, a.z - b.z); S.applyOrbit(); }, [van, naar]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/bouwpad_var_' + n + '.png', timeout: 120000 }); };

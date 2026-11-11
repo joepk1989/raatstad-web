@@ -200,7 +200,6 @@
     // E/Q (niet aan het slepen): met een getekende weg of pad de hoogte waarop je begint, met een stapelbaar blok of een
     // module de laag (zoals Ctrl+scrollen); met ander gereedschap draaien ze de camera (updateBuildKeys, 15b)
     if (mode === 'build' && tool === 'vbouw' && e.code === 'Escape') bouwpadStop();   // Bouwpad: Esc = klaar, de volgende klik begint een nieuw pad
-    if (mode === 'build' && tool === 'vbouw' && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select'))) { e.preventDefault(); if (!e.repeat) bouwpadHoogte(e.code === 'KeyE' ? 1 : -1); return; }   // Bouwpad: de volgende klik een laag hoger/lager (12)
     if (mode === 'build' && !roadDrag.on && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select')) && eqHoogte()) {
       e.preventDefault(); if (e.repeat) return; const dir = e.code === 'KeyE' ? 1 : -1;
       if (VEC_TOOLS.has(tool)) roadHeightStep(dir);
