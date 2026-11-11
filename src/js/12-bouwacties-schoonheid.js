@@ -228,6 +228,37 @@
     if (T === 'kuil') { if (terrOnly(q, r)) { const ns = st.slice(0, -1); if (ns.length) cells.set(k, ns); else cells.delete(k); return true; } if (!st.length && !vecCover.has(k)) { cells.set(k, ['kuil']); return true; } return false; }
     return false;
   }
+  // Bouwpad: een pad van puzzelstukjes, vak voor vak geklikt. Elk vak wordt een Steeg-blok (een blok van 3 m met een geul van
+  // 4,5 m naar elke buur die aansluit, pleintje bij drie of meer) op de laag waar je bent, met Blokken eronder tot de grond.
+  // E/Q kiest de laag van de volgende klik: dan wordt dat vak een Helling die van het vorige vak af omhoog (of ernaartoe
+  // omlaag) loopt, en ga je een laag hoger of lager verder. Een helling is recht: het vak erna ligt in dezelfde richting.
+  const BP = { prev: null, lv: 0, doel: 0, hell: -1 };
+  function bouwpadHoogte(dir) {
+    BP.doel = Math.max(0, Math.min(10, BP.doel + dir));
+    toast(BP.doel === BP.lv ? 'Bouwpad blijft op laag ' + BP.lv + ' (' + BP.lv * 3 + ' m)' : 'Volgende vak: helling naar laag ' + (BP.lv + Math.sign(BP.doel - BP.lv)) + (Math.abs(BP.doel - BP.lv) > 1 ? ', door tot laag ' + BP.doel : '') + ' · klik het volgende vak', 1800);
+  }
+  function bouwpadKlik(q, r) {
+    const st = stackOf(q, r), top = st[st.length - 1], k = key(q, r);
+    const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
+    if (st.length) {   // op een bestaand stuk pad: daar ga je verder
+      const b = baseOf(top);
+      if (b === 'looppad' || b === 'helling') { const n = st.length - 1; BP.prev = [q, r]; BP.lv = n + (b === 'helling' ? 1 : 0); BP.doel = BP.lv; BP.hell = b === 'helling' ? dirOf(top) : -1; toast('Bouwpad: verder vanaf laag ' + BP.lv + ' · klik het volgende vak', 1400); return; }
+      return toast('Hier staat al iets');
+    }
+    if (vecCover.has(k)) return toast('Hier ligt een weg');
+    if (modCellOccupied(q, r)) return toast('Hier staat een module');
+    if (side < 0) { BP.prev = null; BP.lv = BP.doel; BP.hell = -1; }   // niet naast het vorige vak: een nieuw pad op de gekozen laag
+    else if (BP.hell >= 0 && side !== BP.hell) return toast('Na een helling gaat het pad rechtdoor (de helling komt in die richting uit)', 1800);
+    let stuk, lv = BP.lv, nieuw = BP.lv;
+    if (side >= 0 && BP.doel > BP.lv) { stuk = 'helling' + side; nieuw = lv + 1; }                    // omhoog: de helling loopt van het vorige vak af omhoog
+    else if (side >= 0 && BP.doel < BP.lv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
+    else stuk = 'looppad';
+    if ((lv + 1) * 3 > MAX_H + 0.01) return toast('Maximaal ' + MAX_H + ' meter hoog');
+    cells.set(k, [...Array(lv).fill('blok'), stuk]);
+    BP.prev = [q, r]; BP.lv = nieuw; BP.hell = baseOf(stuk) === 'helling' ? side : -1;   // na een helling (omhoog of omlaag): rechtdoor verder
+    rebuildAround(q, r); changed();
+    toast(baseOf(stuk) === 'helling' ? 'Helling naar laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik rechtdoor verder' : 'Bouwpad op laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik het volgende vak, E/Q: hoger/lager', 1400);
+  }
   function place(q, r) {
     if (flyCam.on || tool === 'kies') return;   // cameramodus: niets bouwen of slopen
     if (TERR_TOOLS.has(tool)) return terrImpulse(q, r);
@@ -239,6 +270,7 @@
     if (tool === 'vrot') return placeRot(q, r);
     if (tool === 'spoor') return spoor.click(q, r);   // spoorlijn: vak na vak (11e)
     if (VEC_TOOLS.has(tool)) return vecChainClick([q, r]);   // klikmodus: knooppunt, stuk weg, knooppunt … (14)
+    if (tool === 'vbouw') return bouwpadKlik(q, r);
     if (tool === 'module') { const a = anchorOf(lastPickRes) || [q, r]; return placeModule(a[0], a[1], lastPickRes && lastPickRes.inst && !lastPickRes.side ? lastPickRes.lv : 0); }
     if (EDGE_TOOLS.has(tool)) return placeEdgeAt(lastPickRes);
     const T = toolBase(tool), wideTool = tool === 'fietspad';
@@ -405,7 +437,7 @@
     // het volgende materiaal (klinkers → beton → hout → stalen rooster → weer klinkers). In plaats van plaatsen of
     // stapelen (LOOPDEK_VAR_NAMEN/LOOPDEK_HOFJE_NAMEN/loopdekCijfers/loopdekCode, 05)
     // Ctrl+klik met Pad of Steeg (getekend) op zo'n pad: wat er langs staat, niets → muurtjes → vul-elementen → niets (path.rand, 07)
-    if (ctrl && (tool === 'vpad' || tool === 'vsteeg' || tool === 'vbouw') && mode === 'build') {
+    if (ctrl && (tool === 'vpad' || tool === 'vsteeg') && mode === 'build') {
       const pt = res.point || null; let best = null, bd = 1e9;
       if (pt) for (const p of cells.paths || []) { if ((p.t !== 'pad' && p.t !== 'steeg') || !p.p || p.p.length < 2) continue;
         const d = distPoly(pt.x, pt.z, smoothPts(p.p)); if (d < PATH_DEF[p.t].hw + 1.5 && Math.abs(pathH(p, pt.x, pt.z) - pt.y) < 2.5 && d < bd) { bd = d; best = p; } }
@@ -583,6 +615,7 @@
     edgeGhost.visible = false; moduleGhost.visible = false;
     if (terrHover(res, cx, cy)) { previewActive = false; ghost.visible = false; ghostEdges.visible = false; return; }
     if (!res || (mode === 'walk' && hand !== 'bouwen')) { ghost.visible = false; ghostEdges.visible = false; return; }
+    if (tool === 'vbouw') { previewActive = false; ghost.visible = false; ghostEdges.visible = false; vecGhost.visible = false; return; }   // Bouwpad: geen spookblok (het stuk hangt af van het vorige vak)
     if (VEC_TOOLS.has(tool) || tool === 'vrot') {   // voorbeeld: het stuk weg dat een klik hier maakt (of de rotonde)
       previewActive = false; ghost.visible = false; ghostEdges.visible = false;
       if (!res.place || roadDrag.on) { vecGhost.visible = false; vecPreClear(); return; }
