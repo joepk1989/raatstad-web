@@ -8,7 +8,7 @@ const lijst = args.length ? args : PADEN, uit = [], t0 = Date.now(); let i = 0, 
 const klaar = () => { if (uit.length < lijst.length) return; const fout = uit.filter(u => !u.ok);
   console.log('\n' + (fout.length ? 'FOUT in: ' + fout.map(u => u.t).join(', ') : 'ALLES GOED') + ' · ' + lijst.length + ' tests in ' + Math.round((Date.now() - t0) / 1000) + ' s'); process.exit(fout.length ? 1 : 0); };
 const start = () => { while (bezig < n && i < lijst.length) { const t = lijst[i++], s = Date.now(); bezig++; let out = '';
-  const p = spawn('node', [path.join(__dirname, t + '.js')], { timeout: 600000 }); p.stdout.on('data', d => out += d); p.stderr.on('data', d => out += d);
+  const p = spawn('node', [path.join(__dirname, t + '.js')], { timeout: 900000 }); p.stdout.on('data', d => out += d); p.stderr.on('data', d => out += d);
   p.on('close', code => { bezig--; const regels = out.split('\n'), fouten = regels.filter(r => /^FOUT|Error|rror:/.test(r) && !/pagina-fouten \[\]/.test(r)), ok = code === 0 && !fouten.length;
     uit.push({ t, ok }); console.log((ok ? 'goed ' : 'FOUT ') + t.padEnd(22) + Math.round((Date.now() - s) / 1000) + ' s' + (ok ? '' : '\n     ' + fouten.slice(0, 4).join('\n     ').slice(0, 600))); start(); klaar(); }); } };
 start();

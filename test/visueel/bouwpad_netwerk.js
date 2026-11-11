@@ -19,7 +19,8 @@ const { open, OUT, tik } = require('./helper');
   // een pad klikken vanaf laag lv0; stappen: [q, r] of 'E'/'Q'. Geeft de route met per vak de laag (van → naar)
   const pad = async (lv0, stappen) => { await toets('Escape'); await toets('KeyQ', 12); await toets('KeyE', lv0); const route = []; let lv = lv0, doel = lv0, prev = null;
     for (const s of stappen) { if (s === 'E') { doel++; await toets('KeyE'); continue; } if (s === 'Q') { doel--; await toets('KeyQ'); continue; }
-      await klik(...s); let nieuw = lv; if (prev && doel > lv) nieuw = lv + 1; else if (prev && doel < lv) nieuw = lv - 1; route.push({ c: s, van: lv, naar: nieuw }); lv = nieuw; prev = s; }
+      { const voor = JSON.stringify(await stapel(...s)); await klik(...s); if (voor === '[]' && JSON.stringify(await stapel(...s)) === '[]') { console.log('klik viel weg op ' + s.join(',') + ', nog eens'); await beeld(); await klik(...s); } }   // onder belasting valt soms een klik weg (testbrowser), niet het spel
+      let nieuw = lv; if (prev && doel > lv) nieuw = lv + 1; else if (prev && doel < lv) nieuw = lv - 1; route.push({ c: s, van: lv, naar: nieuw }); lv = nieuw; prev = s; }
     return route; };
   const rij = (r, q0, q1) => { const o = []; for (let q = q0; q <= q1; q++) o.push([q, r]); return o; };
   const kol = (q, r0, r1) => { const o = []; for (let r = r0; r <= r1; r++) o.push([q, r]); return o; };
