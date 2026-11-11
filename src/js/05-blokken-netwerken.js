@@ -129,10 +129,11 @@
         // dak precies op de vloer van de ring erboven: dan verdween de wand van het bouwblok). Een dak van een Blok mag wel.
         if ((A.steeg && B.steegDak && !B.steeg) || (B.steeg && A.steegDak && !A.steeg)) continue;
         const score = (has(A.q - dq, A.r - dr, A.y, k) ? 1 : 0) + (has(bq + dq, br + dr, A.y, (k + 3) % 6) ? 1 : 0);
-        edges.push({ ka, kb, A, k, bq, br, score });
+        const bp = cells.bpl, gk = bp ? ((bp[A.q + ',' + A.r + ',' + Math.round(A.y / 3)] >> k) & 1) || ((bp[bq + ',' + br + ',' + Math.round(A.y / 3)] >> ((k + 3) % 6)) & 1) : 0;   // met het Bouwpad zo geklikt
+        edges.push({ ka, kb, A, k, bq, br, score, gk });
       }
     }
-    edges.sort((e, f) => f.score - e.score || (e.ka < f.ka ? -1 : e.ka > f.ka ? 1 : 0) || e.k - f.k);
+    edges.sort((e, f) => f.gk - e.gk || f.score - e.score || (e.ka < f.ka ? -1 : e.ka > f.ka ? 1 : 0) || e.k - f.k);
     const adj = new Map(), masks = new Map();
     const linked = (a, b) => adj.has(a) && adj.get(a).has(b);
     const link = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
