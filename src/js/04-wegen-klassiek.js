@@ -38,6 +38,10 @@
   // gebruikt door alle paden: Pad (grond en getekend), Hof, Steeg, Helling, Trappad, Opgang (hexTegelTex)
   M.paver = std({ map: hexTegelTex(0.19, 5, 6, '#3d241a', 0.013, (c, r) => { const v = hexH01(c + 3, r + 11); return `hsl(${12 + v * 9}, ${40 + v * 12}%, ${35 + v * 11}%)`; }, null, 110), roughness: 0.95 });
   M.paverPlain = std({ color: '#8a5141' });
+  // Bouwpad (Joep koos variatie 5): okerkleurige zeshoekklinkers in het midden, een rand van donkerbruine tegels langs de
+  // wanden en daartussen een smalle opsluitband van donker gebakken steen. Zelfde tegelmaat als de klinkers (zijde 19 cm).
+  M.padOker = std({ map: hexTegelTex(0.19, 5, 6, '#5e4227', 0.013, (c, r) => { const v = hexH01(c + 4, r + 13); return `hsl(${28 + v * 7}, ${30 + v * 10}%, ${40 + v * 9}%)`; }, null, 110), roughness: 0.93 });
+  M.padKlinker = M.padOker.clone(); Object.assign(M.padKlinker, { polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });   // het midden van het pad, op de rand van beton (05, proef)
   M.stone = std({ color: '#bdb5a5' });
   // Steeg, materiaalvarianten (Ctrl+klik op een geplaatst loopdek schakelt door, zie LOOPDEK_VAR in 05): naast de
   // klinkers (M.paver, hierboven) ook beton (een nette elevated vloer), hout (een loopbrug/vlonder-gevoel) en een
@@ -89,9 +93,12 @@
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / M2, 1 / M2); t.anisotropy = aniso; return t;
   };
   M.blockSide = std({ map: betonTex(true), roughness: 0.95 });
+  M.kavelTop = std({ color: '#b9a27a', roughness: 0.95 });   // kavel bovenop een blok (proef, Joeps schets)
   // Bovenkant (Joep): zeshoekige betontegels precies op het fijnste raster van de Raatmaker (driehoeken van 1,125 m): elke
   // tegel is zes driehoekjes rond een rasterpunt, de hoeken op rasterpunten, de voegen op de rasterlijnen. De uv van een
   // blok is in meters vanaf het midden van het vak (ExtrudeGeometry), en de middens van de vakken liggen op het
   // tegelraster (8 tegels verder), dus het patroon loopt van vak tot vak door; de tint herhaalt zich om de 4 × 4 tegels.
   M.blockTop = std({ map: hexTegelTex(1.125, 4, 4, '#a19d93', 0.03, (c, r) => `hsl(42, ${4 + hexH01(c + 5, r + 2) * 3}%, ${78 + (hexH01(c + 7, r + 4) - 0.5) * 7}%)`,
     (g, x, y, rad, c, r) => { for (let i = 0; i < 70; i++) { const a = hexH01(c * 13 + i, r * 7 + 1) * Math.PI * 2, d = Math.sqrt(hexH01(c + i, r * 3 + 2)) * rad * 0.85, v = hexH01(i + c, r + 9); g.fillStyle = `rgba(${v > 0.5 ? '60,56,50' : '255,255,250'},${0.06 + Math.abs(v - 0.5) * 0.18})`; g.fillRect(x + Math.cos(a) * d, y + Math.sin(a) * d, 1.4, 1.4); } }, 64), roughness: 0.92 });   // spikkels per tegel
+  M.padRandBeton = std({ map: hexTegelTex(9 / 32, 4, 4, '#2c1f16', 0.016, (c, r) => { const v = hexH01(c + 8, r + 5); return `hsl(${22 + v * 6}, ${30 + v * 10}%, ${25 + v * 7}%)`; }, null, 100), roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });   // rand: donkerbruine tegels (zijde 28 cm, op het raster van 9 m)
+  M.padBand = std({ color: '#3a2a1f', roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });   // opsluitband tussen rand en midden   // de rand van het pad (proef)
