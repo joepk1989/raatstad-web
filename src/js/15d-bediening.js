@@ -110,8 +110,10 @@
       for (const k of cells.keys()) { const [q, r] = k.split(',').map(Number); t = Math.max(t, Math.ceil((colTopW(q, r) - gH(q, r)) / MV2.LV_H)); }
       return t;
     }
+    // tot en met de eerste vrije laag, hooguit 50 lagen (0 t/m 49); met het Bouwpad minstens tot laag 10 en altijd een laag boven de hoogste (een helling omhoog)
+    const maxLaag = () => { const t = topLevel(); return Math.max(3, Math.min(MV2.STAD_LV - 1, tool === 'vbouw' ? Math.max(10, t + 1) : t)); };
     function renderLayers() {
-      maxLv = Math.max(3, Math.min(MV2.STAD_LV - 1, topLevel()));   // tot en met de eerste vrije laag, hooguit 50 lagen (0 t/m 49)
+      maxLv = maxLaag();
       const walk = mode === 'walk', here = walk ? Math.max(0, Math.round((player.y - gH(...worldToCell(player.x, player.z))) / MV2.LV_H)) : null;
       let h = '<small>Laag</small><button type="button" data-l="alles" aria-pressed="' + (!walk && layer === null) + '" title="Alle lagen zien (Page Up boven de bovenste laag)"' + (walk ? ' disabled' : '') + '>Alles</button>';
       h += '<div class="lp-list">';   // schuiflijst: bij veel lagen blijft de gekozen laag in beeld
@@ -127,7 +129,7 @@
       if (aan) { const a0 = aan.offsetTop - lijst.offsetTop, a1 = a0 + aan.offsetHeight; if (a0 < lijst.scrollTop) lijst.scrollTop = a0; else if (a1 > lijst.scrollTop + lijst.clientHeight) lijst.scrollTop = a1 - lijst.clientHeight; }
     }
     function setLayer(n, quiet) {
-      layer = n === null ? null : Math.max(0, Math.min(maxLv, n));
+      maxLv = maxLaag(); layer = n === null ? null : Math.max(0, Math.min(maxLv, n));
       renderLayers();
       if (!quiet) toast(layer === null ? 'Alle lagen' : 'Laag ' + layer + ' (' + layer * MV2.LV_H + ' m) · wat erboven ligt is weggelaten', 1600);
       if (mode === 'build') { moduleGhostKey = ''; updateGhost(); }

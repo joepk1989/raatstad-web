@@ -230,32 +230,30 @@
   }
   // Bouwpad: een pad van puzzelstukjes, vak voor vak geklikt. Elk vak wordt een Steeg-blok (een blok van 3 m met een geul van
   // 4,5 m naar elke buur die aansluit, pleintje bij drie of meer) op de laag waar je bent, met Blokken eronder tot de grond.
-  // E/Q kiest de laag van de volgende klik: dan wordt dat vak een Helling die van het vorige vak af omhoog (of ernaartoe
+  // De gekozen laag (Ctrl+scrollen, laagkiezer) is de laag van de volgende klik: dan wordt dat vak een Helling die van het vorige vak af omhoog (of ernaartoe
   // omlaag) loopt, en ga je een laag hoger of lager verder. Een helling is recht: het vak erna ligt in dezelfde richting.
-  const BP = { prev: null, lv: 0, doel: 0, hell: -1 };
-  function bouwpadStop() { if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; BP.lv = BP.doel; if (mode === 'build') updateGhost(); }
-  function bouwpadHoogte(dir) {
-    BP.doel = Math.max(0, Math.min(10, BP.doel + dir)); if (mode === 'build') updateGhost();
-    if (!BP.prev) return toast('Nieuw Bouwpad begint op laag ' + BP.doel + ' (' + BP.doel * 3 + ' m) · klik een vak', 1600);
-    toast(BP.doel === BP.lv ? 'Bouwpad blijft op laag ' + BP.lv + ' (' + BP.lv * 3 + ' m)' : 'Volgende vak: helling naar laag ' + (BP.lv + Math.sign(BP.doel - BP.lv)) + (Math.abs(BP.doel - BP.lv) > 1 ? ', door tot laag ' + BP.doel : '') + ' · klik het volgende vak', 1800);
-  }
+  const BP = { prev: null, lv: 0, hell: -1 };
+  function bouwpadStop() { if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; if (mode === 'build') updateGhost(); }
+  // De laag van de volgende klik is de gekozen laag (Ctrl+scrollen, laagkiezer, PageUp/Down, zoals bij alle gereedschap; Q/E
+  // draaien het beeld). 'Alles' (geen laag gekozen): op de laag waar je bent blijven, een nieuw pad op de grond.
+  const bpDoel = () => { const L = hudLayer(); return L !== null ? Math.min(L, 49) : BP.prev ? BP.lv : 0; };
   // droog: niets veranderen, alleen zeggen wat een klik zou doen ({ fout } of { stuk, lv, verder }); voor het voorbeeld onder de muis
   function bouwpadKlik(q, r, droog) {
     const st = stackOf(q, r), k = key(q, r), meld = (m, ms) => droog ? { fout: m } : toast(m, ms);
     const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
     if (st.length && side < 0) {   // niet naast het vorige vak, op een bestaand stuk pad: daar ga je verder (het bovenste stuk pad)
-      let i = st.length - 1; while (i >= 0 && !PADB.has(baseOf(st[i]))) i--;
+      let i = Math.min(st.length - 1, hudLayer() !== null ? hudLayer() : 99); while (i >= 0 && !PADB.has(baseOf(st[i]))) i--;   // het bovenste stuk pad (met een laag gekozen: op of onder die laag)
       if (i < 0) return meld('Hier staat al iets · klik een vak naast je pad, of een stuk pad om daar verder te gaan', 1800);
       const t = st[i], lvV = i + (/^helling/.test(baseOf(t)) ? 1 : 0);
       if (droog) return { verder: true, lv: lvV };
-      BP.prev = [q, r]; BP.lv = lvV; BP.doel = BP.lv; BP.hell = baseOf(t) === 'helling' ? dirOf(t) : -1;
+      BP.prev = [q, r]; BP.lv = lvV; BP.hell = baseOf(t) === 'helling' ? dirOf(t) : -1;
       return toast('Bouwpad: verder vanaf laag ' + BP.lv + ' · klik het volgende vak', 1400);
     }
     if (vecCover.has(k)) return meld('Hier ligt een weg');
     if (modCellOccupied(q, r)) return meld('Hier staat een module');
     let blv = BP.lv, hell = BP.hell;
-    if (side < 0) { blv = BP.doel; hell = -1; if (!droog) { BP.prev = null; BP.lv = blv; BP.hell = -1; } }   // een nieuw pad op de gekozen laag
+    if (side < 0) { blv = bpDoel(); hell = -1; if (!droog) { BP.prev = null; BP.lv = blv; BP.hell = -1; } }   // een nieuw pad op de gekozen laag
     else if (hell >= 0 && side !== hell) {   // na een helling afslaan: die helling wordt een helling in een bocht (de bocht naar boven)
       const h = hell; if (side === (h + 3) % 6) return meld('Terug kan niet: de helling komt aan deze kant uit', 1600);
       if ((side - h + 6) % 6 !== 1 && (side - h + 6) % 6 !== 5) return meld('Op een helling kan alleen een flauwe bocht; voor een scherpe bocht eerst een vlak vak', 1800);   // scherp: de vlakke arm en het schuine stuk zouden elkaar raken (een trede van ±0,7 m)
@@ -268,8 +266,8 @@
     // de verbinding die je klikt onthouden: in een haarspeld (drie padvakken die aan elkaar grenzen) laat het spel dan de
     // verbinding weg die je níét klikte (computePathLinks, 05)
     const onthoud = () => { if (side < 0) return; const bp = cells.bpl || (cells.bpl = {}), a = BP.prev[0] + ',' + BP.prev[1] + ',' + lvVoor, b = q + ',' + r + ',' + lvVoor; bp[a] = (bp[a] | 0) | (1 << side); bp[b] = (bp[b] | 0) | (1 << ((side + 3) % 6)); };
-    if (side >= 0 && BP.doel > blv) { stuk = 'helling' + side; nieuw = lv + 1; }                    // omhoog: de helling loopt van het vorige vak af omhoog
-    else if (side >= 0 && BP.doel < blv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
+    if (side >= 0 && bpDoel() > blv) { stuk = 'helling' + side; nieuw = lv + 1; }                    // omhoog: de helling loopt van het vorige vak af omhoog
+    else if (side >= 0 && bpDoel() < blv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
     else stuk = 'looppad';
     if ((lv + 1) * 3 > MAX_H + 0.01) return meld('Maximaal ' + MAX_H + ' meter hoog');
     let ns;
@@ -287,7 +285,7 @@
     onthoud(); const vorig = BP.prev;
     BP.prev = [q, r]; BP.lv = nieuw; BP.hell = baseOf(stuk) === 'helling' ? side : -1;   // na een helling (omhoog of omlaag): rechtdoor verder
     if (ns) rebuildAround(q, r); else if (side >= 0) rebuildMany([[q, r], vorig]); changed();
-    toast(baseOf(stuk) === 'helling' ? 'Helling naar laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik rechtdoor verder' : (ns && st.length > lv ? 'Onderdoor (tunnel) op laag ' : ns && st.length ? 'Eroverheen op laag ' : 'Bouwpad op laag ') + BP.lv + ' (' + BP.lv * 3 + ' m) · klik het volgende vak, E/Q: hoger/lager', 1400);
+    toast(baseOf(stuk) === 'helling' ? 'Helling naar laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik rechtdoor verder' : (ns && st.length > lv ? 'Onderdoor (tunnel) op laag ' : ns && st.length ? 'Eroverheen op laag ' : 'Bouwpad op laag ') + BP.lv + ' (' + BP.lv * 3 + ' m) · klik het volgende vak · Ctrl+scrollen: laag hoger/lager', 1400);
   }
   function place(q, r) {
     if (flyCam.on || tool === 'kies') return;   // cameramodus: niets bouwen of slopen
@@ -416,7 +414,11 @@
   function pick(cx, cy, withMods) {
     ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hits = hudPickFilter(curvedHits(raycaster, [ground, terrGroup, blocks, ...(withMods || tool === 'module' || tool === 'gum' || tool === 'kies' ? [...modGroups.values()].map(e => e.group) : [])]));   // laagkiezer: wat erboven ligt is doorzichtig en niet aan te klikken
+    const objs = [ground, terrGroup, blocks, ...(withMods || tool === 'module' || tool === 'gum' || tool === 'kies' ? [...modGroups.values()].map(e => e.group) : [])];
+    let hits = hudPickFilter(curvedHits(raycaster, objs));   // laagkiezer: wat erboven ligt is doorzichtig en niet aan te klikken
+    // niets geraakt: een straal precies over een naad tussen twee driehoeken van de grond valt er door afronding soms tussendoor
+    // (een klik die niets deed). Dan een haartje ernaast nog eens.
+    if (!hits.length) { ndc.x += 2e-4; ndc.y -= 2e-4; raycaster.setFromCamera(ndc, camera); hits = hudPickFilter(curvedHits(raycaster, objs)); }
     if (!hits.length) return null;
     const h = hits[0];
     if (mode === 'walk' && h.distance > REACH) return null;

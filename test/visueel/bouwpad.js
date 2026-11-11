@@ -18,10 +18,10 @@ const { open, OUT, tik } = require('./helper');
   const ring = [[0, -1], [1, -1], [2, -1], [2, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
   for (const c of ring) await klik(...c);
   await klik(2, 0, 3);                                   // terug op de ring (op het blok geklikt): daar verder
-  await toets('KeyE', 10);
+  await p.evaluate(() => window.__SC().laag(10));   // laag 10 kiezen: elk volgend vak een helling, tot 30 m
   const lijn = []; for (let i = 3; i <= 14; i++) lijn.push([i, 0]);
   for (const c of lijn) await klik(...c);   // een leeg vak: op de grond klikken, zoals je het ziet
-  await p.waitForTimeout(1500);
+  await p.evaluate(() => window.__SC().laag(null)); await p.waitForTimeout(1500);
   const r = await p.evaluate(([ring, lijn]) => { const S = window.__SC(), C = S.getCells(), st = c => C.get(c[0] + ',' + c[1]) || [];
     const vloer = (c, y) => { const w = S.cellToWorld(...c); return +S.floorAt(w.x, w.z, y).toFixed(2); };
     // over de lijn lopen: van het midden van (2,0) tot het midden van (14,0), nergens een sprong

@@ -16,8 +16,9 @@ const { open, OUT, tik } = require('./helper');
   const toets = async (k, n = 1) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(40); } };
   const stapel = (q, r) => p.evaluate(([q, r]) => (window.__SC().getCells().get(q + ',' + r) || []).slice(), [q, r]);
   // een pad klikken vanaf laag lv0; stappen: [q, r] of 'E'/'Q'. Geeft de route met per vak de laag (van → naar)
-  const pad = async (lv0, stappen) => { await toets('Escape'); await toets('KeyQ', 12); await toets('KeyE', lv0); const route = []; let lv = lv0, doel = lv0, prev = null;
-    for (const s of stappen) { if (s === 'E') { doel++; await toets('KeyE'); continue; } if (s === 'Q') { doel--; await toets('KeyQ'); continue; }
+  const setLaag = n => p.evaluate(n => window.__SC().laag(n), n);   // de laag kiezen (in het spel: Ctrl+scrollen of de laagkiezer)
+  const pad = async (lv0, stappen) => { await toets('Escape'); await setLaag(lv0); const route = []; let lv = lv0, doel = lv0, prev = null;
+    for (const s of stappen) { if (s === 'E') { doel++; await setLaag(doel); continue; } if (s === 'Q') { doel--; await setLaag(doel); continue; }
       { const voor = JSON.stringify(await stapel(...s)); await klik(...s); if (voor === '[]' && JSON.stringify(await stapel(...s)) === '[]') { console.log('klik viel weg op ' + s.join(',') + ', nog eens'); await beeld(); await klik(...s); } }   // onder belasting valt soms een klik weg (testbrowser), niet het spel
       let nieuw = lv; if (prev && doel > lv) nieuw = lv + 1; else if (prev && doel < lv) nieuw = lv - 1; route.push({ c: s, van: lv, naar: nieuw }); lv = nieuw; prev = s; }
     return route; };
@@ -33,7 +34,7 @@ const { open, OUT, tik } = require('./helper');
   R.spaak3 = await pad(2, [[0, 0], [-1, 1], [-2, 2], [-3, 3]]);
   R.op2a = await pad(1, [[-2, 0], 'E', [-1, 0], [0, 0]]);
   R.op2b = await pad(1, [[0, 2], 'E', [0, 1], [0, 0]]);
-  await toets('Escape');
+  await toets('Escape'); await setLaag(null);
   const hofjes = [[3, -3], [1, -1], [0, 0]], banken = [[3, -1], [1, -3], [-2, -1], [-3, 2], [-1, 3], [1, 2], [1, 0], [0, -1], [-1, 1], [-2, 1]];
   for (const c of [...hofjes, ...banken]) for (let i = 0; i < 5; i++) await klik(...c, true);
   await p.waitForTimeout(800);

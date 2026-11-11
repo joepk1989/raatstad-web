@@ -16,13 +16,16 @@ const { open, OUT, tik } = require('./helper');
   const klik = async (q, r, y = 0) => { const s = await scherm(q, r, y); await tik(p, s[0], s[1]); await beeld(); };
   let g = await wijs(0, 0); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.q.join() === '0,0', 'leeg vak: geel voorbeeld op de grond', g);
   await klik(0, 0); g = await wijs(1, 0); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.q.join() === '1,0', 'volgend vak: geel op de grond', g);
-  await p.keyboard.press('KeyE'); await beeld(); g = await spook(); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.pijl, 'na E: een helling (met pijl) vanaf de grond', g);
+  const wiel = async n => { for (let i = 0; i < Math.abs(n); i++) { await p.keyboard.down('Control'); await p.mouse.wheel(0, n > 0 ? -100 : 100); await p.keyboard.up('Control'); await p.waitForTimeout(200); } await beeld(); };   // Ctrl+scrollen: laag hoger/lager
+  await wiel(2); g = await spook(); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.pijl, 'Ctrl+scrollen naar laag 1: een helling (met pijl) vanaf de grond', g);
   await klik(1, 0); g = await wijs(2, 0, 3); zeg(g.kleur === 'geel' && Math.abs(g.y - 3) < 0.2, 'na de helling: voorbeeld op laag 1 (3 m)', g);
   g = await wijs(1, 1, 3); zeg(g.kleur === 'geel' && Math.abs(g.y - 3) < 0.2, 'flauwe bocht na de helling: geel op 3 m', g);
   g = await wijs(0, 1, 0); zeg(g.kleur === 'rood', 'scherpe bocht na de helling: rood', g);
   await klik(2, 0, 3); await p.keyboard.press('Escape'); await beeld();
-  for (let i = 0; i < 12; i++) await p.keyboard.press('KeyQ'); await p.keyboard.press('KeyE'); await p.keyboard.press('KeyE'); await beeld(); g = await wijs(4, -2); zeg(g.kleur === 'geel' && Math.abs(g.y - 6) < 0.2, 'nieuw pad op laag 2: voorbeeld op 6 m', g);
+  await wiel(1); g = await wijs(4, -2); zeg(g.kleur === 'geel' && Math.abs(g.y - 6) < 0.2, 'nieuw pad op laag 2: voorbeeld op 6 m', g);
   const s0 = await scherm(4, -2, 6); await p.mouse.move(s0[0], s0[1]); await beeld();
+  const t0 = await p.evaluate(() => window.__SC().orbit.theta); await p.keyboard.down('KeyE'); await p.waitForTimeout(500); await p.keyboard.up('KeyE'); await beeld();
+  const t1 = await p.evaluate(() => window.__SC().orbit.theta); zeg(Math.abs(t1 - t0) > 0.05, 'E draait het beeld (ook met het Bouwpad)', { voor: +t0.toFixed(2), na: +t1.toFixed(2) });
   await p.screenshot({ path: OUT + '/bouwpad_voorbeeld.png' });
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT', JSON.stringify(uit)); console.log('fouten', JSON.stringify(errs));
   await b.close();
