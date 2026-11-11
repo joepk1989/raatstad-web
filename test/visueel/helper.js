@@ -5,20 +5,32 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '../..');
 const OUT = process.env.UIT || path.join(__dirname, 'uit');
 fs.mkdirSync(OUT, { recursive: true });
+// opts.leeg: meteen een lege bouwgrond in plaats van het startstadje (scheelt ±2 s voor tests die toch leeg beginnen)
 async function open(viewport, opts = {}) {
+  const { leeg, ...ctxOpts } = opts;
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  const ctx = await b.newContext({ viewport, ...opts });
+  const ctx = await b.newContext({ viewport, ...ctxOpts });
   const p = await ctx.newPage();
   p.on('pageerror', e => console.log('FOUT', e.message));
   await p.route(/^https?:/, r => r.abort());   // niets van buiten laden (zonder netwerk blijft de pagina anders hangen)
   await p.route('**/three.min.js', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(require.resolve('three/build/three.min.js', { paths: [path.join(ROOT, 'test')] })) }));
   await p.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
   p.setDefaultTimeout(120000);   // onder belasting (meer tests tegelijk) is 30 s soms te kort
-  await p.goto('file://' + path.join(ROOT, 'site/index.html'), { timeout: 180000 }); await p.waitForTimeout(2500);
+  await p.goto('file://' + path.join(ROOT, 'site/index.html'), { timeout: 300000 });   // met meer tests tegelijk kan laden lang duren
+  await p.waitForFunction(() => window.__SC && document.querySelector('#welcomeGo'), null, { timeout: 120000 }); await p.waitForTimeout(300);   // wachten tot het spel klaar is (was vast 2,5 s)
   await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(300);
-  await p.evaluate(() => window.__SC().doAct('start'));   // het startstadje: rotonde met drie wegen
+  await p.evaluate(leeg => window.__SC().doAct(leeg ? 'empty' : 'start'), !!leeg);   // het startstadje: rotonde met drie wegen (of leeg)
   await p.evaluate(() => { const S = window.__SC(); S.collapse.setOn(true); S.cars.setGore(true); });   // tests: instorten en bloed aan (in het spel standaard uit)
   await testModules(p);
+  // Sneller: tijdens de test op halve scherpte tekenen (een kwart van de pixels; de testbrowser tekent in software, en
+  // met vier tests tegelijk (reeks.js) zaten ze elkaar flink in de weg). Voor een screenshot even weer scherp, zodat de
+  // beelden er hetzelfde uitzien. SCHERP=1: altijd scherp.
+  if (!process.env.SCHERP) {
+    const zet = r => p.evaluate(r => { const S = window.__SC(); S.renderer.setPixelRatio(r); }, r).catch(() => {});
+    await zet(0.5);
+    const foto = p.screenshot.bind(p);
+    p.screenshot = async (o) => { await zet(1); await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); try { return await foto(o); } finally { await zet(0.5); } };
+  }
   return { b, p };
 }
 // Vaste testmodules: 'Plateau · 3 m', 'Plateau · met muurtjes', 'Pad · twee wanden' en 'Pad · helling tussen twee wanden' (één vak, raster 1,125 m, twee lagen). Ze
@@ -39,4 +51,13 @@ async function loopAfstand(p, meters, maxMs = 120000) {
     if (Math.hypot(q[0] - laatst[0], q[1] - laatst[1]) > 0.05) { laatst = q; stilT = Date.now(); } else if (Date.now() - stilT > 3000) break; }
   await p.keyboard.up('KeyW');
 }
-module.exports = { open, click, OUT, testModules, loopAfstand };
+// Een klik op het tekenvlak zoals de muis hem geeft (indrukken en loslaten), maar in één keer: het spel telt een klik
+// alleen als het loslaten binnen 600 ms komt, en als er meer tests tegelijk draaien kan er tussen mouse.down() en
+// mouse.up() één traag beeld zitten. Dan viel de klik weg (reeks.js). Eerst de muis erheen bewegen (hover) blijft nodig.
+async function tik(p, x, y, opts = {}) {
+  await p.mouse.move(x, y, { steps: 2 });
+  await p.evaluate(([x, y, o]) => { const c = document.querySelector('canvas'), base = { clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true, button: o.rechts ? 2 : 0, ctrlKey: !!o.ctrl };
+    c.dispatchEvent(new PointerEvent('pointerdown', Object.assign({ buttons: o.rechts ? 2 : 1 }, base))); c.dispatchEvent(new PointerEvent('pointerup', Object.assign({ buttons: 0 }, base))); }, [x, y, opts]);
+  await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // en wachten tot het gevolg getekend is
+}
+module.exports = { open, click, OUT, testModules, loopAfstand, tik };

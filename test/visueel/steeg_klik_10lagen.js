@@ -2,16 +2,17 @@
 // begane grond naar 10 lagen hoog, het moet met klikken kunnen"). Per steeg: Q tot de grond, één klik op het beginvak,
 // tien keer E (doel 30 m), dan vak voor vak klikken in een willekeurige richting: elk vak een laag hoger (helling over dat
 // vak), daarna nog een paar vakken vlak. Vast zaadje, dus elke keer dezelfde paden. Screenshots: steeg_10lagen*.png
-const { open, OUT } = require('./helper');
+const { open, OUT, tik } = require('./helper');
 (async () => {
-  const { b, p } = await open({ width: 1280, height: 800 });
+  const { b, p } = await open({ width: 1280, height: 800 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const beeld = () => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // wacht tot er twee beelden getekend zijn (onder belasting is een vaste wachttijd te kort)
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(60), typeof info === 'string' ? info : JSON.stringify(info)); };
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click();
     S.orbit.target.set(0, 0, 0); S.orbit.dist = 330; S.orbit.phi = 0.12; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vsteeg'); });
   await p.waitForTimeout(500);
   const scherm = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, 0, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
-  const klik = async (q, r) => { const s = await scherm(q, r); await p.mouse.move(s[0], s[1], { steps: 3 }); await p.waitForTimeout(250); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(600); };
+  const klik = async (q, r) => { const s = await scherm(q, r); await tik(p, s[0], s[1]); };
   const toets = async (k, n) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(60); } };
   // willekeurig maar vast (mulberry32)
   let seed = 20261110; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -50,7 +51,7 @@ const { open, OUT } = require('./helper');
     zeg(x.sprong === 0 && Math.abs(x.max - 30) < 0.5, 'steeg ' + (i + 1) + ': lopend van de grond naar 30 m zonder sprong', { sprong: x.sprong, max: x.max });
   });
   zeg(r.pijlers === 0, 'geen pijlers: alles op bouwblokken', r.pijlers);
-  const shot = async (n, x, z, th, ph, d, y = 10) => { await p.evaluate(([x, z, th, ph, d, y]) => { const S = window.__SC(); S.orbit.target.set(x, y, z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [x, z, th, ph, d, y]); await p.waitForTimeout(2000); await p.screenshot({ path: OUT + '/steeg_10lagen_' + n + '.png', timeout: 120000 }); };
+  const shot = async (n, x, z, th, ph, d, y = 10) => { await p.evaluate(([x, z, th, ph, d, y]) => { const S = window.__SC(); S.orbit.target.set(x, y, z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [x, z, th, ph, d, y]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/steeg_10lagen_' + n + '.png', timeout: 120000 }); };
   await shot('overzicht', 0, 0, 0.6, 0.9, 300);
   const m = await p.evaluate(rt => { const S = window.__SC(), w = S.cellToWorld(...rt[5]); return [w.x, w.z]; }, paden[0]);
   await shot('dichtbij', m[0], m[1], 2.2, 1.05, 80, 12); await shot('laag', m[0], m[1], -0.9, 1.35, 110, 10);

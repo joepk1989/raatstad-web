@@ -16,6 +16,7 @@
       if (b === 'pad' || b === 'hof') out.push({ y, sides: 63 });
       else if (b === 'zuilen' && i === st.length - 1) out.push({ y: y + 3, sides: 63 });
       else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t); out.push({ y, sides: 1 << ((d + 3) % 6) }); out.push({ y: y + 3, sides: 1 << d }); }
+      else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e }); out.push({ y: y + 3, sides: 1 << d }); }
       else if (b === 'looppad') { out.push({ y, sides: 63, steeg: true }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true, steegDak: true }); }
       else if (b === 'blok' && i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true });
       else if (b === 'tunnel') { out.push({ y, sides: 63 }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
@@ -493,6 +494,10 @@
   function makeRampGeo(f) {   // wig van het midden (0 m) tot RAMP_END (3 m), daarna vlak tot de rand
     const sh = new THREE.Shape([new THREE.Vector2(0, 0.05), new THREE.Vector2(RAMP_END, 3), new THREE.Vector2(INNER, 3), new THREE.Vector2(INNER, 0)]);
     const g = new THREE.ExtrudeGeometry(sh, { depth: 2 * CH_HALF, bevelEnabled: false });
+    { // textuur op het schuine vlak en het vlakke stuk erboven: in meters langs de helling (ExtrudeGeometry meet horizontaal, de klinkers lagen uitgerekt)
+      const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, k = Math.hypot(RAMP_END, 2.95) / RAMP_END;
+      for (let i = 0; i < P.count; i++) { if (N.getY(i) < 0.3) continue; const x = P.getX(i); U.setXY(i, x <= RAMP_END + 1e-6 ? x * k : RAMP_END * k + (x - RAMP_END), P.getZ(i)); }
+      U.needsUpdate = true; }
     g.translate(0, 0, -CH_HALF);
     const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(f.nx, 0, f.nz), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-f.tx, 0, -f.tz));
     g.applyMatrix4(m);
@@ -548,6 +553,7 @@
     let mask = 0;
     if (b === 'looppad') mask = pathMask(q, r, baseY);
     if (b === 'helling') { const d = dirOf(t); mask = (1 << d) | (1 << ((d + 3) % 6)); }
+    if (b === 'hellingb') { const [d, e] = hbKanten(t); mask = (1 << d) | (1 << e); }
     const sh = channelShapes(mask), geos = channelGeos(mask, upper);
     geos.solids.forEach((g, n) => {
       addMesh(g, [M.blockTop, M.blockSide]);
@@ -561,10 +567,21 @@
     }
     if (b === 'helling') {
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
-      const floor = cached('hellingvloer' + d + upper, () => boxAt(f, 0, -INNER / 2, upper ? -0.075 : 0.025, 2 * W, upper ? 0.25 : 0.05, INNER));
+      const floor = cached('hellingvloer2' + d + upper, () => { const rh = [[-INNER, -W], [0, -W], [0, W], [-INNER, W]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]); return upper ? extrudePoly(rh, 0.25, -0.2) : extrudePoly(rh, 0.05); });   // als vorm (textuur in meters; een kubus rekte de klinkers uit over het hele vlak)
       addMesh(floor, M.paver);   // dezelfde klinkers als Steeg (was M.paverPlain, een vlakke kleur zonder textuur — viel uit de toon naast een getextureerde steeg)
-      addMesh(rampGeo(f), [M.paver, M.blockSide]);
+      addMesh(rampGeo(f), [M.blockSide, M.paver]);   // ExtrudeGeometry: groep 0 = de zijkanten (beton), groep 1 = het schuine vlak (klinkers)
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
+      col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
+      col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
+    }
+    if (b === 'hellingb') {
+      // Helling in een bocht (Bouwpad): de arm naar de hoge kant d is het schuine stuk van een gewone helling (rampGeo), de rest
+      // van de geul (de arm naar de lage kant e en het midden) is vlak. De blokken eromheen zijn die van een bocht (mask).
+      const [d] = hbKanten(t), f = FRAMES[d], W = CH_HALF, key = 'hbvloer' + mask + '_' + d + upper;
+      const stukken = cached(key + 'p', () => { if (!sh.floor) return []; const vl = sh.floor, hoog = clipHalf(vl, f.nx, f.nz, 0, true);
+        return [clipHalf(vl, f.nx, f.nz, 0, false), clipHalf(hoog, f.tx, f.tz, W, true), clipHalf(hoog, f.tx, f.tz, -W, false)].filter(P => P.length >= 3); });   // vloer zonder de strook van het schuine stuk
+      stukken.forEach((P, n) => { addMesh(cached(key + n, () => upper ? extrudePoly(P, 0.25, -0.2) : extrudePoly(P, 0.05)), M.paver); col.surfaces.push({ kind: 'poly', cx, cz, pts: P, top: baseY + 0.05, bottom: baseY - 0.2 }); });
+      addMesh(rampGeo(f), [M.blockSide, M.paver]);
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
     }
@@ -625,7 +642,7 @@
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF, N = 16, run = RAMP_END / N, rise = 2.95 / N;
       const mask = (1 << d) | (1 << ((d + 3) % 6)), sh = channelShapes(mask), geos = channelGeos(mask, upper);
       geos.solids.forEach((g, n) => solid(sh.solids[n], g));
-      bag.put(M.paver, boxAt(f, 0, -INNER / 2, upper ? -0.075 : 0.025, 2 * W, upper ? 0.25 : 0.05, INNER));   // dezelfde klinkers als Steeg (was M.paverPlain)
+      { const rh = [[-INNER, -W], [0, -W], [0, W], [-INNER, W]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]); bag.put(M.paver, upper ? extrudePoly(rh, 0.25, -0.2) : extrudePoly(rh, 0.05)); }   // dezelfde klinkers als Steeg, als vorm (textuur in meters; een kubus rekte ze uit)
       for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; bag.put(M.stone, boxAt(f, 0, (j + 0.5) * run, top / 2, 2 * W, top, run)); }
       bag.put(M.stone, boxAt(f, 0, (RAMP_END + INNER) / 2, 1.5, 2 * W, 3, INNER - RAMP_END));
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
@@ -655,7 +672,7 @@
           wallSeg(fk, -pc / SQ3, pc / SQ3, pc, T / 2);
         }
       }
-      addMesh(rampGeo(f), [M.paver, M.blockSide]);   // dezelfde klinkers als Steeg (was M.paverPlain)
+      addMesh(rampGeo(f), [M.blockSide, M.paver]);   // dezelfde klinkers als Steeg (was M.paverPlain); groep 0 = zijkanten, groep 1 = het schuine vlak
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -CH_HALF, u1: CH_HALF, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -CH_HALF, u1: CH_HALF, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
     }

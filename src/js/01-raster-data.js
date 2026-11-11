@@ -34,6 +34,7 @@
     looppad: { name: 'Steeg', h: 3 },   // intern nog 'looppad' (oude steden), in beeld "Steeg": een verhoogde vloer door blokken heen, te onderscheiden van Pad/Paden
     blok:    { name: 'Blok',    h: 3 },
     helling: { name: 'Helling', h: 3 },
+    hellingb: { name: 'Helling in een bocht', h: 3 },   // hellingb + hoge kant d + lage kant e (bv. hellingb24), zie hbKanten; alleen via het Bouwpad
     tunnel:  { name: 'Tunnel',  h: 3 },
     muur:    { name: 'Muur',    h: 3 },
     trappad: { name: 'Trappad', h: 3 },
@@ -73,6 +74,7 @@
   const dirOf = t => +t.replace(/\D/g, '');
   // Een trap bewaart zijn looprichting in de naam: trap0 … trap5
   const baseOf = t => t ? t.replace(/\d+$/, '') : t;
+  const hbKanten = t => { const n = +t.replace(/\D/g, ''); return [Math.floor(n / 10), n % 10]; };   // Helling in een bocht: [hoge kant, lage kant]
   const TY = t => TYPES[baseOf(t)];
   // ---------- Bouwregels: waarop mag elk blok staan? ----------
   // grond = leeg vak, dakvlak = plat dak van een gebouw, gebouw = verdieping op een gebouw, zuilen = dek op zuilen
@@ -92,6 +94,7 @@
     looppad: ['grond', 'blok'],
     blok:    ['grond', 'blok'],
     helling: ['grond', 'blok'],
+    hellingb: ['grond', 'blok'],
     tunnel:  ['grond', 'blok'],
     muur:    ['grond', 'blok'],
     trappad: ['grond', 'blok'],
@@ -106,7 +109,7 @@
     weg: ['Een weg', 'een weg'], laan: ['Een laan', 'een laan'], pad: ['Een pad', 'een pad'], trap: ['Een trap', 'een trap'], zuilen: ['Zuilen', 'zuilen'],
     hof: ['Een hof', 'een hof'], woning: ['Een woning', 'een woning'], kantoor: ['Een kantoor', 'een kantoor'],
     dak: ['Een dak', 'een dak'], park: ['Een park', 'een park'], water: ['Water', 'water'], meer: ['Een meer', 'een meer'],
-    looppad: ['Een steeg', 'een steeg'], blok: ['Een blok', 'een blok'], helling: ['Een helling', 'een helling'],
+    looppad: ['Een steeg', 'een steeg'], blok: ['Een blok', 'een blok'], helling: ['Een helling', 'een helling'], hellingb: ['Een helling', 'een helling'],
     tunnel: ['Een tunnel', 'een tunnel'], muur: ['Een muur', 'een muur'], trappad: ['Een trappad', 'een trappad'],
     tribune: ['Een tribune', 'een tribune'], hofhelling: ['Een opgang', 'een opgang'],
     kuil: ['Een uitgraving', 'een uitgraving'], heuvel: ['Een verhoging', 'verhoogd terrein'], brug: ['Een brug', 'een brug'], brugp: ['Een brug', 'een brug'], fietspad: ['Een fietspad', 'een fietspad'],

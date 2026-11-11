@@ -62,7 +62,7 @@
       if (hasB) built.add(k);
       if (b0 === 'water') { water++; waterKeys.add(k); }
       if (b0 === 'pad') padsGround++;
-      for (const t of st) if (['pad', 'hof', 'trap', 'zuilen', 'looppad', 'trappad', 'tribune', 'hofhelling', 'helling', 'tunnel'].includes(baseOf(t))) pedSpots++;
+      for (const t of st) if (['pad', 'hof', 'trap', 'zuilen', 'looppad', 'trappad', 'tribune', 'hofhelling', 'helling', 'hellingb', 'tunnel'].includes(baseOf(t))) pedSpots++;
     }
     // modules: gebouwen (met bereikbaarheid via de ingangsknopen), groen, water en plekken voor voetgangers
     const doorOK = new Map();   // module-nummer → heeft een ingang die op een stoep of straat uitkomt
@@ -241,17 +241,24 @@
   function bouwpadKlik(q, r) {
     const st = stackOf(q, r), k = key(q, r);
     const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
-    const PADB = new Set(['looppad', 'tunnel', 'helling']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
+    const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
     if (st.length && side < 0) {   // niet naast het vorige vak, op een bestaand stuk pad: daar ga je verder (het bovenste stuk pad)
       let i = st.length - 1; while (i >= 0 && !PADB.has(baseOf(st[i]))) i--;
       if (i < 0) return toast('Hier staat al iets · klik een vak naast je pad, of een stuk pad om daar verder te gaan', 1800);
-      const t = st[i]; BP.prev = [q, r]; BP.lv = i + (baseOf(t) === 'helling' ? 1 : 0); BP.doel = BP.lv; BP.hell = baseOf(t) === 'helling' ? dirOf(t) : -1;
+      const t = st[i]; BP.prev = [q, r]; BP.lv = i + (/^helling/.test(baseOf(t)) ? 1 : 0); BP.doel = BP.lv; BP.hell = baseOf(t) === 'helling' ? dirOf(t) : -1;
       return toast('Bouwpad: verder vanaf laag ' + BP.lv + ' · klik het volgende vak', 1400);
     }
     if (vecCover.has(k)) return toast('Hier ligt een weg');
     if (modCellOccupied(q, r)) return toast('Hier staat een module');
     if (side < 0) { BP.prev = null; BP.lv = BP.doel; BP.hell = -1; }   // een nieuw pad op de gekozen laag
-    else if (BP.hell >= 0 && side !== BP.hell) return toast('Na een helling gaat het pad rechtdoor (de helling komt in die richting uit)', 1800);
+    else if (BP.hell >= 0 && side !== BP.hell) {   // na een helling afslaan: die helling wordt een helling in een bocht (de bocht naar boven)
+      const h = BP.hell; if (side === (h + 3) % 6) return toast('Terug kan niet: de helling komt aan deze kant uit', 1600);
+      if ((side - h + 6) % 6 !== 1 && (side - h + 6) % 6 !== 5) return toast('Op een helling kan alleen een flauwe bocht; voor een scherpe bocht eerst een vlak vak', 1800);   // scherp: de vlakke arm en het schuine stuk zouden elkaar raken (een trede van ±0,7 m)
+      const pk = BP.prev[0] + ',' + BP.prev[1], ps = stackOf(BP.prev[0], BP.prev[1]).slice(), j = ps.map(baseOf).lastIndexOf('helling'); if (j < 0) return;
+      const omhoog = dirOf(ps[j]) === h;   // omhoog: de hoge kant wees rechtdoor; omlaag: de hoge kant wijst terug naar waar je vandaan kwam
+      ps[j] = omhoog ? 'hellingb' + side + ((h + 3) % 6) : 'hellingb' + ((h + 3) % 6) + side;
+      cells.set(pk, ps); rebuildAround(BP.prev[0], BP.prev[1]); BP.hell = -1;
+    }
     let stuk, lv = BP.lv, nieuw = BP.lv; const lvVoor = BP.lv;
     // de verbinding die je klikt onthouden: in een haarspeld (drie padvakken die aan elkaar grenzen) laat het spel dan de
     // verbinding weg die je níét klikte (computePathLinks, 05)
