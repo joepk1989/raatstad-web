@@ -33,7 +33,11 @@ const { open, OUT, tik } = require('./helper');
   zeg(r.lijn.slice(0, 10).every((s, i) => s === i + ':helling0') && r.lijn.slice(10).every(s => s === '10:looppad'), 'tien hellingen rechtdoor, dan vlak op laag 10 (Blokken eronder)', r.lijn);
   zeg(r.sprong === 0 && Math.abs(r.max - 30) < 0.3 && Math.abs(r.eind - 30) < 0.3, 'lopend van de ring naar 30 m zonder sprong', { sprong: r.sprong, max: r.max, eind: r.eind });
   const shot = async (n, q, rr, th, ph, d, y = 2) => { await p.evaluate(([q, rr, th, ph, d, y]) => { const S = window.__SC(), w = S.cellToWorld(q, rr); S.orbit.target.set(w.x, y, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [q, rr, th, ph, d, y]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/bouwpad_' + n + '.png', timeout: 120000 }); };
-  await shot('overzicht', 7, 0, 0.6, 0.85, 230, 10); await shot('ring', 0.5, 0, 0.9, 0.95, 70); await shot('klim', 6, 0, -1.2, 1.1, 90, 12);
+  await shot('overzicht', 7, 0, 0.6, 0.85, 230, 10); await shot('ring', 0.5, 0, 0.9, 0.95, 70);
+  // zeshoekige betontegels op de bovenkant: recht van boven op de hoek waar drie vakken samenkomen (de tegels lopen door)
+  await p.evaluate(() => { const S = window.__SC(), a = S.cellToWorld(1, -1), b = S.cellToWorld(2, -1), c = S.cellToWorld(1, 0); S.orbit.target.set((a.x + b.x + c.x) / 3, 3, (a.z + b.z + c.z) / 3); S.orbit.theta = 0; S.orbit.phi = 0.02; S.orbit.dist = 22; S.applyOrbit(); });
+  await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/bouwpad_tegels.png', timeout: 120000 });
+  await shot('tegels_schuin', 1.5, -0.5, 0.7, 1.0, 30, 3); await shot('klim', 6, 0, -1.2, 1.1, 90, 12);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT', JSON.stringify(uit)); console.log('fouten', JSON.stringify(errs));
   await b.close();
 })();
