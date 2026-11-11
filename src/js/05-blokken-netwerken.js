@@ -579,10 +579,10 @@
   const vlakVorm = pts => { const g = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)))); g.rotateX(-Math.PI / 2); return g; };
   function padRandGeos(mask) {
     if (padRandCache.has(mask)) return padRandCache.get(mask);
-    const sh = channelShapes(mask), arms = [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1), n = arms.length, w = CH_HALF - PAD_RAND, midden = [];
-    for (const k of arms) { const f = FRAMES[k]; midden.push(vlakVorm([[0, -w], [INNER + 0.01, -w], [INNER + 0.01, w], [0, w]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]))); }
-    const rr = (n >= 3 ? PLAZA_R : n === 1 ? END_R : CH_HALF) - PAD_RAND; if (rr > 0.05) midden.push(vlakVorm(Array.from({ length: 36 }, (_, j) => [Math.cos(j / 36 * Math.PI * 2) * rr, Math.sin(j / 36 * Math.PI * 2) * rr])));
-    const out = { beton: sh.floor ? vlakVorm(sh.floor) : null, midden };
+    const sh = channelShapes(mask), arms = [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1), n = arms.length, BAND = 0.12;
+    const vormen = w => { const out = []; for (const k of arms) { const f = FRAMES[k]; out.push(vlakVorm([[0, -w], [INNER + 0.01, -w], [INNER + 0.01, w], [0, w]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]))); }
+      const rr = (n >= 3 ? PLAZA_R : n === 1 ? END_R : CH_HALF) - (CH_HALF - w); if (rr > 0.05) out.push(vlakVorm(Array.from({ length: 48 }, (_, j) => [Math.cos(j / 48 * Math.PI * 2) * rr, Math.sin(j / 48 * Math.PI * 2) * rr]))); return out; };
+    const w = CH_HALF - PAD_RAND, out = { beton: sh.floor ? vlakVorm(sh.floor) : null, band: vormen(w + BAND / 2), midden: vormen(w - BAND / 2) };   // de band ligt half over de rand, half over het midden
     padRandCache.set(mask, out); return out;
   }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
@@ -599,8 +599,8 @@
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.solids[n], top: baseY + 3, bottom: baseY });
     });
     if (b === 'looppad' && geos.floor) {
-      addMesh(geos.floor, [LOOPDEK_VAR[loopdekVar(t)], M.kerb]);
-      if (loopdekVar(t) === 0) { const pr = padRandGeos(mask), y = upper ? 0.052 : 0.052; if (pr.beton) { const m1 = addMesh(pr.beton, M.padRandBeton); m1.position.y = y; m1.raycast = () => {}; } for (const g of pr.midden) { const m2 = addMesh(g, M.padKlinker); m2.position.y = y + 0.004; m2.raycast = () => {}; } }   // klinkers: met een rand van betontegels (proef)
+      addMesh(geos.floor, [loopdekVar(t) === 0 ? M.padOker : LOOPDEK_VAR[loopdekVar(t)], M.kerb]);
+      if (loopdekVar(t) === 0) { const pr = padRandGeos(mask), y = upper ? 0.052 : 0.052; if (pr.beton) { const m1 = addMesh(pr.beton, M.padRandBeton); m1.position.y = y; m1.raycast = () => {}; } for (const g of pr.band) { const m3 = addMesh(g, M.padBand); m3.position.y = y + 0.002; m3.raycast = () => {}; } for (const g of pr.midden) { const m2 = addMesh(g, M.padKlinker); m2.position.y = y + 0.004; m2.raycast = () => {}; } }   // klinkers: met een rand van betontegels (proef)
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
       let armen = 0; for (let k = 0; k < 6; k++) if ((mask >> k) & 1) armen++;
       if (armen >= 3) hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i));
@@ -608,8 +608,8 @@
     if (b === 'helling') {
       const d = dirOf(t), f = FRAMES[d], W = CH_HALF;
       const floor = cached('hellingvloer2' + d + upper, () => { const rh = [[-INNER, -W], [0, -W], [0, W], [-INNER, W]].map(([pp, uu]) => [pp * f.nx + uu * f.tx, pp * f.nz + uu * f.tz]); return upper ? extrudePoly(rh, 0.25, -0.2) : extrudePoly(rh, 0.05); });   // als vorm (textuur in meters; een kubus rekte de klinkers uit over het hele vlak)
-      addMesh(floor, M.paver);   // dezelfde klinkers als Steeg (was M.paverPlain, een vlakke kleur zonder textuur — viel uit de toon naast een getextureerde steeg)
-      addMesh(rampGeo(f), [M.blockSide, M.paver]);   // ExtrudeGeometry: groep 0 = de zijkanten (beton), groep 1 = het schuine vlak (klinkers)
+      addMesh(floor, M.padOker);   // dezelfde klinkers als Steeg (was M.paverPlain, een vlakke kleur zonder textuur — viel uit de toon naast een getextureerde steeg)
+      addMesh(rampGeo(f), [M.blockSide, M.padOker]);   // ExtrudeGeometry: groep 0 = de zijkanten (beton), groep 1 = het schuine vlak (klinkers)
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
@@ -620,8 +620,8 @@
       const [d] = hbKanten(t), f = FRAMES[d], W = CH_HALF, key = 'hbvloer' + mask + '_' + d + upper;
       const stukken = cached(key + 'p', () => { if (!sh.floor) return []; const vl = sh.floor, hoog = clipHalf(vl, f.nx, f.nz, 0, true);
         return [clipHalf(vl, f.nx, f.nz, 0, false), clipHalf(hoog, f.tx, f.tz, W, true), clipHalf(hoog, f.tx, f.tz, -W, false)].filter(P => P.length >= 3); });   // vloer zonder de strook van het schuine stuk
-      stukken.forEach((P, n) => { addMesh(cached(key + n, () => upper ? extrudePoly(P, 0.25, -0.2) : extrudePoly(P, 0.05)), M.paver); col.surfaces.push({ kind: 'poly', cx, cz, pts: P, top: baseY + 0.05, bottom: baseY - 0.2 }); });
-      addMesh(rampGeo(f), [M.blockSide, M.paver]);
+      stukken.forEach((P, n) => { addMesh(cached(key + n, () => upper ? extrudePoly(P, 0.25, -0.2) : extrudePoly(P, 0.05)), M.padOker); col.surfaces.push({ kind: 'poly', cx, cz, pts: P, top: baseY + 0.05, bottom: baseY - 0.2 }); });
+      addMesh(rampGeo(f), [M.blockSide, M.padOker]);
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
     }
@@ -666,7 +666,7 @@
       const mask = pathMask(q, r, baseY), sh = channelShapes(mask), geos = channelGeos(mask, upper);
       geos.solids.forEach((g, n) => solid(sh.solids[n], g));
       if (geos.floor) {
-        addMesh(geos.floor, [M.paver, M.kerb]);
+        addMesh(geos.floor, [M.padOker, M.kerb]);
         col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.floor, top: baseY + 0.05, bottom: baseY - 0.2 });
         solid(sh.floor, cached('deck' + mask, () => extrudePoly(sh.floor, 0.5, 2.5)), 3, 2.5);
       }
