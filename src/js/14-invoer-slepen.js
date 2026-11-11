@@ -188,6 +188,7 @@
     const n = parseInt(e.key, 10);
     // E/Q (niet aan het slepen): met een getekende weg of pad de hoogte waarop je begint, met een stapelbaar blok of een
     // module de laag (zoals Ctrl+scrollen); met ander gereedschap draaien ze de camera (updateBuildKeys, 15b)
+    if (mode === 'build' && tool === 'vbouw' && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select'))) { e.preventDefault(); if (!e.repeat) bouwpadHoogte(e.code === 'KeyE' ? 1 : -1); return; }   // Bouwpad: de volgende klik een laag hoger/lager (12)
     if (mode === 'build' && !roadDrag.on && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select')) && eqHoogte()) {
       e.preventDefault(); if (e.repeat) return; const dir = e.code === 'KeyE' ? 1 : -1;
       if (VEC_TOOLS.has(tool)) roadHeightStep(dir);
@@ -230,7 +231,7 @@
   // Elk vak waar je overheen sleept wordt weg (ook als je snel beweegt: de vakken ertussen worden ingevuld).
   // Waar geen weg mag komen wordt stil overgeslagen; bestaande wegen blijven gewoon liggen.
   // Alles wat een lijn vormt kun je trekken: wegen, paden, looppaden, tunnels en grachten
-  const DRAG_TOOLS = new Set(['pad', 'fietspad', 'kuil', 'heuvel', 'looppad', 'tunnel', 'water', 'meer', 'vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg', 'vbouw']);
+  const DRAG_TOOLS = new Set(['pad', 'fietspad', 'kuil', 'heuvel', 'looppad', 'tunnel', 'water', 'meer', 'vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg']);
   const roadDrag = { on: false, last: null, count: 0, tool: 'weg', preset: 0 };   // preset: hoogte waarop de volgende getekende weg begint (vooraf in te stellen met ▲▼)
   let frameMs = 16;
   let dakHintShown = false, padHintShown = false;

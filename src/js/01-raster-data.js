@@ -67,7 +67,7 @@
     { name: 'Modules', tools: ['module'], todo: [] },   // blok, muur, tunnel, tribune, zuilen en hof zijn modules geworden (zie 08b); bestaande steden tonen ze nog
   ];
   const TOOLS = [...CATS.flatMap(c => c.tools), 'gum'];
-  const VEC_TOOLS = new Set(['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg', 'vbouw']), VEC_T = { vweg: 'weg', vbrd: 'brd', vlaan: 'laan', vsnel: 'snel', vklink: 'klink', vfiets: 'fiets', vpad: 'pad', vsteeg: 'steeg', vbouw: 'steeg' };   // getekende wegen: lijnen, geen vakken
+  const VEC_TOOLS = new Set(['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg']), VEC_T = { vweg: 'weg', vbrd: 'brd', vlaan: 'laan', vsnel: 'snel', vklink: 'klink', vfiets: 'fiets', vpad: 'pad', vsteeg: 'steeg' };   // getekende wegen: lijnen, geen vakken
   const TOOL_LABEL = {};
   const DIRECTIONAL = new Set(['trap', 'helling', 'muur', 'trappad', 'tribune', 'hofhelling']);   // met een richting, bewaard als trap0…5 enz.
   const dirOf = t => +t.replace(/\D/g, '');
