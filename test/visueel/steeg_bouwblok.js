@@ -2,16 +2,17 @@
 // puzzelstukjes legt, zie bouwpad.js). Met klikken (Steeg (getekend)), daarna rand 'blok': een ring van acht vakken rond twee vakken, en een aftakking die met E twee lagen omhoog gaat.
 // Controleert: blokken één laag (3 m) boven het pad, rand en kavels, kavels klaar voor huizen, de wand houdt je tegen,
 // lopen door de geul en de schans op. Screenshots: steeg_bouwblok*.png
-const { open, OUT } = require('./helper');
+const { open, OUT, tik } = require('./helper');
 (async () => {
-  const { b, p } = await open({ width: 1280, height: 800 });
+  const { b, p } = await open({ width: 1280, height: 800 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const beeld = () => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // wacht tot er twee beelden getekend zijn (onder belasting is een vaste wachttijd te kort)
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(60), typeof info === 'string' ? info : JSON.stringify(info)); };
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click();
     const w = S.cellToWorld(3, -1); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 230; S.orbit.phi = 0.1; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vsteeg'); });
   await p.waitForTimeout(500);
   const scherm = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, 0, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
-  const klik = async (q, r) => { const s = await scherm(q, r); await p.mouse.move(s[0], s[1], { steps: 3 }); await p.waitForTimeout(250); await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(600); };
+  const klik = async (q, r) => { const s = await scherm(q, r); await tik(p, s[0], s[1]); };
   const toets = async (k, n) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(60); } };
   await toets('KeyQ', 12);
   for (const c of [[0, -1], [1, -1], [2, -1], [2, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]]) await klik(...c);   // de ring
@@ -43,7 +44,7 @@ const { open, OUT } = require('./helper');
   const na = await loop(a, 0, 4000);
   zeg(Math.hypot(na[0] - a[0], na[1] - a[1]) < 4 && na[2] < 1, 'dwars tegen het blok: de wand houdt je tegen', na.map(v => +v.toFixed(2)));
   await p.evaluate(() => { const b = document.querySelector('[data-mode=build], #buildBtn'); if (b) b.click(); });
-  const shot = async (n, q, rr, th, ph, d, y = 2) => { await p.evaluate(([q, rr, th, ph, d, y]) => { const S = window.__SC(), w = S.cellToWorld(q, rr); S.orbit.target.set(w.x, y, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [q, rr, th, ph, d, y]); await p.waitForTimeout(1800); await p.screenshot({ path: OUT + '/steeg_bouwblok_' + n + '.png', timeout: 120000 }); };
+  const shot = async (n, q, rr, th, ph, d, y = 2) => { await p.evaluate(([q, rr, th, ph, d, y]) => { const S = window.__SC(), w = S.cellToWorld(q, rr); S.orbit.target.set(w.x, y, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [q, rr, th, ph, d, y]); await p.waitForTimeout(900); await p.screenshot({ path: OUT + '/steeg_bouwblok_' + n + '.png', timeout: 120000 }); };
   await shot('overzicht', 3, -1, 0.5, 0.75, 140); await shot('ring', 0.5, 0, 0.9, 1.0, 60); await shot('schans', 6, -2, -0.6, 1.0, 55, 4);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT', JSON.stringify(uit)); console.log('fouten', JSON.stringify(errs));
   await b.close();

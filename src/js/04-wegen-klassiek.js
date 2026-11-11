@@ -73,5 +73,20 @@
   M.rail = std({ color: '#3b4248', roughness: 0.5, metalness: 0.4 });
   M.hofWall = std({ color: '#93503b' });
   M.bench = std({ color: '#7a5a3c' });
-  M.blockSide = std({ color: '#b9ad96' });
-  M.blockTop = std({ color: '#c9bfab' });
+  // Blokken (Blok, Steeg, Helling, Tunnel …): standaard beton (Joep). Bovenkant: licht beton met spikkels en een
+  // dilatatievoeg om de 2,4 m; zijkant: bekistingsbeton met de naden van de planken (om de 0,6 m) en ankergaatjes.
+  // uv in meters (ExtrudeGeometry), dus repeat = 1 / maat van de tegel.
+  const betonTex = (zij) => {
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), M2 = 2.4, px = 256 / M2;
+    g.fillStyle = zij ? '#bdbab2' : '#cac7bf'; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 2600; i++) { const x = hexH01(i, zij ? 5 : 4) * 256, y = hexH01(i, zij ? 8 : 6) * 256, v = hexH01(i, 9), r = 0.6 + hexH01(i, 12) * 1.6; g.fillStyle = `rgba(${v > 0.5 ? '40,38,34' : '255,255,250'},${0.05 + Math.abs(v - 0.5) * 0.16})`; g.fillRect(x, y, r, r); }
+    for (let i = 0; i < 9; i++) { const x = hexH01(i, 21) * 256, y = hexH01(i, 22) * 256, rr = 18 + hexH01(i, 23) * 30, gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(${hexH01(i, 24) > 0.5 ? '90,86,78' : '255,255,248'},0.06)`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); }   // wolkjes
+    if (zij) {
+      g.strokeStyle = 'rgba(70,66,58,.22)'; g.lineWidth = 1.2;
+      for (let k = 0; k < 4; k++) { const y = Math.round(k * 0.6 * px) + 0.5; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }   // plankennaden
+      g.fillStyle = 'rgba(60,56,50,.45)'; for (const [x, y] of [[0.6, 0.3], [1.8, 0.3], [0.6, 1.5], [1.8, 1.5]]) { g.beginPath(); g.arc(x * px, y * px, 2.2, 0, Math.PI * 2); g.fill(); }   // ankergaatjes
+    } else { g.strokeStyle = 'rgba(70,66,58,.25)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(0, 0.5); g.lineTo(256, 0.5); g.moveTo(0.5, 0); g.lineTo(0.5, 256); g.stroke(); }   // dilatatievoeg
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / M2, 1 / M2); t.anisotropy = aniso; return t;
+  };
+  M.blockSide = std({ map: betonTex(true), roughness: 0.95 });
+  M.blockTop = std({ map: betonTex(false), roughness: 0.92 });

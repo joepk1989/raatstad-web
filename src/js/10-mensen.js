@@ -2,19 +2,19 @@
   // Voetgangers lopen over een netwerk dat uit de stad zelf komt: stoepen (rechts van de rijbaan), paden,
   // looppaden, tunnels, loopbruggen en dakterrassen. Ze nemen trappen en hellingen, gaan voordeuren in
   // en uit, en blijven soms even staan in een hofje of op een plein.
-  const CLIMBS = new Set(['trap', 'helling', 'trappad', 'tribune', 'hofhelling']);
+  const CLIMBS = new Set(['trap', 'helling', 'hellingb', 'trappad', 'tribune', 'hofhelling']);
   function nodeKind(q, r, y) {
     const st = stackOf(q, r);
     let h = 0;
     for (let i = 0; i < st.length; i++) {
       const t = st[i], b = baseOf(t), top = h + TY(t).h, last = i === st.length - 1;
       if (Math.abs(h - y) < 0.01) {
-        if (CLIMBS.has(b)) return { b, d: dirOf(t), level: 'low' };
+        if (CLIMBS.has(b)) return b === 'hellingb' ? { b, d: hbKanten(t)[0], e: hbKanten(t)[1], level: 'low' } : { b, d: dirOf(t), level: 'low' };
         if (isBuilding(b) && (i === 0 || !isBuilding(st[i - 1]))) { const d = doorFace(q, r, h); return d >= 0 ? { b: 'door', d } : null; }
         if (['pad', 'hof', 'looppad', 'tunnel'].includes(b)) return { b };
       }
       if (last && Math.abs(top - y) < 0.01) {
-        if (CLIMBS.has(b)) return { b, d: dirOf(t), level: 'high' };
+        if (CLIMBS.has(b)) return b === 'hellingb' ? { b, d: hbKanten(t)[0], e: hbKanten(t)[1], level: 'high' } : { b, d: dirOf(t), level: 'high' };
         if (['blok', 'tunnel', 'zuilen'].includes(b)) return { b: 'top' };   // niet bovenop een looppad: daar is het midden open
       }
       h = top;
@@ -392,6 +392,7 @@
       if (K.b === 'hof') return [c.x + rx * a.walkSide * 2.9, c.z + rz * a.walkSide * 2.9];
       if (K.b === 'door') { const fd = FRAMES[K.d]; return [c.x + fd.nx * (INNER - 3), c.z + fd.nz * (INNER - 3)]; }
       if (K.level) {
+        if (K.b === 'hellingb' && K.level === 'low') { const fe = FRAMES[K.e]; return [c.x + fe.nx * (INNER - 1.3), c.z + fe.nz * (INNER - 1.3)]; }   // helling in een bocht: beneden in de arm naar de lage kant
         const fd = FRAMES[K.d];
         const p = K.b === 'hofhelling' ? (K.level === 'low' ? -2.5 : INNER - 1.0) : (K.level === 'low' ? -(INNER - 1.3) : INNER - 1.3);
         return [c.x + fd.nx * p, c.z + fd.nz * p];
@@ -764,6 +765,7 @@
         a.wps.push(midOf(from, e.side, a, to));
       }
       const f = e.climb ? FRAMES[from.kind.d] : FRAMES[e.side];
+      if (e.climb && (from.kind.b === 'hellingb' || to.kind.b === 'hellingb')) { const c = cellToWorld(from.q, from.r); a.wps.push([c.x, c.z]); }   // helling in een bocht: via het midden, niet door de binnenhoek
       a.wps.push(centerOf(to, f, a));
       if (to.kind.b === 'door') a.goingIn = true;
     }

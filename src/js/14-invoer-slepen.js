@@ -514,7 +514,7 @@
       const st = stackOf(q, r); if (!st.length) continue;
       const b0 = baseOf(st[0]), keep = (b0 === 'water' || b0 === 'kuil') ? 1 : (b0 === 'heuvel' && terrOnly(q, r)) ? st.length : 0;
       if (keep >= st.length) continue;
-      if (columnTop(q, r) - (keep ? TY(st[0]).h : 0) <= 0.5 && !st.slice(keep).some(t => ['woning', 'kantoor', 'dak', 'blok', 'zuilen', 'hof', 'tunnel', 'looppad', 'trap', 'muur', 'tribune', 'helling', 'trappad', 'hofhelling'].includes(baseOf(t)))) continue;   // een pad of park onder de weg mag blijven
+      if (columnTop(q, r) - (keep ? TY(st[0]).h : 0) <= 0.5 && !st.slice(keep).some(t => ['woning', 'kantoor', 'dak', 'blok', 'zuilen', 'hof', 'tunnel', 'looppad', 'trap', 'muur', 'tribune', 'helling', 'hellingb', 'trappad', 'hofhelling'].includes(baseOf(t)))) continue;   // een pad of park onder de weg mag blijven
       const ns = st.slice(0, keep); if (ns.length) cells.set(k, ns); else cells.delete(k); gone++; touched.push([q, r]);
     }
     if (touched.length) { if (touched.length > 3) rebuildMany(touched); else for (const [q, r] of touched) rebuildAround(q, r); }

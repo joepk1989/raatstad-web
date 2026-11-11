@@ -19,7 +19,9 @@
       // alle driehoeken waarvan het zwaartepunt binnen de zeshoek (cx, cz, straal rad) ligt (en binnen het gebied)
       hex(li, cx, cz, rad, mat) {
         const L = lv(li), iM = Math.ceil(ext / (ts * SQ3 / 2)) + 1, jM = Math.ceil(ext / ts) + iM;
-        for (let i = -iM; i <= iM; i++) for (let j = -jM; j <= jM; j++) for (const t of [0, 1]) { const v = mv2TriVerts(i, j, t, ts), x = (v[0][0] + v[1][0] + v[2][0]) / 3, z = (v[0][1] + v[1][1] + v[2][1]) / 3; if (!mv2InArea(m, x, z) || !inHex(x, z, cx, cz, rad)) continue; if (mat) L.f[i + ',' + j + ',' + t] = mat; else delete L.f[i + ',' + j + ',' + t]; }
+        // alleen de driehoeken rond de zeshoek (was: het hele gebied, voor elk vak opnieuw; dat kostte bij het laden ±3 s)
+        const di = ts * SQ3 / 2, i0 = Math.max(-iM, Math.floor((cx - rad) / di) - 2), i1 = Math.min(iM, Math.ceil((cx + rad) / di) + 2);
+        for (let i = i0; i <= i1; i++) for (let j = Math.max(-jM, Math.floor((cz - rad - i * ts / 2) / ts) - 2), j1 = Math.min(jM, Math.ceil((cz + rad - i * ts / 2) / ts) + 2); j <= j1; j++) for (const t of [0, 1]) { const v = mv2TriVerts(i, j, t, ts), x = (v[0][0] + v[1][0] + v[2][0]) / 3, z = (v[0][1] + v[1][1] + v[2][1]) / 3; if (!mv2InArea(m, x, z) || !inHex(x, z, cx, cz, rad)) continue; if (mat) L.f[i + ',' + j + ',' + t] = mat; else delete L.f[i + ',' + j + ',' + t]; }
         return B;
       },
       cell(li, q, r, mat) { const c = mv2CellXZ(q, r); return B.hex(li, c[0], c[1], R - 0.01, mat); },
