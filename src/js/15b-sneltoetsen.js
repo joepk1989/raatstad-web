@@ -5,7 +5,7 @@
   const keysPanel = document.getElementById('keysPanel'), keysBtn = document.getElementById('keysBtn'), keysList = document.getElementById('keysList');
   const K = (...k) => k.map(x => `<kbd>${x}</kbd>`).join(' ');
   const KEYS_BUILD = [
-    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien (met een weg, pad, blok of module in de hand: een laag lager / hoger)'], [K('+', '−'), 'in- en uitzoomen'],
+    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien (met een weg, pad, blok of module in de hand: een laag lager / hoger)'], [K('+', '−'), 'in- en uitzoomen'], ['Middelste muisknop', 'slepen: draaien (of Alt + links); rechts of Shift + links slepen: schuiven'],
     ['Bouwen', null], [K('1') + '…' + K('9'), 'blok uit de snelbalk'], [K('Tab'), 'alle blokken (kies er één: hij komt in de snelbalk)'], [K('R'), 'draaien (Shift+R: terug)'],
     [K('K'), 'Raatmaker, overzicht: alle modules van boven; bekijken, bewerken, neerzetten of een nieuwe tekenen'], [K('V'), 'aanwijzen: klik op een module voor opties (draaien, spiegelen, variant, bewerken, verplaatsen)'], [K('Del'), 'gum aan/uit'], [K('Ctrl', 'Z'), 'ongedaan maken'], [K('PgUp', 'PgDn'), 'laag kiezen (wat erboven ligt wordt doorzichtig)'], [K('[', ']'), 'penseel: 1, 7, 19 of 37 vakken'], [K('Shift') + '+wiel', 'volgende in de snelbalk'],
     ['Modules', null], [K(',', '.'), 'vorige / volgende module'], [K('F'), 'module spiegelen'], [K('/'), 'zoek een module (Enter kiest de eerste)'],

@@ -49,7 +49,9 @@
       const terrT = TERR_TOOLS.has(tool) && (e.button === 0 || e.button === 2) && !e.altKey;   // terrein: links én rechts boetseren (rechts andersom), schuiven met het wiel/middelste knop
       downInfo = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, panMode: (e.button === 2 && !terrT) || (e.shiftKey && !terrT), right: e.button === 2,
         rotate: e.button === 1 || e.altKey,
-        road: (DRAG_TOOLS.has(tool) || EDGE_TOOLS.has(tool) || lineModSel()) && e.button === 0 && !e.shiftKey && !e.altKey && e.pointerType === 'mouse' };
+        road: (DRAG_TOOLS.has(tool) || EDGE_TOOLS.has(tool) || lineModSel()) && e.button === 0 && !e.shiftKey && !e.altKey && e.pointerType === 'mouse',
+        bouw: tool === 'vbouw' && e.button === 0 && !e.shiftKey && !e.altKey && !e.ctrlKey && e.pointerType === 'mouse',   // Bouwpad: links ingedrukt slepen legt vak na vak
+        links: e.button === 0 && e.pointerType === 'mouse' };   // links slepen draait de camera niet (dat doet de middelste knop, of Alt + links)
       if (terrT && e.pointerType === 'mouse') { downInfo.sculpt = sculptStart(e.clientX, e.clientY, e.shiftKey || e.button === 2); downInfo.moved = true; }   // terrein: meteen boetseren
       if (terrT && e.pointerType !== 'mouse') {   // touchscreen: even vasthouden, dan boetseren
         const d0 = downInfo; clearTimeout(roadHold);
@@ -107,6 +109,15 @@
         if (!roadDrag.vmoveP || Math.hypot(e.clientX - roadDrag.vmoveP[0], e.clientY - roadDrag.vmoveP[1]) > 4) { roadDrag.vmoveP = [e.clientX, e.clientY]; roadDrag.vmoveT = performance.now(); }   // ná het tekenen: stilstaan telt pas vanaf dan
         return;
       }
+      if (downInfo.bouw) {   // Bouwpad slepen: elk vak waar de muis overheen gaat, ook als hij een vak overslaat (hexLine)
+        const cel = (x, y) => { const r = pick(x, y); return r && r.place ? r.place : null; };
+        if (!downInfo.bouwLast) { const c0 = cel(downInfo.x, downInfo.y); if (c0) { bouwpadKlik(c0[0], c0[1]); downInfo.bouwLast = c0; } }
+        const c = cel(e.clientX, e.clientY), L = downInfo.bouwLast;
+        if (c && L && (c[0] !== L[0] || c[1] !== L[1])) { for (const v of hexLine(L, c)) bouwpadKlik(v[0], v[1]); downInfo.bouwLast = c; }
+        else if (c && !L) { bouwpadKlik(c[0], c[1]); downInfo.bouwLast = c; }
+        return;
+      }
+      if (downInfo.links && !downInfo.rotate && !downInfo.panMode) return;   // links slepen met de muis: niets (draaien = middelste knop of Alt)
       if (downInfo.panMode && !downInfo.rotate) pan(dx, dy);
       else {
         orbit.theta -= dx * 0.0075;

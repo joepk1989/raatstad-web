@@ -480,7 +480,10 @@
     }
     if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting (hofje; Groen hofje: ook bankjes op een recht stuk)
       const [q, r] = res.place, st = stackOf(q, r); let i = st.length - 1; while (i >= 0 && baseOf(st[i]) !== 'looppad') i--;
-      if (i >= 0) { const [mat, hofje] = loopdekCijfers(st[i]), nh = (hofje + 1) % LOOPDEK_HOFJE_NAMEN.length; st[i] = loopdekCode(mat, nh); rebuildAround(q, r); changed(); toast('Inrichting: ' + LOOPDEK_HOFJE_NAMEN[nh] + ' · Ctrl+klik voor de volgende', 1400); return; }
+      if (i >= 0) { const [mat, hofje] = loopdekCijfers(st[i]), m = pathMask(q, r, i * 3); let armen = 0; for (let k = 0; k < 6; k++) if ((m >> k) & 1) armen++;
+        const plein = armen >= 3, nh = plein ? (hofje + 1) % LOOPDEK_HOFJE_NAMEN.length : hofje === 5 ? 0 : 5;   // alleen op een plein zie je boom, bloemen of lantaarns; op een recht stuk of bocht: wel of geen bankje
+        st[i] = loopdekCode(mat, nh); rebuildAround(q, r); changed(); toast(plein ? 'Plein: ' + LOOPDEK_HOFJE_NAMEN[nh] + ' · Ctrl+klik voor de volgende' : nh ? 'Bankje aan de kant · Ctrl+klik: weer weg' : 'Geen bankje', 1400); updateGhost(); return; }
+      return toast('Ctrl+klik op een stuk Bouwpad: inrichting (plein) of een bankje', 1400);
     }
     if (ctrl && tool === 'looppad' && mode === 'build' && res.place) {
       const [q, r] = res.place, st = stackOf(q, r), top = st[st.length - 1];
