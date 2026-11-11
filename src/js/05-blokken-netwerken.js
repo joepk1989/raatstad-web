@@ -546,6 +546,9 @@
       } else if (arms.length === 2 && (arms[1] - arms[0]) === 3) {   // recht stuk: een bankje op de rand, tegen de wand (welke kant: per vak)
         const f = FRAMES[arms[0]], sg = hv % 2 ? 1 : -1, off = sg * (CH_HALF - 0.45);
         bank(f.tx * off, f.tz * off, f.nx, f.nz);
+      } else if (arms.length) {   // bocht of doodlopend eind: het bankje tegen de buitenwand, tegenover de armen
+        let bx = 0, bz = 0; for (const k of arms) { bx += FRAMES[k].nx; bz += FRAMES[k].nz; } const l = Math.hypot(bx, bz) || 1, ux = -bx / l, uz = -bz / l, rr = (arms.length === 1 ? END_R : CH_HALF) - 0.45;
+        bank(ux * rr, uz * rr, -uz, ux);
       }
       return;
     }
