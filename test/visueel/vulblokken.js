@@ -19,13 +19,13 @@ const { open, OUT } = require('./helper');
   await kijkNaar(0, 0); await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-looppad');
   await klik(0, 0); zeg((await vak('0,0')).join() === 'looppad', 'zonder Ctrl: Loopdek gewoon op de grond', await vak('0,0'));
 
-  // Ctrl+scrollen (met Loopdek nog steeds gekozen): "Alles" → laag 0 → laag 1 (3 ticks nodig: eerst naar 0, dan verder)
+  // Ctrl+scrollen (met Loopdek nog steeds gekozen): vanuit "Alles" omhoog = laag 1 (één tik)
   await p.mouse.move(640, 400); await p.waitForTimeout(150);
   await p.keyboard.down('Control');
-  for (let i = 0; i < 2; i++) { await p.mouse.wheel(0, -150); await p.waitForTimeout(250); }
+  await p.mouse.wheel(0, -150); await p.waitForTimeout(250);
   await p.keyboard.up('Control');
   const laag = await p.evaluate(() => window.__HUD.layer);
-  zeg(laag === 1, 'Ctrl+scrollen (2×): laag 1 gekozen (3 m), ook met Loopdek gereedschap', laag);
+  zeg(laag === 1, 'Ctrl+scrollen (1×): laag 1 gekozen (3 m), ook met Loopdek gereedschap', laag);
 
   // klik op een ANDER, leeg vak (geen buur in de buurt): komt nu vanzelf op 3 m (1 blok eronder)
   await kijkNaar(6, 0); await klik(6, 0);

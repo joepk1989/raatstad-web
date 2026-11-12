@@ -45,8 +45,8 @@ const { open, OUT, tik } = require('./helper');
   await p.screenshot({ path: OUT + '/bouwpad_muis_bankje_bocht.png' });
   await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(1, 0); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 110; S.orbit.phi = 0.5; S.orbit.theta = 0; S.applyOrbit(); }); await beeld();
   await p.screenshot({ path: OUT + '/bouwpad_muis_bankjes.png' });
-  // 4. Ctrl+scrollen naar laag 0: de snede net boven de blokken (3,08 m), niet erin
-  await p.mouse.move(640, 400); await p.keyboard.down('Control'); await p.mouse.wheel(0, -100); await p.keyboard.up('Control'); await p.waitForTimeout(300); await beeld();
+  // 4. Ctrl+scrollen naar laag 0: de snede net boven de blokken (3,01 m), niet erin
+  await p.mouse.move(640, 400); await p.keyboard.down('Control'); await p.mouse.wheel(0, 100); await p.keyboard.up('Control');   // vanuit 'Alles' omlaag: laag 0 await p.waitForTimeout(300); await beeld();
   const snede = await p.evaluate(() => { const r = window.__SC().renderer; return document.querySelector('.lp-list [aria-pressed="true"]')?.textContent; });
   await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(1, 0); S.orbit.phi = 0.9; S.orbit.theta = 0.5; S.orbit.dist = 70; S.orbit.target.set(w.x, 0, w.z); S.applyOrbit(); }); await p.waitForTimeout(600);
   await p.screenshot({ path: OUT + '/bouwpad_muis_laag0.png' });

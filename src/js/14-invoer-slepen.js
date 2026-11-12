@@ -165,7 +165,7 @@
       wheelAcc += d;
       const now = performance.now();
       if (Math.abs(wheelAcc) < 40 || now - wheelT < 90) return;
-      const cur = HUD.layer; HUD.setLayer(cur === null ? 0 : cur + (wheelAcc < 0 ? 1 : -1), true);
+      const cur = HUD.layer, dir = wheelAcc < 0 ? 1 : -1; HUD.setLayer(cur === null ? laagVanAlles(dir) : cur + dir, true);
       wheelAcc = 0; wheelT = now; updateGhost(e.clientX, e.clientY);
       return;
     }
