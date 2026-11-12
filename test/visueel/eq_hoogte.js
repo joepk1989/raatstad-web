@@ -1,32 +1,30 @@
-// E/Q in de bouwstand (Joep: "q en e doen niks bij mij"): met een getekend pad, steeg of weg in de hand zetten ze vooraf
-// de beginhoogte (een laag van 3 m per druk), met een stapelbaar blok (Steeg, Helling, Blok …) of een module kiezen ze de
-// laag (zoals Ctrl+scrollen); met ander gereedschap draaien ze de camera nog. Screenshot: eq_hoogte.png
+// Q/E draaien het beeld, bij elk gereedschap (Joep: "Q en E is ook beeld draaien"; eerst zetten ze bij wegen, paden en
+// blokken een hoogte of laag). De hoogte van een weg of pad: vooraf ▲▼ in het hoogtepaneel, tijdens het slepen Page Up/Down
+// of het scrollwiel; de laag van blokken: Ctrl+scrollen of de laagkiezer. Screenshot: eq_hoogte.png
 const { open, OUT } = require('./helper');
 (async () => {
-  const { b, p } = await open({ width: 1280, height: 800 });
+  const { b, p } = await open({ width: 1280, height: 800 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(58), typeof info === 'string' ? info : JSON.stringify(info)); };
-  await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click(); });
   await p.mouse.move(640, 400); await p.waitForTimeout(300);
-  const druk = async (toets, n = 1) => { for (let i = 0; i < n; i++) { await p.keyboard.press(toets); await p.waitForTimeout(150); } await p.waitForTimeout(250); };
   const stand = () => p.evaluate(() => ({ laag: window.__HUD.layer, theta: +window.__SC().orbit.theta.toFixed(3), hoogte: (document.querySelector('#dragH span') || {}).textContent }));
-  // 1. getekende steeg: E 2× = 6 m beginhoogte, camera draait niet
-  await p.evaluate(() => window.__SC().selectTool('vsteeg')); await p.waitForTimeout(300);
-  const s0 = await stand(); await druk('KeyE', 2); const s1 = await stand();
-  zeg(/6/.test(s1.hoogte || '') && s1.theta === s0.theta, 'Steeg (getekend): E 2× = beginhoogte 6 m, camera draait niet', { voor: s0, na: s1 });
-  await druk('KeyQ', 2); const s2 = await stand();
-  zeg(!/\d/.test(s2.hoogte || ''), 'Q 2× = weer op het terrein', s2);
-  // 2. Steeg-blok: E = laag 1, nog eens = laag 2; Q 2× = weer alle lagen
-  await p.evaluate(() => window.__SC().selectTool('looppad')); await p.waitForTimeout(300);
-  await druk('KeyE'); const b1 = await stand(); await druk('KeyE'); const b2 = await stand(); await druk('KeyQ', 2); const b3 = await stand();
-  zeg(b1.laag === 1 && b2.laag === 2 && b3.laag === null && b3.theta === s0.theta, 'Steeg-blok: E kiest laag 1, 2; Q terug naar alle lagen', { b1: b1.laag, b2: b2.laag, b3: b3.laag });
-  // 3. een gebouwdak (geen stapelbaar blok): E/Q draaien de camera nog
-  await p.evaluate(() => window.__SC().selectTool('park')); await p.waitForTimeout(300);
-  const c0 = await stand(); await p.keyboard.down('KeyE'); await p.waitForTimeout(500); await p.keyboard.up('KeyE'); await p.waitForTimeout(200); const c1 = await stand();
-  zeg(c1.theta !== c0.theta && c1.laag === null, 'Park: E draait de camera (zoals vroeger)', { voor: c0.theta, na: c1.theta });
-  // 4. een laag kiezen met E en dan van gereedschap wisselen naar iets zonder eigen stapelregels (Fietspad): slepen gaf
-  //    "Cannot read properties of undefined (reading 'includes')" in vulBlokken (november 2026, opgelost)
-  await p.evaluate(() => window.__SC().selectTool('looppad')); await druk('KeyE');
+  const houd = async toets => { await p.keyboard.down(toets); await p.waitForTimeout(500); await p.keyboard.up(toets); await p.waitForTimeout(200); };
+  // 1. met elk gereedschap: E draait, Q draait terug, en de hoogte of laag verandert niet
+  for (const t of ['vsteeg', 'vweg', 'looppad', 'vbouw', 'module', 'park']) {
+    await p.evaluate(t => window.__SC().selectTool(t), t); await p.waitForTimeout(200);
+    const a = await stand(); await houd('KeyE'); const b2 = await stand(); await houd('KeyQ'); const c = await stand();
+    zeg(b2.theta > a.theta + 0.1 && c.theta < b2.theta - 0.1 && b2.laag === a.laag && b2.hoogte === a.hoogte, t + ': E en Q draaien, geen hoogte of laag', { theta: [a.theta, b2.theta, c.theta], hoogte: [a.hoogte, b2.hoogte], laag: [a.laag, b2.laag] });
+  }
+  // 2. ▲▼ in het paneel: de beginhoogte van een getekende steeg (3 m per stap)
+  await p.evaluate(() => window.__SC().selectTool('vsteeg')); await p.waitForTimeout(200);
+  const knop = d => p.evaluate(d => document.querySelector('#dragH [data-d="' + d + '"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), d);
+  await knop(1); await knop(1); const k1 = await stand(); await knop(-1); await knop(-1); const k2 = await stand();
+  zeg(/6/.test(k1.hoogte || '') && !/\d/.test(k2.hoogte || ''), 'Steeg (getekend): ▲ 2× = 6 m, ▼ 2× = weer op het terrein', [k1.hoogte, k2.hoogte]);
+  // 3. Ctrl+scrollen kiest de laag (Steeg-blok)
+  await p.evaluate(() => window.__SC().selectTool('looppad')); await p.mouse.move(640, 400);
+  for (let i = 0; i < 2; i++) { await p.keyboard.down('Control'); await p.mouse.wheel(0, -100); await p.keyboard.up('Control'); await p.waitForTimeout(200); }
+  const l1 = await stand(); zeg(l1.laag === 1, 'Steeg-blok: Ctrl+scrollen kiest de laag', l1.laag);
+  // 4. een laag gekozen en dan slepen met Fietspad (zonder eigen stapelregels): gaf eerst een fout in vulBlokken
   await p.evaluate(() => window.__SC().selectTool('fietspad')); await p.mouse.move(560, 400); await p.mouse.down();
   for (let i = 0; i < 8; i++) { await p.mouse.move(560 + i * 20, 400 + i * 5); await p.waitForTimeout(40); } await p.mouse.up(); await p.waitForTimeout(400);
   zeg(!errs.length, 'laag gekozen, dan slepen met Fietspad: geen fout', errs);

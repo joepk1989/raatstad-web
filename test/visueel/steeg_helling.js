@@ -18,7 +18,7 @@ const { open, OUT } = require('./helper');
       if (toets[k]) { await p.waitForTimeout(150); await p.keyboard.press(toets[k]); await p.waitForTimeout(200); } }
     await p.mouse.up(); await p.waitForTimeout(800); };
   // west → oost over rij 2: bij (-3, 2) E (omhoog), bij (2, 2) Q (weer omlaag), eind op (6, 2)
-  await sleep([[-7, 2], [-3, 2], [2, 2], [6, 2]], { 1: 'KeyE', 2: 'KeyQ' });
+  await sleep([[-7, 2], [-3, 2], [2, 2], [6, 2]], { 1: 'PageUp', 2: 'PageDown' });
   const r = await p.evaluate(() => { const S = window.__SC(), P = S.getCells().paths.filter(x => x.t === 'steeg'), x = P[P.length - 1], h = (q, r) => { const w = S.cellToWorld(q, r); return +S.pathH(x, w.x, w.z).toFixed(2); };
     const D = window.__modDbg(); let trede = 0, vorige = null; const a = S.cellToWorld(-7, 2), e = S.cellToWorld(6, 2);
     for (let i = 0; i <= 400; i++) { const px = a.x + (e.x - a.x) * i / 400, pz = a.z; const f = D.floorAt(px, pz, (vorige === null ? 0 : vorige) + 0.3); if (vorige !== null && Math.abs(f - vorige) > 0.3) trede++; vorige = f; }

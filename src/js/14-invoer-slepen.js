@@ -49,9 +49,9 @@
       const terrT = TERR_TOOLS.has(tool) && (e.button === 0 || e.button === 2) && !e.altKey;   // terrein: links én rechts boetseren (rechts andersom), schuiven met het wiel/middelste knop
       downInfo = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false, panMode: (e.button === 2 && !terrT) || (e.shiftKey && !terrT), right: e.button === 2,
         rotate: e.button === 1 || e.altKey,
-        road: (DRAG_TOOLS.has(tool) || EDGE_TOOLS.has(tool) || lineModSel()) && e.button === 0 && !e.shiftKey && !e.altKey && e.pointerType === 'mouse',
-        bouw: tool === 'vbouw' && e.button === 0 && !e.shiftKey && !e.altKey && !e.ctrlKey && e.pointerType === 'mouse',   // Bouwpad: links ingedrukt slepen legt vak na vak
-        links: e.button === 0 && e.pointerType === 'mouse' };   // links slepen draait de camera niet (dat doet de middelste knop, of Alt + links)
+        road: (DRAG_TOOLS.has(tool) || EDGE_TOOLS.has(tool) || lineModSel()) && e.button === 0 && !e.shiftKey && !e.altKey,   // muis, pen of één vinger: slepen tekent meteen (de camera draaien: middelste knop, Alt, of twee vingers)
+        bouw: tool === 'vbouw' && e.button === 0 && !e.shiftKey && !e.altKey && !e.ctrlKey,   // Bouwpad: links ingedrukt slepen legt vak na vak
+        links: e.button === 0 && e.pointerType !== 'touch' };   // links slepen draait de camera niet (dat doet de middelste knop, of Alt + links)
       if (terrT && e.pointerType === 'mouse') { downInfo.sculpt = sculptStart(e.clientX, e.clientY, e.shiftKey || e.button === 2); downInfo.moved = true; }   // terrein: meteen boetseren
       if (terrT && e.pointerType !== 'mouse') {   // touchscreen: even vasthouden, dan boetseren
         const d0 = downInfo; clearTimeout(roadHold);
@@ -197,17 +197,11 @@
     if (e.code === 'Space' && mode === 'build' && !e.repeat && !(e.target.closest && e.target.closest('input, textarea, select')) && (typeof sheet === 'undefined' || sheet.hidden)) { e.preventDefault(); if (flyCam.on) flyStop(); else flyStart(); return; }
     if (mode === 'walk' && e.code === 'Space') { e.preventDefault(); jump(); }
     const n = parseInt(e.key, 10);
-    // E/Q (niet aan het slepen): met een getekende weg of pad de hoogte waarop je begint, met een stapelbaar blok of een
-    // module de laag (zoals Ctrl+scrollen); met ander gereedschap draaien ze de camera (updateBuildKeys, 15b)
+    // Q/E draaien altijd het beeld (Joep), bij elk gereedschap (updateBuildKeys, 15b). Hoogte: vooraf ▲▼ in het paneel,
+    // tijdens het slepen het scrollwiel of Page Up/Down; de laag van blokken, modules en het Bouwpad: Ctrl+scrollen of de laagkiezer.
     if (mode === 'build' && tool === 'vbouw' && e.code === 'Escape') bouwpadStop();   // Bouwpad: Esc = klaar, de volgende klik begint een nieuw pad
-    if (mode === 'build' && !roadDrag.on && !flyCam.on && (e.code === 'KeyE' || e.code === 'KeyQ') && !e.ctrlKey && !e.metaKey && !(e.target.closest && e.target.closest('input, textarea, select')) && eqHoogte()) {
-      e.preventDefault(); if (e.repeat) return; const dir = e.code === 'KeyE' ? 1 : -1;
-      if (VEC_TOOLS.has(tool)) roadHeightStep(dir);
-      else if (typeof HUD !== 'undefined' && HUD) { const L = HUD.layer; HUD.setLayer(L === null ? (dir > 0 ? 1 : null) : (L + dir <= 0 ? null : L + dir)); }
-      return;
-    }
     if (roadDrag.on && roadDrag.vp && e.code === 'KeyL') { e.preventDefault(); roadAbsToggle(); return; }
-    if (roadDrag.on && roadDrag.vp && ['KeyE', 'KeyQ', 'PageUp', 'PageDown', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'].includes(e.code)) { e.preventDefault(); roadHeightStep(['KeyE', 'PageUp', 'Equal', 'NumpadAdd'].includes(e.code) ? 1 : -1); return; }
+    if (roadDrag.on && roadDrag.vp && ['PageUp', 'PageDown', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'].includes(e.code)) { e.preventDefault(); roadHeightStep(['PageUp', 'Equal', 'NumpadAdd'].includes(e.code) ? 1 : -1); return; }
     if (mode === 'walk' && e.code === 'KeyQ') { const H = ['kijken', 'bouwen', 'hamer']; setHand(H[(H.indexOf(hand) + 1) % 3]); toast(hand === 'kijken' ? 'Kijken' : hand === 'bouwen' ? 'Bouwen: ' + (TYPES[toolBase(tool)] ? TYPES[toolBase(tool)].name : tool) : 'Hamer: klik om te slopen', 1200); return; }
     if (flyCam.on && e.code === 'KeyF') { e.preventDefault(); flyPhoto(); return; }
     if (flyCam.on) return;   // cameramodus: geen bouwtoetsen
@@ -402,7 +396,7 @@
     const W = c => { const w = cellToWorld(c[0], c[1]); return [Math.round(w.x * 100) / 100, Math.round(w.z * 100) / 100]; };
     const same = cell[0] === from[0] && cell[1] === from[1];
     // Aansluiten op een blok: begint of eindigt de weg/het pad vlak naast een Steeg, Helling, Trap, Hof …, dan komt dat
-    // eind vanzelf op de hoogte van die vloer (blokAanHoogte, 05) — tenzij je daar zelf met E/Q een hoogte koos
+    // eind vanzelf op de hoogte van die vloer (blokAanHoogte, 05) — tenzij je daar zelf een hoogte koos
     if (!same && D.roofY == null) {
       const dirK = (a, b) => { const dq = b[0] - a[0], dr = b[1] - a[1], n = hexDist(dq, dr); return NEIGH.findIndex(([x, y]) => x * n === dq && y * n === dr); };
       const nb = D.vcorners.length ? D.vcorners[0] : cell, kS = dirK(nb, D.vstart), kE = dirK(from, cell);
@@ -423,7 +417,7 @@
     { const pts = [D.vstart, ...D.vcorners, ...(same ? [] : [cell])]; D.count = pts.length < 2 ? 0 : 1 + pts.slice(1).reduce((n, c, i) => n + hexDist(c[0] - pts[i][0], c[1] - pts[i][1]), 0); }
     buildPathNet(true, [D.vp]);   // alleen de weg die je sleept opnieuw (07)
   }
-  // Tijdens het slepen van een weg: hoger of lager (E/Q, Page Up/Down, + / −, scrollwiel of de knoppen ▲▼).
+  // Tijdens het slepen van een weg: hoger of lager (Page Up/Down, + / −, scrollwiel of de knoppen ▲▼; Q/E draaien het beeld).
   // Zolang je nog op het beginvak staat, verander je het begin; daarna het punt waar je nu bent.
   const dragHEl = document.getElementById('dragH');
   // Het hoogtepaneel staat er zodra een getekende weg gekozen is (niet pas tijdens het slepen): met een muis houd je
@@ -447,8 +441,7 @@
     D.last = null; if (D.vp) vecPaintTo(D.vend || D.vstart);
     toast(D.abs ? 'Vaste laag: hoogte in modulelagen van 3 m, los van het terrein' : 'Hoogte volgt het terrein', 1600);
   }
-  // Gebruiken E/Q met dit gereedschap de hoogte (in plaats van de camera te draaien)?
-  function eqHoogte() { if (VEC_TOOLS.has(tool) || tool === 'module') return true; const b = baseOf(toolBase(tool)); return !!(RULES[b] && RULES[b].includes('blok')); }
+  // Een stap hoger of lager: vooraf de beginhoogte van de volgende weg, tijdens het slepen het punt waar je bent
   function roadHeightStep(dir) {
     const D = roadDrag;
     if (!D.on || !D.vp) {   // nog niet aan het slepen: de beginhoogte van de volgende weg
@@ -456,7 +449,7 @@
       const st0 = tool === 'vpad' || tool === 'vsteeg' || tool === 'vbouw' ? 3 : 1.5;   // paden en stegen alleen in lagen van 3 m
       const cur = D.preset || 0, nv = Math.max(0, Math.min(D.abs ? 48 : ROAD_MAX_OFF, D.abs || st0 === 3 ? Math.round(cur / 3 + dir) * 3 : Math.round((cur + dir * 1.5) * 2) / 2));
       D.preset = nv; D.presetKlik = true; dragHText();
-      toast(nv ? 'Volgende weg begint ' + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') + ' · tijdens het slepen: E/Q of scrollwiel' : 'Volgende weg ligt op het terrein', 1800);
+      toast(nv ? 'Volgende weg begint ' + (D.abs ? 'op laag ' + nv / 3 + ' (' + nv + ' m)' : nv.toLocaleString('nl') + ' m boven het terrein') + ' · tijdens het slepen: scrollwiel of Page Up/Down' : 'Volgende weg ligt op het terrein', 1800);
       return true;
     }
     const atStart = !D.vend || (D.vend[0] === D.vstart[0] && D.vend[1] === D.vstart[1] && !D.vcorners.length);
@@ -640,8 +633,8 @@
   // weg (van dezelfde soort), dan sluit het daar op aan; anders begint er een nieuwe weg. Er is geen "knooppunt" dat je moet afsluiten.
   // Een weg heeft een staartje (half vak) voorbij zijn laatste vak, zodat het vak vol zit; dat schuift bij het doorklikken mee.
   const HALF = 0.15, r2 = v => Math.round(v * 100) / 100;
-  // een nieuw geklikt stuk weg op de vooraf gekozen hoogte (▲▼ of E/Q zonder te slepen; bij pad en steeg in lagen van 3 m)
-  // Doorklikken op hoogte: zonder E/Q blijft het nieuwe vak op de hoogte van het eind; na E/Q gaat het één laag per vak
+  // een nieuw geklikt stuk weg op de vooraf gekozen hoogte (▲▼ zonder te slepen; bij pad en steeg in lagen van 3 m)
+  // Doorklikken op hoogte: zonder ▲▼ blijft het nieuwe vak op de hoogte van het eind; na ▲▼ gaat het één laag per vak
   // (pad, steeg, vaste laag: 3 m; weg: 1,5 m) naar de gekozen hoogte, met een helling over dat ene vak. Tien keer E en
   // dan tien klikken: elk vak 3 m hoger, tot 30 m (roadDrag.preset blijft het doel tot je het bereikt).
   function vecKlikHoogte(path, end) {

@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
     for (let k = 1; k < s.length; k++) { for (let i = 1; i <= 12; i++) { await p.mouse.move(s[k - 1][0] + (s[k][0] - s[k - 1][0]) * i / 12, s[k - 1][1] + (s[k][1] - s[k - 1][1]) * i / 12); await p.waitForTimeout(30); }
       if (toets[k]) { await p.waitForTimeout(150); await p.keyboard.press(toets[k]); await p.waitForTimeout(200); } }
     await p.mouse.up(); await p.waitForTimeout(800); };
-  await sleep([[-7, 2], [-3, 2], [2, 2], [6, 2]], { 1: 'KeyE', 2: 'KeyQ' });
+  await sleep([[-7, 2], [-3, 2], [2, 2], [6, 2]], { 1: 'PageUp', 2: 'PageDown' });
   await p.waitForTimeout(1500);
   const r = await p.evaluate(() => { const S = window.__SC(), P = S.getCells().paths.filter(x => x.t === 'steeg'), x = P[P.length - 1];
     let pijlers = 0; S.scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'CylinderGeometry' && o.userData.own) pijlers++; });

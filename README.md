@@ -593,7 +593,9 @@ Menu → **Stegentoren**: een getrapte toren van 5 lagen (tot 15 m), helemaal ui
 - er zijn vijf hellingen;
 - de speler loopt zelf de ingangshelling op tot 3 m.
 
-**E/Q ook vooraf** (`eqHoogte` en de toetsafhandeling in 14, november 2026). Eerst werkten E en Q alleen tijdens het slepen van een getekende weg; ervoor of erna draaiden ze de camera, dus voor de hoogte "deden ze niks". Nu hangt het af van wat je in de hand hebt:
+**Q/E draaien altijd het beeld** (Joep, november 2026; daarvoor zetten ze bij wegen, paden, blokken en modules een hoogte of laag, zie hieronder). Hoogte van een getekende weg of pad: vooraf ▲▼ in het hoogtepaneel, tijdens het slepen het scrollwiel, Page Up/Down of + / −. De laag van blokken, modules en het Bouwpad: Ctrl+scrollen, de laagkiezer of Page Up/Down. Met een pen of één vinger tekent slepen met een weg, pad of het Bouwpad meteen (de camera draaien: middelste muisknop, Alt + links, of twee vingers). Een gekozen laag snijdt net boven die laag (blokken blijven heel), alleen met een module of Aanwijzen in de hand 35 cm eronder (in een verdieping kijken). Test: `test/visueel/eq_hoogte.js`.
+
+(Oud) **E/Q ook vooraf** (`eqHoogte` en de toetsafhandeling in 14, november 2026). Eerst werkten E en Q alleen tijdens het slepen van een getekende weg; ervoor of erna draaiden ze de camera, dus voor de hoogte "deden ze niks". Nu hangt het af van wat je in de hand hebt:
 - **een getekende weg, pad of steeg:** vooraf de beginhoogte, net als ▲▼ (bij pad en steeg een laag van 3 m per druk), en tijdens het slepen het punt waar je bent;
 - **een stapelbaar blok** (Steeg, Helling, Trap, Blok …) **of een module:** de laag, net als Ctrl+scrollen of de laagkiezer (Q op laag 1 = weer alle lagen);
 - **ander gereedschap:** E/Q draaien de camera, zoals vroeger.

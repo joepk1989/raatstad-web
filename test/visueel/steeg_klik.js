@@ -10,8 +10,9 @@ const { open, OUT, tik } = require('./helper');
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click();
     const w = S.cellToWorld(0, 2); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 140; S.orbit.phi = 0.7; S.orbit.theta = 0.3; S.applyOrbit(); S.selectTool('vsteeg'); });
   await p.waitForTimeout(400);
+  const knop = async (d, n = 1) => { for (let i = 0; i < n; i++) { await p.evaluate(d => document.querySelector('#dragH [data-d="' + d + '"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), d); await p.waitForTimeout(60); } };   // ▲ (1) of ▼ (-1) in het hoogtepaneel
   const scherm = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, 0, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
-  await p.mouse.move(640, 400); await p.keyboard.press('KeyE'); await p.waitForTimeout(300);
+  await p.mouse.move(640, 400); await knop(1); await p.waitForTimeout(300);
   const label = await p.evaluate(() => { const el = document.getElementById('dragH'); return el ? el.innerText.replace(/\s+/g, ' ') : null; });
   for (const q of [-3, -2, -1, 0, 1, 2]) { const s = await scherm(q, 2); await tik(p, s[0], s[1]); }
   await p.keyboard.press('Escape'); await p.waitForTimeout(1500);

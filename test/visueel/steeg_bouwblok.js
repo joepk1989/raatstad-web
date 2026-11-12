@@ -11,13 +11,14 @@ const { open, OUT, tik } = require('./helper');
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click();
     const w = S.cellToWorld(3, -1); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 230; S.orbit.phi = 0.1; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vsteeg'); });
   await p.waitForTimeout(500);
+  const knop = async (d, n = 1) => { for (let i = 0; i < n; i++) { await p.evaluate(d => document.querySelector('#dragH [data-d="' + d + '"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), d); await p.waitForTimeout(60); } };   // ▲ (1) of ▼ (-1) in het hoogtepaneel
   const scherm = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, 0, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
   const klik = async (q, r) => { const s = await scherm(q, r); await tik(p, s[0], s[1]); };
   const toets = async (k, n) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(60); } };
-  await toets('KeyQ', 12);
+  await knop(-1, 12);
   for (const c of [[0, -1], [1, -1], [2, -1], [2, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]]) await klik(...c);   // de ring
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
-  await klik(3, 0); await klik(4, 0); await toets('KeyE', 1); await klik(5, -1); await klik(6, -2); await toets('KeyE', 1); await klik(7, -3); await klik(8, -4);   // aftakking: vlak, schans naar 3 m, vlak, schans naar 6 m, vlak
+  await klik(3, 0); await klik(4, 0); await knop(1); await klik(5, -1); await klik(6, -2); await knop(1); await klik(7, -3); await klik(8, -4);   // aftakking: vlak, schans naar 3 m, vlak, schans naar 6 m, vlak
   await p.keyboard.press('Escape'); await p.waitForTimeout(500);
   await p.evaluate(() => { const S = window.__SC(); for (const x of S.getCells().paths) if (x.t === 'steeg') x.rand = 'blok'; S.buildPathNet(); }); await p.waitForTimeout(1500);
   const r = await p.evaluate(() => { const S = window.__SC(), P = (S.getCells().paths || []).filter(x => x.t === 'steeg'), g = S.scene.children.find(o => o.userData && o.userData.kavels) || null;
