@@ -68,8 +68,11 @@
     const mir = moduleMir && mod.v === 2;
     if (n) (cells.inst || (cells.inst = [])).push(Object.assign({ mid: mod.id, m: instData(mod, mir), q: q0, r: r0, rot: moduleRot }, lv ? { lv } : {}, mir ? { mir: true } : {}));
     if (n && lv && mod.v === 2) { buildModNet(); if (isDeckMod(mod)) buildPathNet(); changed(); toast('"' + mod.name + '" geplaatst op laag ' + lv + ' (' + lv * MV2.LV_H + ' m)' + (mv2Area({ m: mod, rot: moduleRot, q: q0, r: r0 }).some(([q, r]) => vecCover.has(q + ',' + r)) ? ' · boven de weg, op poten' : ''), 2200); return true; }
-    if (n && mod.v === 2 && Number.isInteger(q0) && Number.isInteger(r0)) { const G0 = gH(q0, r0); terrSet(mv2Area({ m: mod, rot: moduleRot, q: q0, r: r0 }).map(([q, r]) => [q, r, G0])); }   // de module staat vlak: het terrein eronder op één hoogte
-    buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); changed();
+    let terrVeranderd = false;
+    if (n && mod.v === 2 && Number.isInteger(q0) && Number.isInteger(r0)) { const G0 = gH(q0, r0), A = mv2Area({ m: mod, rot: moduleRot, q: q0, r: r0 }); terrVeranderd = A.some(([q, r]) => Math.abs(gH(q, r) - G0) > 0.01); if (terrVeranderd) terrSet(A.map(([q, r]) => [q, r, G0])); }   // de module staat vlak: het terrein eronder op één hoogte
+    // een module (v2) op vlak terrein: alleen de modules opnieuw (de wegen en het terrein langs de wegen veranderen niet)
+    if (n && mod.v === 2 && !terrVeranderd && !isDeckMod(mod)) { buildModNet(); changed(); }
+    else { buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); changed(); }
     toast(n ? '"' + mod.name + '" geplaatst' + (skip ? ' · ' + skip + ' stukken overgeslagen (water of bebouwing)' : '') : 'Hier past de module niet', 2200);
     return n > 0;
   }
@@ -216,7 +219,12 @@
     if (best < 0) cells.inst.forEach((I, i) => { let d = 1e9; for (const a of instPts(I)) d = Math.min(d, Math.hypot(a[0] - x, a[1] - z)); if (d < bd - 1e-6 || (d <= bd + 1e-6 && best >= 0 && (I.lv || 0) > (cells.inst[best].lv || 0))) { bd = d; best = i; } });   // bij gelijke afstand de bovenste
     if (best < 0) return false;
     const I = cells.inst.splice(best, 1)[0], m = I.m; removeInst(I);
-    buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); changed(); toast('"' + m.name + '" weggehaald', 1200); return true;
+    // Een module (v2) staat alleen in cells.inst: alleen de modules opnieuw (buildModNet werkt ook het terrein eronder bij).
+    // De wegen alleen als het een wegdek was. Eerst bouwden we hier alle wegen, paden en het terrein langs alle wegen
+    // opnieuw op: in de Grote stad kostte één huis weghalen zo tientallen seconden.
+    if (m && m.v === 2) { buildModNet(); if (isDeckMod(m)) buildPathNet(); }
+    else { buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); }
+    changed(); toast('"' + m.name + '" weggehaald', 1200); return true;
   }
   const moduleGhost = new THREE.Group(); scene.add(moduleGhost); let moduleGhostKey = '';
   // ---------- Aansluiten bij het plaatsen: welke zijden van het spookbeeld passen op de buren? ----------
