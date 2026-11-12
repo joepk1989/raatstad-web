@@ -1103,7 +1103,7 @@
     for (const [I, keys] of per) { const sk = new Set(); for (const k of keys) if (best.get(k).I !== I) sk.add(k); out.set(I, sk); }
     return out;
   }
-  function buildModNet() { deckInvalidate();
+  function buildModNet(opts) { deckInvalidate();   // opts.later: de balustrades en het loopnetwerk net na deze klik (zie railsLater)
     nearbyClear();
     // een vernieuwde standaardmodule (lib10 en later): geplaatste exemplaren in elke stad krijgen de nieuwe versie
     if (typeof modules !== 'undefined' && (cells.inst || []).length) { let byId = null; for (const I of cells.inst) { if (!I.mid || !I.m || I.m.v !== 2) continue; byId = byId || new Map(modules.map(m => [m.id, m])); const M = byId.get(I.mid); if (M && M.v === 2 && M.lib && (I.m.lib || 0) < M.lib) { I.m = instData(M, I.mir); I.m.lib = M.lib; } } }
@@ -1135,7 +1135,8 @@
     // het terrein onder een module is een plateau: bij een nieuwe of weggehaalde module de stukken eromheen bijwerken
     const diff = []; for (const k of modCellSet) if (!before.has(k)) diff.push(k.split(',').map(Number)); for (const k of before) if (!modCellSet.has(k)) diff.push(k.split(',').map(Number));
     if (diff.length && cells.terr && Object.keys(cells.terr).length) { terrDirty(diff); terrFlush(); }
-    if (touched || railForce_) { railForce_ = false; buildRails(live); peopleDirty = true; peopleLocalEdit = true; }   // het loopnetwerk door de modules is veranderd
+    if ((touched || railForce_) && opts && opts.later) { railForce_ = false; railsLater(live); for (const [k, col] of railCols) { let L = modCols.get(k); if (!L) modCols.set(k, L = []); L.push(col); } }   // na een klik: even later (het huis is al weg of staat er al)
+    else if (touched || railForce_) { railForce_ = false; railsNu = null; clearTimeout(railsT); buildRails(live); peopleDirty = true; peopleLocalEdit = true; }   // het loopnetwerk door de modules is veranderd
     else for (const [k, col] of railCols) { let L = modCols.get(k); if (!L) modCols.set(k, L = []); L.push(col); }
     try { buildLegs(live); } catch (e) { console.warn('poten', e); }   // poten onder modules die boven een weg zweven (08l)
   }
@@ -1145,6 +1146,16 @@
   // geen trap, helling of maaiveld), dan komt er een hek van 1,05 m, met botsing.
   const railGroup = new THREE.Group(); scene.add(railGroup);
   let railCols = new Map();
+  // Balustrades en het loopnetwerk door alle modules kosten in een grote stad zo'n seconde (buildRails). Na het weghalen of
+  // neerzetten van één module doen we dat net na de klik (een volgende klik binnen die tijd telt mee): het huis verdwijnt of
+  // verschijnt meteen, de hekjes volgen een tel later. Laden en alles opnieuw opbouwen blijft in één keer.
+  let railsT = 0, railsNu = null;
+  function railsLater(live) {
+    railsNu = live; clearTimeout(railsT);
+    railsT = setTimeout(() => { const L = railsNu; railsNu = null; if (!L) return;
+      for (const [k, col] of railCols) { const A = modCols.get(k); if (A) { const i = A.indexOf(col); if (i >= 0) A.splice(i, 1); } }   // de oude hekjes uit de botsing
+      buildRails(L); nearbyClear(); peopleDirty = true; peopleLocalEdit = true; }, 80);
+  }
   // het hek van één gebouw weg (ingestort) of terug: beeld en botsing
   // Het hek van alle gebouwen is één samengevoegd stuk (één tekenopdracht); per gebouw bewaren we de losse stukjes en de botsing,
   // zodat een ingestort gebouw zijn hek kwijtraakt (het doet dan als losse stukken mee met instorten) en het terugkomt bij herbouwen.
