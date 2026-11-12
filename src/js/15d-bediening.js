@@ -8,7 +8,9 @@
   // Deze functies worden ook elders aangeroepen (ook vóór dit bestand klaar is), dus ze kijken eerst of HUD er is.
   var HUD = null, hudFirstSnap = null;
   function hudLayer() { return HUD && mode === 'build' ? HUD.layer : null; }
-  function hudCut() { return HUD.layer * MV2.LV_H + MV2.LV_H + (typeof tool !== 'undefined' && tool !== 'module' && tool !== 'kies' ? 0.08 : -0.35); }   // Bouwpad: net boven de blokken van die laag (op 2,65 m waren ze hol: de bovenkant was weggesneden); anders 35 cm eronder, om in een verdieping te kijken
+  // vanuit 'Alles' een laag omhoog of omlaag: vanaf de laag waar je bent (met het Bouwpad: het eind van je pad), anders vanaf de grond
+  function laagVanAlles(dir) { const ref = tool === 'vbouw' && typeof BP !== 'undefined' && BP.prev ? BP.lv : 0; return Math.max(0, ref + dir); }
+  function hudCut() { return HUD.layer * MV2.LV_H + MV2.LV_H + (typeof tool !== 'undefined' && tool !== 'module' && tool !== 'kies' ? 0.01 : -0.35); }   // Bouwpad: net boven de blokken van die laag (op 2,65 m waren ze hol: de bovenkant was weggesneden); anders 35 cm eronder, om in een verdieping te kijken
   function hudPickFilter(hits) { if (hudLayer() === null) return hits; const c = hudCut() + 0.05; return hits.filter(h => h.point.y <= c); }
   function hudSnap(s) { if (!HUD) { hudFirstSnap = s; return; } HUD.snap(s); }
   function hudOnTool(t) { if (HUD) HUD.onTool(t); }
@@ -165,8 +167,8 @@
       if (e.code === 'Escape' && !paletteEl.hidden) { catalog(false); return; }
       if (mode === 'build' && !roadDrag.on && (e.code === 'PageUp' || e.code === 'PageDown')) {
         e.preventDefault();
-        if (e.code === 'PageUp') setLayer(layer === null ? 0 : layer + 1 > maxLv ? null : layer + 1);
-        else setLayer(layer === null ? maxLv : layer - 1 < 0 ? null : layer - 1);
+        if (e.code === 'PageUp') setLayer(layer === null ? laagVanAlles(1) : layer + 1 > maxLv ? null : layer + 1);
+        else setLayer(layer === null ? laagVanAlles(-1) : layer - 1 < 0 ? null : layer - 1);
       }
     });
     // ---------- tijd en weer in één knop rechtsboven ----------

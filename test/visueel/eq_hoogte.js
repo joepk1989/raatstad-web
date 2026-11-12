@@ -22,7 +22,7 @@ const { open, OUT } = require('./helper');
   zeg(/6/.test(k1.hoogte || '') && !/\d/.test(k2.hoogte || ''), 'Steeg (getekend): ▲ 2× = 6 m, ▼ 2× = weer op het terrein', [k1.hoogte, k2.hoogte]);
   // 3. Ctrl+scrollen kiest de laag (Steeg-blok)
   await p.evaluate(() => window.__SC().selectTool('looppad')); await p.mouse.move(640, 400);
-  for (let i = 0; i < 2; i++) { await p.keyboard.down('Control'); await p.mouse.wheel(0, -100); await p.keyboard.up('Control'); await p.waitForTimeout(200); }
+  await p.keyboard.down('Control'); await p.mouse.wheel(0, -100); await p.keyboard.up('Control'); await p.waitForTimeout(200);   // vanuit 'Alles' één tik omhoog: laag 1
   const l1 = await stand(); zeg(l1.laag === 1, 'Steeg-blok: Ctrl+scrollen kiest de laag', l1.laag);
   // 4. een laag gekozen en dan slepen met Fietspad (zonder eigen stapelregels): gaf eerst een fout in vulBlokken
   await p.evaluate(() => window.__SC().selectTool('fietspad')); await p.mouse.move(560, 400); await p.mouse.down();

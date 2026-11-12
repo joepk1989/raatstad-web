@@ -17,7 +17,7 @@ const { open, OUT, tik } = require('./helper');
   let g = await wijs(0, 0); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.q.join() === '0,0', 'leeg vak: geel voorbeeld op de grond', g);
   await klik(0, 0); g = await wijs(1, 0); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.q.join() === '1,0', 'volgend vak: geel op de grond', g);
   const wiel = async n => { for (let i = 0; i < Math.abs(n); i++) { await p.keyboard.down('Control'); await p.mouse.wheel(0, n > 0 ? -100 : 100); await p.keyboard.up('Control'); await p.waitForTimeout(200); } await beeld(); };   // Ctrl+scrollen: laag hoger/lager
-  await wiel(2); g = await spook(); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.pijl, 'Ctrl+scrollen naar laag 1: een helling (met pijl) vanaf de grond', g);
+  await wiel(1); g = await spook(); zeg(g.kleur === 'geel' && Math.abs(g.y) < 0.2 && g.pijl, 'Ctrl+scrollen naar laag 1: een helling (met pijl) vanaf de grond', g);
   await klik(1, 0); g = await wijs(2, 0, 3); zeg(g.kleur === 'geel' && Math.abs(g.y - 3) < 0.2, 'na de helling: voorbeeld op laag 1 (3 m)', g);
   g = await wijs(1, 1, 3); zeg(g.kleur === 'geel' && Math.abs(g.y - 3) < 0.2, 'flauwe bocht na de helling: geel op 3 m', g);
   g = await wijs(0, 1, 0); zeg(g.kleur === 'rood', 'scherpe bocht na de helling: rood', g);
