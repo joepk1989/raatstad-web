@@ -36,11 +36,11 @@ const { open, OUT } = require('./helper');
   const na3 = await p.evaluate(() => window.__HUD.layer);
   await p.mouse.wheel(0, -120); await p.waitForTimeout(250);
   const na4 = await p.evaluate(() => window.__HUD.layer); await p.keyboard.up('Control');
-  zeg(na3 === 0 && na4 === 1, 'Ctrl+scrollen omhoog: laag per laag omhoog (0, dan 1)', { na3, na4 });
+  zeg(na3 === 1 && na4 === 2, 'Ctrl+scrollen omhoog: laag per laag omhoog (vanuit Alles eerst laag 1, dan 2; zie PR #83)', { na3, na4 });
   await p.mouse.wheel(0, 120); await p.waitForTimeout(250);
-  const na5 = await p.evaluate(() => window.__HUD.layer); zeg(na5 === 1, 'zonder Ctrl: scrollen verandert de laag niet (zoomt)', na5);
+  const na5 = await p.evaluate(() => window.__HUD.layer); zeg(na5 === 2, 'zonder Ctrl: scrollen verandert de laag niet (zoomt)', na5);
   await p.keyboard.down('Control'); await p.mouse.wheel(0, 120); await p.waitForTimeout(250); const na6 = await p.evaluate(() => window.__HUD.layer); await p.keyboard.up('Control');
-  zeg(na6 === 0, 'Ctrl+scrollen omlaag: laag omlaag', na6);
+  zeg(na6 === 1, 'Ctrl+scrollen omlaag: laag omlaag', na6);
   // het spookbeeld staat echt op de gekozen hoogte
   const gy = await p.evaluate(() => window.__moduleGhost().y);
   await p.keyboard.down('Control'); await p.mouse.wheel(0, -120); await p.waitForTimeout(250); await p.keyboard.up('Control');
