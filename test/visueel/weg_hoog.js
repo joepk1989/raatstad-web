@@ -10,9 +10,9 @@ const { open, OUT } = require('./helper');
  await p.mouse.move(a[0], a[1]); await p.mouse.down();
  for (let i = 1; i <= 10; i++) { await p.mouse.move(a[0] + (m[0] - a[0]) * i / 10, a[1] + (m[1] - a[1]) * i / 10); await p.waitForTimeout(40); }
  const tijdens = await p.evaluate(() => { const el = document.getElementById('dragH'); return { knoppenZichtbaar: el && !el.hidden }; });
- for (let i = 0; i < 4; i++) { await p.keyboard.press('KeyE'); await p.waitForTimeout(120); }
+ for (let i = 0; i < 4; i++) { await p.keyboard.press('PageUp'); await p.waitForTimeout(120); }
  for (let i = 1; i <= 10; i++) { await p.mouse.move(m[0] + (e[0] - m[0]) * i / 10, m[1] + (e[1] - m[1]) * i / 10); await p.waitForTimeout(40); }
- for (let i = 0; i < 4; i++) { await p.keyboard.press('KeyE'); await p.waitForTimeout(120); }
+ for (let i = 0; i < 4; i++) { await p.keyboard.press('PageUp'); await p.waitForTimeout(120); }
  await p.screenshot({ path: OUT + '/weg_hoog_tijdens.png', timeout: 120000 });
  await p.mouse.up(); await p.waitForTimeout(800);
  const na = await p.evaluate(n0 => { const S = window.__SC(), P = S.getCells().paths || [], vp = P[P.length - 1]; if (P.length === n0) return { fout: 'geen nieuwe weg' };

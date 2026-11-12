@@ -51,6 +51,15 @@ const { open, OUT, tik } = require('./helper');
   await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(1, 0); S.orbit.phi = 0.9; S.orbit.theta = 0.5; S.orbit.dist = 70; S.orbit.target.set(w.x, 0, w.z); S.applyOrbit(); }); await p.waitForTimeout(600);
   await p.screenshot({ path: OUT + '/bouwpad_muis_laag0.png' });
   zeg(snede === '0', 'Ctrl+scrollen: laag 0 gekozen', snede);
+  // 5. pen en één vinger: met een weg in de hand tekent slepen een weg en draait de camera niet
+  await p.evaluate(() => { window.__SC().laag(null); window.__SC().selectTool('vweg'); }); await beeld();
+  for (const [pt, y] of [['touch', 760], ['pen', 700]]) {
+    const r = await p.evaluate(([pt, y]) => { const S = window.__SC(), c = document.querySelector('canvas'), t0 = S.orbit.theta, n0 = (S.getCells().paths || []).length;
+      const ev = (ty, x) => c.dispatchEvent(new PointerEvent(ty, { clientX: x, clientY: y, pointerId: 9, pointerType: pt, isPrimary: true, bubbles: true, button: ty === 'pointermove' ? -1 : 0, buttons: ty === 'pointerup' ? 0 : 1 }));
+      ev('pointerdown', 250); for (let i = 1; i <= 20; i++) ev('pointermove', 250 + i * 25); ev('pointerup', 750);
+      return { draai: +(S.orbit.theta - t0).toFixed(3), wegen: (S.getCells().paths || []).length - n0, melding: document.getElementById('toast')?.innerText }; }, [pt, y]); await p.waitForTimeout(300);
+    zeg(r.draai === 0 && /aangelegd/.test(r.melding || ''), pt + ': slepen met een weg tekent een weg, de camera draait niet', r);
+  }
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT', JSON.stringify(uit)); console.log('fouten', JSON.stringify(errs));
   await b.close();
 })();

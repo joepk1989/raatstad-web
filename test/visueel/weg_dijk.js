@@ -9,9 +9,9 @@ const { open, OUT } = require('./helper');
  const [a, m, e] = pts.out;
  await p.mouse.move(a[0], a[1]); await p.mouse.down();
  for (let i = 1; i <= 10; i++) { await p.mouse.move(a[0] + (m[0] - a[0]) * i / 10, a[1] + (m[1] - a[1]) * i / 10); await p.waitForTimeout(40); }
- for (let i = 0; i < 4; i++) { await p.keyboard.press('KeyE'); await p.waitForTimeout(120); }
+ for (let i = 0; i < 4; i++) { await p.keyboard.press('PageUp'); await p.waitForTimeout(120); }
  for (let i = 1; i <= 10; i++) { await p.mouse.move(m[0] + (e[0] - m[0]) * i / 10, m[1] + (e[1] - m[1]) * i / 10); await p.waitForTimeout(40); }
- for (let i = 0; i < 4; i++) { await p.keyboard.press('KeyE'); await p.waitForTimeout(120); }
+ for (let i = 0; i < 4; i++) { await p.keyboard.press('PageUp'); await p.waitForTimeout(120); }
  await p.mouse.up(); await p.waitForTimeout(1500);
  // naast de weg (8 m opzij) langs de hele weg: hoe hoog ligt het maaiveld, en hoe hoog de weg?
  const r = await p.evaluate(n0 => { const S = window.__SC(), P = S.getCells().paths || [], vp = P[P.length - 1]; if (P.length === n0) return { fout: 'geen nieuwe weg' };

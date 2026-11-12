@@ -11,6 +11,7 @@ const { open, OUT, tik } = require('./helper');
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) {} const S = window.__SC(); S.doAct('empty'); const k = document.getElementById('keysClose'); if (k) k.click();
     S.orbit.target.set(0, 0, 0); S.orbit.dist = 330; S.orbit.phi = 0.12; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vsteeg'); });
   await p.waitForTimeout(500);
+  const knop = async (d, n = 1) => { for (let i = 0; i < n; i++) { await p.evaluate(d => document.querySelector('#dragH [data-d="' + d + '"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), d); await p.waitForTimeout(60); } };   // ▲ (1) of ▼ (-1) in het hoogtepaneel
   const scherm = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, 0, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
   const klik = async (q, r) => { const s = await scherm(q, r); await tik(p, s[0], s[1]); };
   const toets = async (k, n) => { for (let i = 0; i < n; i++) { await p.keyboard.press(k); await p.waitForTimeout(60); } };
@@ -29,8 +30,8 @@ const { open, OUT, tik } = require('./helper');
     }
     if (!route) { zeg(false, 'route gevonden vanaf ' + start, ''); continue; }
     for (const c of route) bezet.add(c.join(','));
-    await toets('KeyQ', 12); await klik(...route[0]);            // beginvak op de grond
-    await toets('KeyE', 10);                                     // doel: 10 lagen (30 m)
+    await knop(-1, 12); await klik(...route[0]);            // beginvak op de grond
+    await knop(1, 10);                                     // doel: 10 lagen (30 m)
     for (let i = 1; i < route.length; i++) await klik(...route[i]);
     paden.push(route);
   }

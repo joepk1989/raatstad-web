@@ -20,7 +20,7 @@ const { open, OUT } = require('./helper');
     await p.mouse.move(s[0][0], s[0][1]); await p.waitForTimeout(80); await p.mouse.down();
     for (let k = 1; k < s.length; k++) { for (let i = 1; i <= 10; i++) { await p.mouse.move(s[k - 1][0] + (s[k][0] - s[k - 1][0]) * i / 10, s[k - 1][1] + (s[k][1] - s[k - 1][1]) * i / 10); await p.waitForTimeout(35); }
       const d = eNa[k - 1] || 0; if (d && k < s.length - 1) await p.waitForTimeout(2800);   // even stilhouden: een hoekpunt, dan geldt de hoogte voor dat punt
-      for (let i = 0; i < Math.abs(d); i++) { await p.keyboard.press(d > 0 ? 'KeyE' : 'KeyQ'); await p.waitForTimeout(120); } }
+      for (let i = 0; i < Math.abs(d); i++) { await p.keyboard.press(d > 0 ? 'PageUp' : 'PageDown'); await p.waitForTimeout(120); } }
     if (eNa.tijdens) await p.screenshot({ path: OUT + '/paden_getekend_tijdens.png' });
     await p.mouse.up(); await p.waitForTimeout(700); };
   // 1. pad op de grond, oost-west door (0,1)
