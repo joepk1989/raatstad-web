@@ -15,13 +15,13 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(500);
   const openAlle = async () => { await p.evaluate(() => { const b = document.getElementById('catOpen') || [...document.querySelectorAll('button')].find(x => x.textContent.includes('Alle blokken')); b && b.click(); }); await p.waitForTimeout(350); };
   const kiesTab = async naam => { await p.evaluate(naam => { const t = [...document.querySelectorAll('.pal-tab')].find(x => x.textContent === naam); t && t.click(); }, naam); await p.waitForTimeout(250); };
-  const kiesKnop = async id => { await p.evaluate(id => document.getElementById(id).click(), id); await p.waitForTimeout(250); };
+  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else window.__SC().selectTool(id.slice(5)); }, id); await p.waitForTimeout(250); };   // Steeg-blok heeft geen knop meer (oud): dan rechtstreeks kiezen
   await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-looppad');
   const s0 = await scherm(0, 0);
 
-  const NAMEN = ['kaal', 'boom', 'bankjes', 'bloemperk', 'lantaarns'];   // volgorde ná elke klik: boom, bankjes, bloemperk, lantaarns, weer kaal
+  const NAMEN = ['kaal', 'boom', 'bankjes', 'bloemperk', 'lantaarns', 'groen'];   // volgorde ná elke klik: boom, bankjes, bloemperk, lantaarns, groen hofje met bankjes, weer kaal
   const uitkomst = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     await p.keyboard.down('Control'); await p.mouse.click(s0[0], s0[1]); await p.keyboard.up('Control'); await p.waitForTimeout(350);
     uitkomst.push((await p.evaluate(() => window.__SC().getCells().get('0,0'))).join());
     await p.mouse.move(5, 5); await p.waitForTimeout(250);   // weg van het vak: geen doorzichtig voorbeeld overheen
@@ -29,7 +29,7 @@ const { open, OUT } = require('./helper');
     await p.mouse.move(s0[0], s0[1]);
   }
   const hofjeVan = t => +((/(\d)?(\d)$/.exec(t) || [null, '0', '0'])[2] || 0);
-  zeg(JSON.stringify(uitkomst.map(hofjeVan)) === JSON.stringify([1, 2, 3, 4, 0]), 'Ctrl+klik op de kruising: 5× rond (boom, bankjes, bloemperk, lantaarns, weer kaal)', uitkomst);
+  zeg(JSON.stringify(uitkomst.map(hofjeVan)) === JSON.stringify([1, 2, 3, 4, 5, 0]), 'Ctrl+klik op de kruising: 6× rond (boom, bankjes, bloemperk, lantaarns, groen hofje, weer kaal)', uitkomst);
 
   // het materiaal van de kruising zelf verandert hierbij niet (nog steeds klinkers, variant 0)
   const matVan = t => +((/(\d)\d?$/.exec(t) || ['0', '0'])[1]);
