@@ -10,7 +10,7 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(500);
   const openAlle = async () => { await p.evaluate(() => { const b = document.getElementById('catOpen') || [...document.querySelectorAll('button')].find(x => x.textContent.includes('Alle blokken')); b && b.click(); }); await p.waitForTimeout(350); };
   const kiesTab = async naam => { await p.evaluate(naam => { const t = [...document.querySelectorAll('.pal-tab')].find(x => x.textContent === naam); t && t.click(); }, naam); await p.waitForTimeout(250); };
-  const kiesKnop = async id => { await p.evaluate(id => document.getElementById(id).click(), id); await p.waitForTimeout(250); };
+  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else window.__SC().selectTool(id.slice(5)); }, id); await p.waitForTimeout(250); };   // oud gereedschap (Steeg-blok, Helling, Opgang) heeft geen knop meer: dan rechtstreeks kiezen
   const scherm = async (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, S.terrainHeightAt(w.x, w.z), w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
 
   // een buurvak erbij: een los loopdek zonder buren is een dicht blok (geen vloer om een materiaal op te tonen,

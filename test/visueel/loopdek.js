@@ -60,7 +60,7 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(500);
   const openAlle = async () => { await p.evaluate(() => { const b = document.getElementById('catOpen') || [...document.querySelectorAll('button')].find(x => x.textContent.includes('Alle blokken')); b && b.click(); }); await p.waitForTimeout(350); };
   const kiesTab = async naam => { await p.evaluate(naam => { const t = [...document.querySelectorAll('.pal-tab')].find(x => x.textContent === naam); t && t.click(); }, naam); await p.waitForTimeout(250); };
-  const kiesKnop = async id => { const vis = await p.evaluate(id => { const b = document.getElementById(id); return b && b.offsetParent !== null; }, id); if (!vis) return false; await p.evaluate(id => document.getElementById(id).click(), id); await p.waitForTimeout(250); return true; };
+  const kiesKnop = async id => { const vis = await p.evaluate(id => { const b = document.getElementById(id); return b && b.offsetParent !== null; }, id); if (!vis) { await p.evaluate(id => window.__SC().selectTool(id.slice(5)), id); await p.waitForTimeout(250); return 'zonder knop (oud, uit het palet)'; } await p.evaluate(id => document.getElementById(id).click(), id); await p.waitForTimeout(250); return true; };
 
   await openAlle(); await kiesTab('Terrein');
   const hellingKnop = await kiesKnop('tool-helling'); zeg(hellingKnop, 'knop Helling (bij Terrein) echt gevonden en geklikt', hellingKnop);

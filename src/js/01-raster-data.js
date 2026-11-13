@@ -61,13 +61,16 @@
   // Het palet is in groepen verdeeld; het scrollwiel loopt ze allemaal door
   const CATS = [
     { name: 'Wegen', tools: ['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vrot', 'spoor'], todo: [] },   // getekende wegen; de oude vakwegen zijn uit het palet (bestaande steden tonen ze nog)
-    { name: 'Paden', tools: ['vpad', 'vsteeg', 'vbouw', 'vfiets', 'looppad', 'trap', 'trappad'], todo: [] },   // alle paden getekend zoals de wegen (en aansluitend op Steeg, Helling, Trap); de oude vak-paden Pad, Fietspad en Randpad zijn uit het palet (bestaande steden tonen ze nog)
+    { name: 'Paden', tools: ['vpad', 'vsteeg', 'vbouw', 'vfiets', 'trap', 'trappad'], todo: [] },   // alle paden getekend zoals de wegen (en aansluitend op Steeg, Helling, Trap); de oude vak-paden Pad, Fietspad en Randpad zijn uit het palet (bestaande steden tonen ze nog)
     { name: 'Gebouwen', tools: ['woning', 'kantoor', 'dak'], todo: [] },
     { name: 'Groen en water', tools: ['park', 'meer', 'water'], todo: [] },
-    { name: 'Terrein', tools: ['tophoog', 'tafgraaf', 'tvlak', 'tglad', 'thelling', 'kuil', 'helling', 'hofhelling'], todo: ['Klif'] },
+    { name: 'Terrein', tools: ['tophoog', 'tafgraaf', 'tvlak', 'tglad', 'thelling', 'kuil'], todo: ['Klif'] },
     { name: 'Modules', tools: ['module'], todo: [] },   // blok, muur, tunnel, tribune, zuilen en hof zijn modules geworden (zie 08b); bestaande steden tonen ze nog
   ];
-  const TOOLS = [...CATS.flatMap(c => c.tools), 'gum'];
+  // Oud, uit het palet (Joep, 13 nov 2026): de Bouwpad legt dezelfde Steeg-blokken en hellingen en sluit ze vanzelf aan.
+  // Het gereedschap bestaat nog (zonder knop in beeld), zodat oude steden, Ctrl+klik op een steeg en de tests blijven werken.
+  const OUD_GEREEDSCHAP = ['looppad', 'helling', 'hofhelling'];
+  const TOOLS = [...CATS.flatMap(c => c.tools), ...OUD_GEREEDSCHAP, 'gum'];
   const VEC_TOOLS = new Set(['vweg', 'vbrd', 'vlaan', 'vsnel', 'vklink', 'vfiets', 'vpad', 'vsteeg']), VEC_T = { vweg: 'weg', vbrd: 'brd', vlaan: 'laan', vsnel: 'snel', vklink: 'klink', vfiets: 'fiets', vpad: 'pad', vsteeg: 'steeg' };   // getekende wegen: lijnen, geen vakken
   const TOOL_LABEL = {};
   const DIRECTIONAL = new Set(['trap', 'helling', 'muur', 'trappad', 'tribune', 'hofhelling']);   // met een richting, bewaard als trap0…5 enz.
