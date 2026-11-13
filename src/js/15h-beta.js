@@ -41,12 +41,13 @@
       if (!l.length) return; try { localStorage.removeItem(WACHT); } catch (e) { }
       for (const m of l) post(m).catch(() => wachtrij(m));
     }
-    function feedback(soort) {
+    function feedback(soort, vang) {
       const el = makeSheet('fbSheet', `<h2>Melden</h2>
         <p>Wat ging er mis, waar liep je vast, of wat vond je leuk? Alles helpt.</p>
         <div class="fb-soort" role="radiogroup">${SOORTEN.map((t, i) => `<button type="button" class="fb-chip" data-s="${i}" role="radio">${t}</button>`).join('')}</div>
         <textarea id="fbTekst" class="fb-veld" rows="5" placeholder="Wat deed je, en wat gebeurde er?"></textarea>
         <input id="fbMail" class="fb-veld" type="email" autocomplete="email" placeholder="E-mail (niet verplicht, alleen als ik je iets mag vragen)">
+        <div class="fb-f8" id="fbF8" hidden><img id="fbBeeld" alt="Beeld van het moment van F8"><span>Beeld, stad, camera en gereedschap van het moment van F8 gaan mee. Versturen bewaart een bestand en opent GitHub: sleep het bestand erin en plak het beeld (Ctrl+V).</span></div>
         <details class="fb-meer"><summary>Wat er automatisch meegaat</summary><pre class="fb-info" id="fbInfo"></pre></details>
         <div class="welcome-btns" style="grid-template-columns:1fr 1fr">
           <button class="btn" type="button" data-close>Annuleren</button>
@@ -58,12 +59,14 @@
       zet(keuze);
       const tekst = el.querySelector('#fbTekst'), mail = el.querySelector('#fbMail');
       try { mail.value = localStorage.getItem('raatstad-melding-mail') || ''; } catch (e) { }
-      el.querySelector('#fbInfo').textContent = info();
+      el.querySelector('#fbInfo').textContent = info() + (vang ? '\n\nToestand (F8):\n' + JSON.stringify(vang.toestand, null, 1) : '');
+      const f8 = el.querySelector('#fbF8'); f8.hidden = !vang; if (vang) el.querySelector('#fbBeeld').src = vang.jpg;
       el.querySelector('#fbGo').onclick = () => {
         const t = tekst.value.trim();
         if (!t && keuze !== 3) { tekst.focus(); toast('Schrijf kort wat er gebeurde', 1800); return; }
         const m = { soort: SOORTEN[keuze] || 'Anders', tekst: t, email: mail.value.trim(), gegevens: info() };
         try { if (m.email) localStorage.setItem('raatstad-melding-mail', m.email); } catch (e) { }
+        if (vang) { f8Versturen(m, vang); el.hidden = true; tekst.value = ''; lastErr = ''; return; }   // F8: altijd naar GitHub, daar lees ik het terug
         if (!FORM.url) {   // nog geen formulier: GitHub, met alles ingevuld
           window.open(FALLBACK_URL + '?title=' + encodeURIComponent(m.soort + ' · ' + VERSIE) + '&body=' + encodeURIComponent(t + '\n\n---\n' + m.gegevens), '_blank', 'noopener');
           el.hidden = true; return;
@@ -104,6 +107,84 @@
       };
       inp.click();
     }
+    // ---------- F8: een melding met alles erbij (net als F8 in de Unity-versie) ----------
+    // F8 legt meteen het beeld en de toestand vast (camera, gereedschap, laag, het vak onder de muis, Bouwpad, de laatste
+    // console-meldingen) en opent Melden met "Fout of bug". Versturen bewaart melding-<tijd>.txt (JSON: alles plus de hele
+    // stad en het beeld), zet het beeld op het klembord en opent een nieuwe issue op GitHub met de tekst en de toestand.
+    // Joep sleept het bestand in de issue en plakt het beeld; Claude leest de issue terug en speelt hem na met
+    // test/visueel/melding.js (zelfde stad, camera en gereedschap; zie README, deel "Melden met F8").
+    const consoleLog = [];
+    for (const k of ['error', 'warn']) {
+      const oud = console[k];
+      console[k] = function (...a) {
+        try {
+          consoleLog.push(k + ': ' + a.map(x => x && x.message ? String(x.message) + (x.stack ? ' @ ' + String(x.stack).split('\n').slice(1, 3).map(t => t.trim()).join(' · ') : '') : typeof x === 'object' ? (() => { try { return JSON.stringify(x); } catch (e) { return String(x); } })() : String(x)).join(' ').slice(0, 400));
+          if (consoleLog.length > 30) consoleLog.shift();
+        } catch (e) { }
+        return oud.apply(this, a);
+      };
+    }
+    let muis = null;
+    window.addEventListener('pointermove', e => { muis = [e.clientX, e.clientY]; }, { passive: true });
+    const r2 = n => Math.round(n * 100) / 100;
+    function toestand() {
+      const s = { modus: mode, gereedschap: tool, laag: hudLayer(), scherm: [window.innerWidth, window.innerHeight],
+        camera: { doel: [r2(orbit.target.x), r2(orbit.target.y), r2(orbit.target.z)], theta: r2(orbit.theta), phi: r2(orbit.phi), afstand: r2(orbit.dist) } };
+      if (mode === 'walk') s.speler = { x: r2(player.x), y: r2(player.y), z: r2(player.z), yaw: r2(player.yaw), pitch: r2(player.pitch) };
+      if (tool === 'vbouw') s.bouwpad = { prev: BP.prev, lv: BP.lv, hell: BP.hell };
+      try {
+        const m = muis || [window.innerWidth / 2, window.innerHeight / 2], h = mode === 'build' ? pick(m[0], m[1], true) : null;
+        if (h && h.point) { const v = worldToCell(h.point.x, h.point.z); s.muis = { scherm: m.map(Math.round), punt: [r2(h.point.x), r2(h.point.y), r2(h.point.z)], vak: v, stapel: cells.get(key(v[0], v[1])) || [] }; }
+      } catch (e) { }
+      return s;
+    }
+    function f8Vang() {
+      try { hudRender(); } catch (e) { }   // het beeld van nu (de tekenbuffer wordt na elk beeld gewist: meteen na het tekenen uitlezen)
+      const cv = renderer.domElement; let png = '', jpg = '';
+      try { png = cv.toDataURL('image/png'); jpg = cv.toDataURL('image/jpeg', 0.85); } catch (e) { }
+      return { tijd: new Date(), png, jpg, toestand: toestand(), console: consoleLog.slice(), stad: (() => { try { return serialize(cells); } catch (e) { return ''; } })() };
+    }
+    const f8Naam = d => { const z = n => String(n).padStart(2, '0'); return 'melding-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + '.txt'; };
+    function f8Bestand(m, v) {
+      return JSON.stringify({ raatstadMelding: 1, versie: VERSIE, tijd: v.tijd.toISOString(), soort: m.soort, tekst: m.tekst, gegevens: m.gegevens,
+        toestand: v.toestand, console: v.console, fouten: fouten.slice(), stad: v.stad, beeld: v.jpg });
+    }
+    function f8Body(m, v, naam) {
+      return (m.tekst || '(geen tekst)') + '\n\n**Sleep `' + naam + '` (in je Downloads) hierheen en plak het beeld met Ctrl+V.**\n\n---\n' + m.gegevens +
+        '\n\n```json\n' + JSON.stringify({ toestand: v.toestand, console: v.console.slice(-10) }, null, 1).slice(0, 5000) + '\n```\n';
+    }
+    function f8Versturen(m, v) {
+      const naam = f8Naam(v.tijd);
+      // eerst het klembord (mag alleen tijdens de klik), dan het bestand, dan GitHub
+      try { if (v.png && navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({ 'image/png': fetch(v.png).then(r => r.blob()) })]).catch(() => { }); } catch (e) { }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([f8Bestand(m, v)], { type: 'text/plain' })); a.download = naam;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      const url = FALLBACK_URL + '?labels=melding&title=' + encodeURIComponent(m.soort + ' · F8 · ' + VERSIE) + '&body=' + encodeURIComponent(f8Body(m, v, naam));
+      beta.laatsteF8 = { naam, url };   // voor de test
+      window.open(url, '_blank', 'noopener');
+      toast('Bestand ' + naam + ' bewaard en het beeld gekopieerd: sleep het bestand in de GitHub-melding en plak het beeld (Ctrl+V)', 6000);
+    }
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'F8' || e.repeat) return;
+      const fb = document.getElementById('fbSheet'); if (fb && !fb.hidden) return;
+      e.preventDefault(); e.stopPropagation();
+      if (document.pointerLockElement) try { document.exitPointerLock(); } catch (e2) { }
+      feedback(0, f8Vang());
+    }, true);
+    // Terugspelen (test/visueel/melding.js): dezelfde stad, camera, modus, gereedschap en laag als bij F8
+    function terug(b) {
+      const c = parseCity(b.stad); if (!c) throw new Error('melding zonder geldige stad');
+      nieuweStad('melding ' + (b.tijd || '')); cells = roofHouses(c); rebuildAll(); changed(); buildPathNet();
+      const t = b.toestand || {};
+      if (t.modus === 'walk' && mode !== 'walk') document.getElementById('modeBtn').click();
+      if (t.modus !== 'walk' && mode === 'walk') document.getElementById('modeBtn').click();
+      if (t.gereedschap && t.modus !== 'walk') try { selectTool(t.gereedschap); } catch (e) { }
+      if (t.camera) { orbit.target.set(...t.camera.doel); orbit.theta = t.camera.theta; orbit.phi = t.camera.phi; orbit.dist = t.camera.afstand; applyOrbit(); }
+      if (t.speler) Object.assign(player, t.speler);
+      if (t.laag != null && HUD) HUD.setLayer(t.laag, true);
+      if (t.bouwpad) Object.assign(BP, t.bouwpad);
+      return t;
+    }
     // ---------- fouten: een melding in plaats van een vastgelopen scherm ----------
     const bar = document.createElement('div'); bar.className = 'err-bar'; bar.hidden = true;
     bar.innerHTML = '<span>Er ging iets mis. Meld het, dan los ik het op.</span><button class="btn mine" type="button" data-f>Melden</button><button class="btn icon-btn" type="button" data-x aria-label="Sluiten">✕</button>';
@@ -138,6 +219,6 @@
       const tod = document.querySelectorAll('[data-tod]'); for (const b of tod) if (!b.title) b.title = 'Zet de tijd op ' + b.textContent.trim().toLowerCase();
     }
     applyTips(); setTimeout(applyTips, 1500); setTimeout(stuurWachtend, 4000); setInterval(stuurWachtend, 60000); window.addEventListener('online', stuurWachtend);
-    return { VERSIE, FORM, stuurWachtend, feedback, credits, saveFile, openFile, report, info };
+    return { VERSIE, FORM, stuurWachtend, feedback, credits, saveFile, openFile, report, info, f8Vang, terug, laatsteF8: null };
   })();
   try { window.__beta = beta; } catch (e) { }
