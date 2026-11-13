@@ -10,14 +10,14 @@
     [K('K'), 'Raatmaker, overzicht: alle modules van boven; bekijken, bewerken, neerzetten of een nieuwe tekenen'], [K('V'), 'aanwijzen: klik op een module voor opties (draaien, spiegelen, variant, bewerken, verplaatsen)'], [K('Del'), 'gum aan/uit'], [K('Ctrl', 'Z'), 'ongedaan maken'], [K('PgUp', 'PgDn'), 'laag kiezen (wat erboven ligt wordt doorzichtig)'], [K('[', ']'), 'penseel: 1, 7, 19 of 37 vakken'], [K('Shift') + '+wiel', 'volgende in de snelbalk'],
     ['Modules', null], [K(',', '.'), 'vorige / volgende module'], [K('F'), 'module spiegelen'], [K('/'), 'zoek een module (Enter kiest de eerste)'],
     ['Terrein', null], ['slepen', 'boetseren (ingedrukt houden)'], [K('Shift') + '+slepen', 'andersom (ophogen ↔ afgraven)'],
-    ['Weg of pad', null], [K('E', 'Q'), 'hoger / lager: vooraf de beginhoogte, tijdens het slepen het punt waar je bent (ook Page Up/Down, wiel)'], ['stilhouden', 'hoekpunt: bocht in één sleep'],
+    ['Weg of pad', null], ['▲▼', 'vooraf de beginhoogte'], [K('PgUp', 'PgDn') + ' / ' + K('+', '−') + ' / wiel', 'tijdens het slepen: hoger of lager op het punt waar je bent'], ['stilhouden', 'hoekpunt: bocht in één sleep'],
     ['Cameramodus', null], [K('Spatie'), 'aan / uit (of Esc)'], ['muis', 'rondkijken'], [K('W', 'A', 'S', 'D'), 'vliegen'], [K('E', 'Q'), 'omhoog / omlaag'], [K('Shift') + ' / ' + K('Ctrl'), 'sneller / langzamer'], ['wiel', 'zoomen'], ['klik', 'kogel schieten (rechts: zware sloopkogel)'], [K('F'), 'foto (png, zonder knoppen)'], [K('P'), 'tijd stilzetten'], [K('O'), 'ander weer'],
-    ['Overig', null], [K('G'), 'raster aan/uit'], [K('P'), 'tijd pauze / verder'], [K('O'), 'weer: volgende (Shift: vorige)'], [K('L'), 'lopen'], [K('M'), 'menu'], [K('?'), 'dit overzicht'],
+    ['Overig', null], [K('G'), 'raster aan/uit'], [K('P'), 'tijd pauze / verder'], [K('O'), 'weer: volgende (Shift: vorige)'], [K('L'), 'lopen'], [K('M'), 'menu'], [K('F8'), 'bug melden (met beeld en stad)'], [K('?'), 'dit overzicht'],
   ];
   const KEYS_WALK = [
     ['Lopen', null], [K('W', 'A', 'S', 'D'), 'lopen'], [K('Shift'), 'rennen'], [K('Spatie'), 'springen'], ['muis', 'rondkijken (klik om te vangen)'],
     ['Handen', null], [K('Q'), 'kijken · bouwen · hamer'], ['klik', 'bouwen of slopen (met bouwen of hamer)'], ['wiel', 'volgende in de snelbalk'], [K('1') + '…' + K('9'), 'blok uit de snelbalk'], [K('Tab'), 'alle blokken'],
-    ['Overig', null], [K('O'), 'ander weer'], [K('L'), 'terug naar bouwen'], [K('Esc'), 'muis loslaten'], [K('?'), 'dit overzicht'],
+    ['Overig', null], [K('O'), 'ander weer'], [K('L'), 'terug naar bouwen'], [K('Esc'), 'muis loslaten'], [K('F8'), 'bug melden (met beeld en stad)'], [K('?'), 'dit overzicht'],
   ];
   function renderKeys() {
     const L = mode === 'walk' ? KEYS_WALK : KEYS_BUILD;

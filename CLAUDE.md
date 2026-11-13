@@ -23,6 +23,7 @@ Alles is in het Nederlands: code-commentaar, interface, commits en antwoorden aa
 - Raatmaker · overzicht (één scherm, toets K of Menu → Raatmaker): `15j-modulekaart.js`. Pagina's: Raatmaker-modules (foto's via `mv2Beeld` in `08c`, randen, Past op, Bewerken, Neerzetten, + Nieuwe module), SketchUp, Winkelcentrum. Test: `test/visueel/raatmaker_overzicht.js`.
 - SketchUp-gereedschappen: `tools/sketchup/` (Python/Ruby): exports uit SketchUp, `maak-2d.py` (losse stukken, `08m`) en `maak-forten.py` (Winkelcentrum, `08n`). Het bergfort is uit het spel (Joep bouwt het opnieuw op in het spel); de losse SketchUp-stukken en het Winkelcentrum (`08m`, `08n`, Modulekaart `15j*`) blijven.
 - Beta: `15h-beta.js` (versie, Melden, foutbalk, credits, stad als bestand).
+- **F8-meldingen van Joep**: issues op `joepk1989/raatstad-web` met "F8" in de titel. Er hangt een bestand `melding-….txt` aan (stad, toestand, beeld) en vaak een geplakt beeld. Bestand downloaden en naspelen met `node test/visueel/melding.js <bestand>`; zie README, deel "Melden met F8".
 
 ## Stand van zaken (6 november 2026)
 Beta 0.1.0 is bijna klaar. Het plan staat in Joeps document "Raatstad beta-plan" (claude.ai).

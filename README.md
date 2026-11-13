@@ -407,6 +407,17 @@ Opslag: `cells.rails = [{ p: [[x, z], …] }]`, in de stadsdata als `__r` (allee
 - Gevonden: een nieuwe speler kreeg een startstadje zonder huizen (bij de eerste start ververste de bibliotheek alle modules en zette ze opnieuw neer, wat op zichzelf botste). Nu worden bij een vernieuwde module alleen de gegevens vervangen.
 - Test: `test/visueel/beta.js` (tests zetten Instorten en Bloed zelf aan, `helper.js`).
 
+### Melden met F8 (net als in de Unity-versie)
+- **F8** (bouwen en lopen) legt meteen vast wat er op het scherm staat: het beeld (meteen na het tekenen uitgelezen), de modus, het gereedschap, de laag, de camera (doel, theta, phi, afstand), in lopen de speler, bij de Bouwpad zijn toestand (`BP`), het vak onder de muis met de stapel blokken erop, de laatste 30 console-fouten/-waarschuwingen en de hele stad (`serialize`). Daarna opent Melden met "Fout of bug" aan en een klein beeld.
+- **Versturen** (altijd naar GitHub, want daar leest Claude het terug, ook als het Google Formulier er is):
+  - zet het beeld op het klembord;
+  - bewaart `melding-<datum>-<tijd>.txt` in Downloads (JSON: tekst, gegevens, toestand, console, fouten, stad, beeld als JPEG);
+  - opent een nieuwe issue op `joepk1989/raatstad-web` (titel "Fout of bug · F8 · versie") met de tekst, de gegevens en de toestand als JSON.
+  - Joep sleept het bestand in de issue, plakt het beeld (Ctrl+V) en drukt op *Submit*. De stad past niet in de link (het startstadje is gecomprimeerd al 26 KB), daarom gaat hij als bestand.
+- **Terugzien** (Claude): de issue lezen, het bestand downloaden en naspelen met `node test/visueel/melding.js pad/melding-….txt`. Dat geeft in `test/visueel/uit/` `<naam>-beeld.jpg` (Joeps beeld) en `<naam>-terug.png` (dezelfde stad, camera, gereedschap en laag hier), en print tekst, toestand, console en gegevens.
+- In het spel: `beta.f8Vang()` (vastleggen) en `beta.terug(melding)` (naspelen).
+- Test: `test/visueel/melding.js` zonder argument (F8 → formulier → bestand en GitHub-link → terugspelen in een verse pagina, zelfde stad en camera).
+
 ## Mensen met doelen en een dagritme (10-mensen.js, "Doelen en dagritme")
 - Elk gebouw met een deur is een plek: wonen (Wonen, oude woningen), werken (Werken, Openbaar, Voorzieningen, Vervoer, oude kantoren), school (School · …), winkelen (Winkels, Winkelcentrum), eten (Horeca); parken, pleinen en sport zijn plekken om even te blijven. Alleen gebouwen met een deur in het grootste samenhangende stuk loopnetwerk tellen.
 - Iedereen krijgt een huis (liefst in de buurt), 72 % van de volwassenen een werkplek dichtbij huis, kinderen een school. Per uur van de dag een keuze (`decide`): 's nachts naar huis (tot 6:30–8:30), 's ochtends naar werk of school (tot 16:30–18:00, school tot 14:30–15:30), tussen de middag een deel naar een café, overdag winkelen, park of thuis, 17–19 uur naar huis of nog boodschappen, 's avonds horeca of park.
