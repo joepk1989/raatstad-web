@@ -38,7 +38,7 @@ const fs = require('fs');
     const z = route[route.length - 1], eindVerwacht = Math.min(z.van, z.naar) * 3;   // midden op een helling sta je nog op de onderste laag
     zeg(!r.fout.length && r.sprong === 0 && r.inDeWeg === 0 && Math.abs(r.eind - eindVerwacht) < 0.3, naam, Object.assign(r, { verwacht: eindVerwacht, vakken: route.length }));
   };
-  let seed = 2026; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const ZAAD = +(process.env.ZAAD || 2026), NAAM = ZAAD === 2026 ? 'wirwar' : 'wirwar' + ZAAD; let seed = ZAAD;   // ZAAD=…: een andere wirwar const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const NB = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]], RAD = 6;
   const binnen = c => (Math.abs(c[0]) + Math.abs(c[1]) + Math.abs(c[0] + c[1])) / 2 <= RAD;
   // de randvakken van de zeshoek: daar beginnen de stegen, met een richting naar binnen
@@ -87,13 +87,13 @@ const fs = require('fs');
     await p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.orbit.target.set(w.x, 0, w.z); S.applyOrbit(); }, v.c); await beeld(); await tik(p, 640, 400, { ctrl: true }); bank++; }
   await p.evaluate(() => { window.__SC().laag(null); window.__SC().selectTool('kies'); });
   // beelden
-  const shot = async (naam, th, ph, d, lv = null, y = 2) => { await p.evaluate(([th, ph, d, lv, y]) => { const S = window.__SC(); S.laag(lv); S.orbit.target.set(0, y, 0); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [th, ph, d, lv, y]); await p.mouse.move(5, 300); await p.waitForTimeout(1200); await p.screenshot({ path: OUT + '/wirwar_' + naam + '.png' }); };
+  const shot = async (naam, th, ph, d, lv = null, y = 2) => { await p.evaluate(([th, ph, d, lv, y]) => { const S = window.__SC(); S.laag(lv); S.orbit.target.set(0, y, 0); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [th, ph, d, lv, y]); await p.mouse.move(5, 300); await p.waitForTimeout(1200); await p.screenshot({ path: OUT + '/' + NAAM + '_' + naam + '.png' }); };
   await shot('overzicht', 0.5, 0.8, 210);
   await shot('andere_kant', 3.6, 0.95, 190);
   await shot('laag1', 0.5, 0.8, 210, 1);
   await shot('laag2', 0.5, 0.8, 210, 2);
   await shot('dichtbij', 1.2, 1.2, 70, null, 3);
-  fs.writeFileSync(OUT + '/wirwar.json', await p.evaluate(() => { const S = window.__SC(); return S.serialize(S.getCells()); }));
+  fs.writeFileSync(OUT + '/' + NAAM + '.json', await p.evaluate(() => { const S = window.__SC(); return S.serialize(S.getCells()); }));
   console.log('bankjes/hofjes gezet:', bank);
   zeg(!errs.length, 'geen fouten', errs);
   console.log(uit.every(Boolean) ? 'GOED' : 'FOUT'); await b.close();
