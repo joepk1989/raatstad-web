@@ -133,15 +133,52 @@
     function setLayer(n, quiet) {
       maxLv = maxLaag(); layer = n === null ? null : Math.max(0, Math.min(maxLv, n));
       renderLayers();
-      if (!quiet) toast(layer === null ? 'Alle lagen' : 'Laag ' + layer + ' (' + layer * MV2.LV_H + ' m) · wat erboven ligt is weggelaten', 1600);
+      if (!quiet) toast(layer === null ? 'Alle lagen' : 'Laag ' + layer + ' (' + layer * MV2.LV_H + ' m) · erboven doorzichtig, eronder oranje' + (doorkijk ? '' : ' (doorkijk uit: X)'), 1600);
       if (mode === 'build') { moduleGhostKey = ''; updateGhost(); }
     }
     layerPick.addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (!b || b.disabled) return; setLayer(b.dataset.l === 'alles' ? null : +b.dataset.l); });
     // alles boven de snede weg (een doorsnede, zoals een plattegrond): als glas werd het bij veel lagen een troebele brij
     const below = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+    // Doorkijk (Joep: "je moet wel de laag erboven en eronder zien bij de huidige laag"): na de doorsnede nog twee
+    // dunne plakken van één laag (3 m) in één kleur, zonder textuur en zonder diepte te schrijven:
+    //  - de laag erboven als licht, doorzichtig spookbeeld (wit-blauw), gewoon met diepte: je ziet waar hij ligt;
+    //  - de laag eronder alleen waar hij achter de huidige laag verborgen zit (diepte 'groter dan', oranje): een
+    //    röntgenblik door de vloer. Wat je al gewoon ziet blijft zoals het is.
+    // Lucht, zon, maan, sterren, wolken, grond, raster, terrein en neerslag doen niet mee (anders een band door de lucht).
+    const GLAS = { boven: new THREE.MeshBasicMaterial({ color: '#d8efff', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }),
+      onder: new THREE.MeshBasicMaterial({ color: '#ffb24a', transparent: true, opacity: 0.3, depthWrite: false, depthFunc: THREE.GreaterDepth }) };   // alleen voorkanten: anders kleurden ook de achterwanden van de blokken mee (een oranje brij)
+    const pBoven = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)];
+    const pOnder = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)];
+    const nietInDoorkijk = o => o.renderOrder < 0 || o === ground || o === gridLines || o === terrGroup || (o.userData && o.userData.wxPrecip) || o.isLight;
+    function plak(planes, mat) {
+      const uit = []; for (const o of scene.children) if (o.visible && nietInDoorkijk(o)) { o.visible = false; uit.push(o); }
+      // alleen gewone vlakken: lijnen, punten en sprites passen niet bij één vlakkleur (en gaven een fout)
+      scene.traverseVisible(o => { if (o !== scene && !o.isMesh && (o.isLine || o.isPoints || o.isSprite)) uit.push(o); });
+      for (const o of uit) o.visible = false;
+      // per object het doorkijkmateriaal (scene.overrideMaterial gaf in three r128 een fout bij InstancedMesh: één programma
+      // voor gewone en herhaalde objecten); herhaalde objecten krijgen een eigen kopie
+      // (en three r128 wisselt het programma niet als alleen instanceColor of de kleuren per hoekpunt verschillen): één kopie per soort
+      const wissel = [], soort = mat.userData.soort || (mat.userData.soort = new Map());
+      scene.traverseVisible(o => { if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+        const k = (o.isInstancedMesh ? 'i' : '') + (o.instanceColor ? 'c' : ''); let m = k ? soort.get(k) : mat; if (!m) soort.set(k, m = mat.clone());
+        wissel.push([o, o.material]); o.material = Array.isArray(o.material) ? o.material.map(() => m) : m; });
+      const bg = scene.background, fog = scene.fog, ac = renderer.autoClear, sh = renderer.shadowMap.autoUpdate;
+      scene.background = null; scene.fog = null; renderer.autoClear = false; renderer.shadowMap.autoUpdate = false;
+      renderer.clippingPlanes = planes;
+      try { renderer.render(scene, camera); } finally {
+        renderer.clippingPlanes = []; scene.background = bg; scene.fog = fog; renderer.autoClear = ac; renderer.shadowMap.autoUpdate = sh;
+        for (const [o, m] of wissel) o.material = m;
+        for (const o of uit) o.visible = true;
+      }
+    }
+    let doorkijk = true;   // toets X: doorkijk aan/uit (bij laag kiezen)
     function renderLayered() {
-      below.constant = hudCut();
+      const cut = hudCut(), vloer = layer * MV2.LV_H;
+      below.constant = cut;
       renderer.clippingPlanes = [below]; renderer.render(scene, camera); renderer.clippingPlanes = [];
+      if (!doorkijk) return;
+      pBoven[0].constant = -cut; pBoven[1].constant = cut + MV2.LV_H; plak(pBoven, GLAS.boven);
+      if (layer > 0) { pOnder[0].constant = -(vloer - MV2.LV_H + (layer === 1 ? 0.05 : 0)); pOnder[1].constant = vloer - 0.02; plak(pOnder, GLAS.onder); }
     }
     // ---------- ongedaan maken ----------
     const undoList = []; let undoCur = hudFirstSnap, undoT = 0, layersT = 0;
@@ -180,7 +217,7 @@
       if (mode !== lastMode) { lastMode = mode; if (!paletteEl.hidden && mode === 'walk') catalog(false); }
       if (mode === 'walk') renderLayers();
     }, 500);
-    const api = { snap, onTool, step, select, catalog, renderLayered, undo, get layer() { return layer; }, setLayer, slots: () => slots.slice(), get idx() { return idx; } };
+    const api = { snap, onTool, step, select, catalog, renderLayered, undo, get layer() { return layer; }, setLayer, get doorkijk() { return doorkijk; }, set doorkijk(v) { doorkijk = !!v; }, slots: () => slots.slice(), get idx() { return idx; } };
     return api;
   })();
   HUD.onTool(tool); HUD.setLayer(null, true);
