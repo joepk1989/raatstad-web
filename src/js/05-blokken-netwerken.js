@@ -33,9 +33,12 @@
   // "plein" van drie of meer paden, zie channelShapes) het hofje, anders het materiaal — dat is op een rechte of
   // een bocht het enige dat je ervan ziet.
   const LOOPDEK_VAR_NAMEN = ['Klinkers', 'Beton', 'Hout', 'Stalen rooster'];
-  const LOOPDEK_HOFJE_NAMEN = ['Kaal', 'Boom in het midden', 'Bankjes in een kring', 'Bloemperk', 'Lantaarns', 'Groen hofje met bankjes'];
+  const LOOPDEK_HOFJE_NAMEN = ['Kaal', 'Boom in het midden', 'Bankjes in een kring', 'Bloemperk', 'Lantaarns', 'Groen hofje met bankjes', 'Plantenbakken', 'Wandlampen', 'Groene wanden'];   // 6–8: langs een recht stuk, bocht of eind (Ctrl+klik, Bouwpad)
   const loopdekCijfers = t => { const m = /(\d)(\d)?$/.exec(t); return m ? [+m[1], +(m[2] ?? 0)] : [0, 0]; };
   const loopdekVar = t => loopdekCijfers(t)[0] % LOOPDEK_VAR_NAMEN.length;
+  // Ctrl+klik met het Bouwpad (12): op een plein de hofjes 0–5, op een recht stuk, bocht of eind deze ronde, op een helling
+  // HELLING_INR (bewaard in cells.inr per vak en laag, opgeslagen als __v)
+  const ZIJ_RONDE = [0, 5, 6, 7, 8], HELLING_INR = ['Kaal', 'Treden', 'Wandlampen', 'Groene wanden'];
   const loopdekHofje = t => loopdekCijfers(t)[1] % LOOPDEK_HOFJE_NAMEN.length;
   const loopdekCode = (mat, hofje) => 'looppad' + (mat || hofje ? mat + '' + hofje : '');
   const LOOPDEK_VAR = [M.paver, M.loopBeton, M.loopHout, M.loopStaal];
@@ -521,11 +524,57 @@
     M.hofjeLamp = new THREE.MeshBasicMaterial({ color: '#fff1c4' });
     M.hofjeGras = std({ color: '#6c9a45', roughness: 1 });
   }
+  // Langs de wanden van een recht stuk, bocht of eind (en een helling): per arm het stuk waar de wanden recht zijn, aan
+  // beide kanten (u = ±1) op CH_HALF van het midden. hoogte(k, p): de vloer op afstand p langs arm k (op een helling stijgt hij).
+  //  6 Plantenbakken: lage betonnen bakken met struikjes tegen één wand (welke: per vak), om de 3 m een opening
+  //  7 Wandlampen: per arm een lamp op een beugel aan de wand, om en om links en rechts, op 2,5 m boven de vloer
+  //  8 Groene wanden: klimop in plukken van verschillende breedte en hoogte tegen beide wanden
+  function zijDecor(o, kind, baseY, cx, cz, col, hv, arms, hoogte = () => 0) {
+    hofjeInit();
+    const put = (g, m) => { const mm = new THREE.Mesh(g, m); mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
+    const recht = arms.length === 2 && arms[1] - arms[0] === 3;
+    const p0 = recht ? 0 : CH_HALF + 0.5, p1 = INNER - 0.25, W = CH_HALF;
+    let rnd = (hv * 2654435761) >>> 0; const r01 = () => { rnd = (rnd * 1664525 + 1013904223) >>> 0; return rnd / 4294967296; };
+    arms.forEach((k, ai) => {
+      const f = FRAMES[k];
+      if (kind === 6) {   // plantenbakken: één kant per vak (op een recht stuk dezelfde kant voor beide armen)
+        const u = (hv % 2 ? 1 : -1) * (recht && ai === 1 ? -1 : 1) * (W - 0.33);
+        for (let a = p0 + (recht ? 0.3 : 0); a < p1 - 1; a += 3.6) {
+          const b = Math.min(a + 3, p1), m = (a + b) / 2, L = b - a, y = hoogte(k, m);
+          put(boxAt(f, u, m, y + 0.25, 0.55, 0.5, L), M.stone);
+          put(boxAt(f, u, m, y + 0.5, 0.45, 0.04, L - 0.1), M.hofjeGras);
+          for (let s2 = a + 0.5; s2 < b - 0.3; s2 += 0.9) { const g = G.hofjeFlower.clone(); g.scale(2.2 + r01(), 1.8 + r01(), 2.2 + r01()); const [x, z] = local(f, u, s2); g.translate(x, y + 0.72, z); put(g, M.leaf[(hv + Math.round(s2)) % 3]); }
+          const [ax, az] = local(f, u, a), [bx, bz] = local(f, u, b);
+          col.walls.push({ ax: cx + ax, az: cz + az, bx: cx + bx, bz: cz + bz, y0: baseY + y, y1: baseY + y + 0.55, half: 0.28 });
+        }
+      } else if (kind === 7) {   // wandlamp: beugel en bol, om en om links en rechts
+        const u = (recht ? hv % 2 : (ai + hv) % 2) ? 1 : -1, m = (p0 + p1) / 2, y = hoogte(k, m);   // om en om aan de linker- en rechterwand (op een recht stuk wijzen de armen tegengesteld)
+        put(boxAt(f, u * (W - 0.18), m, y + 2.45, 0.36, 0.06, 0.06), M.rail);
+        put(boxAt(f, u * (W - 0.02), m, y + 2.45, 0.04, 0.3, 0.2), M.rail);
+        const g = G.hofjeLamp.clone(); g.translate(0, -2.62, 0); g.scale(1.2, 1.2, 1.2); const [x, z] = local(f, u * (W - 0.36), m); g.translate(x, y + 2.38, z); put(g, M.hofjeLamp);
+      } else if (kind === 8) {   // klimop tegen beide wanden: plukken van bolle blaadjes (platgedrukt tegen de wand), van de vloer omhoog
+        const per = [[], [], []];
+        for (const u of [-1, 1]) for (let a = p0 + r01() * 0.6; a < p1 - 0.4; a += 1.0 + r01() * 1.2) {
+          const w = 0.8 + r01() * 1.0, y = hoogte(k, a + w / 2), h = Math.min(2.9 - y, 1.3 + r01() * 1.5); if (h < 0.5) continue;
+          for (let n = 0; n < 9 + w * 6; n++) {   // blaadjes: onderaan breed, naar boven smaller
+            const t2 = r01(), hy = t2 * h, bw = w * (1 - 0.55 * t2), pm = a + w / 2 + (r01() - 0.5) * bw, yy = hoogte(k, pm) + hy + 0.15, rr = 0.22 + r01() * 0.18;
+            if (yy > 2.95) continue;
+            const g = G.hofjeFlower.clone(), [x, z] = local(f, u * (W - 0.06), pm);
+            g.scale(rr / 0.15, rr / 0.15, rr / 0.15);
+            g.applyMatrix4(new THREE.Matrix4().makeScale(Math.abs(f.tx) * 0.45 + Math.abs(f.nx), 1, Math.abs(f.tz) * 0.45 + Math.abs(f.nz)));   // plat tegen de wand
+            g.translate(x, yy, z); per[(hv + n) % 3].push(g);
+          }
+        }
+        per.forEach((L, n) => { if (L.length) { const m = put(mergeGeos(L), M.leaf[n]); m.castShadow = false; } });
+      }
+    });
+  }
   function hofjeDecor(o, kind, baseY, cx, cz, col, hv, mask = 63) {
     if (!kind) return;   // 0 = kaal, geen decoratie
     hofjeInit();
     const add = (g, m, x, z, ry) => { const mm = new THREE.Mesh(g, m); mm.position.set(x, 0.05, z);   /* o staat al op baseY (makeBlock, 06): hier niet nog eens (op laag 1 en hoger zweefde het hofje 3 m per laag te hoog) */   /* het blok staat al op het vak: hier alleen de plek binnen het vak (de botsing hieronder rekent wél in de wereld) */ if (ry !== undefined) mm.rotation.y = ry; mm.castShadow = true; mm.receiveShadow = true; o.add(mm); return mm; };
     const arms = [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1);
+    if (kind >= 6) { if (arms.length < 3) zijDecor(o, kind, baseY, cx, cz, col, hv, arms); return; }   // langs de wanden (niet op een plein)
     if (kind !== 5 && arms.length < 3) return;   // de andere hofjes alleen op een pleintje
     if (kind === 5) {   // Groen hofje met bankjes (Joep): op een pleintje een grasperk met een boompje en bankjes langs de wanden; op een recht stuk een bankje aan de kant
       const bank = (x, z, tx, tz, wx, wz) => {   // bankje op (x, z), lang in richting (tx, tz); (wx, wz): wereld voor de botsing
@@ -661,6 +710,7 @@
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: -INNER, p1: 0, top: baseY + 0.05, bottom: baseY - 0.2 });
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
+      hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col);
     }
     if (b === 'hellingb') {
       // Helling in een bocht (Bouwpad): de arm naar de hoge kant d is het schuine stuk van een gewone helling (rampGeo), de rest
@@ -673,7 +723,20 @@
       addMesh(rampGeo(f), [M.blockSide, M.padOker]);
       col.surfaces.push({ kind: 'slope', cx, cz, k: d, u0: -W, u1: W, p0: 0, p1: RAMP_END, y0: baseY + 0.05, y1: baseY + 3, bottom: baseY });
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
+      hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col);
     }
+  }
+  // Inrichting van een helling (Ctrl+klik met het Bouwpad, cells.inr): 1 treden op het schuine stuk (lopen blijft een helling,
+  // zoals bij Trappad), 2 wandlampen, 3 groene wanden; de vloerhoogte langs de hoge arm stijgt mee
+  const hellingInrVan = (q, r, i) => ((cells.inr || {})[q + ',' + r + ',' + i] | 0) % HELLING_INR.length;
+  function hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col) {
+    const v = hellingInrVan(q, r, i); if (!v) return;
+    const f = FRAMES[d], hoogte = (k, p) => k === d ? Math.min(3, Math.max(0, p / RAMP_END * 3)) : 0;
+    if (v === 1) {
+      const N = 14, run = RAMP_END / N, rise = 2.95 / N, parts = [];
+      for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; parts.push(boxAt(f, 0, (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
+      const m = new THREE.Mesh(mergeGeos(parts), M.stone); m.castShadow = true; m.receiveShadow = true; o.add(m);
+    } else zijDecor(o, v === 2 ? 7 : 8, baseY, cx, cz, col, hash(q, r, i), [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1), hoogte);
   }
 
   // ---------- Meer modulaire modules ----------
