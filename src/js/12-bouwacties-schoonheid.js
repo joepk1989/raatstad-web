@@ -252,7 +252,7 @@
     }
     if (vecCover.has(k)) return meld('Hier ligt een weg');
     if (modCellOccupied(q, r)) return meld('Hier staat een module');
-    let blv = BP.lv, hell = BP.hell;
+    let blv = BP.lv, hell = BP.hell, bocht = null;
     if (side < 0) { blv = bpDoel(); hell = -1; if (!droog) { BP.prev = null; BP.lv = blv; BP.hell = -1; } }   // een nieuw pad op de gekozen laag
     else if (hell >= 0 && side !== hell) {   // na een helling afslaan: die helling wordt een helling in een bocht (de bocht naar boven)
       const h = hell; if (side === (h + 3) % 6) return meld('Terug kan niet: de helling komt aan deze kant uit', 1600);
@@ -260,7 +260,7 @@
       const pk = BP.prev[0] + ',' + BP.prev[1], ps = stackOf(BP.prev[0], BP.prev[1]).slice(), j = ps.map(baseOf).lastIndexOf('helling'); if (j < 0) return droog ? { fout: '' } : undefined;
       const omhoog = dirOf(ps[j]) === h;   // omhoog: de hoge kant wees rechtdoor; omlaag: de hoge kant wijst terug naar waar je vandaan kwam
       ps[j] = omhoog ? 'hellingb' + side + ((h + 3) % 6) : 'hellingb' + ((h + 3) % 6) + side;
-      if (!droog) { cells.set(pk, ps); rebuildAround(BP.prev[0], BP.prev[1]); BP.hell = -1; } hell = -1;
+      bocht = { pk, ps, q: BP.prev[0], r: BP.prev[1] }; hell = -1;   // pas uitvoeren als de klik helemaal mag (een geweigerde klik liet de helling eerst al als bocht achter, wirwar.js)
     }
     let stuk, lv = blv, nieuw = blv; const lvVoor = blv;
     // de verbinding die je klikt onthouden: in een haarspeld (drie padvakken die aan elkaar grenzen) laat het spel dan de
@@ -281,6 +281,7 @@
       else return meld(baseOf(stuk) === 'helling' ? 'Een helling kan niet onder iets door: eerst vlak onderdoor, dan omhoog' : 'Op laag ' + lv + ' staat hier ' + NOUN[b0][1] + ': daar kan het pad niet door', 1800);
     }
     if (droog) return { stuk, lv, verder: !ns };
+    if (bocht) { cells.set(bocht.pk, bocht.ps); rebuildAround(bocht.q, bocht.r); }
     if (ns) cells.set(k, ns);
     onthoud(); const vorig = BP.prev;
     BP.prev = [q, r]; BP.lv = nieuw; BP.hell = baseOf(stuk) === 'helling' ? side : -1;   // na een helling (omhoog of omlaag): rechtdoor verder
