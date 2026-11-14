@@ -690,7 +690,9 @@
     if (b === 'hellingb') { const [d, e] = hbKanten(t); mask = (1 << d) | (1 << e); }
     const sh = channelShapes(mask), geos = channelGeos(mask, upper);
     const kavel = mask && i === stackOf(q, r).length - 1;   // bovenste blok langs een pad: de bovenkant is kavel (proef; de rand van beton ligt op het pad, padRandGeos)
-    geos.solids.forEach((g, n) => {
+    const huis = kavel && cells.kh && cells.kh[q + ',' + r];   // Shift+klik met de Bouwpad (12): de blokken langs het pad worden huizen
+    if (huis) kavelHuizen(o, sh.solids, huis, q, r, i, baseY, cx, cz, col, addMesh);
+    else geos.solids.forEach((g, n) => {
       addMesh(g, [kavel ? M.kavelTop : M.blockTop, M.blockSide]);
       col.surfaces.push({ kind: 'poly', cx, cz, pts: sh.solids[n], top: baseY + 3, bottom: baseY });
     });
@@ -725,6 +727,66 @@
       col.surfaces.push({ kind: 'rect', cx, cz, k: d, u0: -W, u1: W, p0: RAMP_END, p1: INNER, top: baseY + 3, bottom: baseY });
       hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col);
     }
+  }
+  // ---------- Huizen op de kavels (Shift+klik met het Bouwpad, cells.kh; Joep: "de kavels in de betonblokken vullen met 1 klik") ----------
+  // Elk blok langs het pad (een stuk van channelShapes: de vorm om de geul heen, binnen de zeshoek) wordt een huis van precies
+  // die vorm: het blok zelf is de begane grond (de gevel aan het pad, met een deur op padhoogte), daarboven 0–2 verdiepingen
+  // van 3 m (een laag), een plat dak met een randje. Ramen om de 2,25 m (twee stappen van het Raatmaker-raster) op elke gevel
+  // aan het pad; op de buitenkant (de rand van de zeshoek) alleen waar het buurvak op die hoogte leeg is. Per huis (seed uit
+  // cells.kh en het stuk) een andere gevel en hoogte. Staat er later iets op het vak (een pad een laag hoger), dan is het
+  // geen kavel meer en is het huis vanzelf weg.
+  const HUIS_GEVELS = ['brick', 'plaster', 'darkbrick', 'oker', 'zalm', 'stone', 'terra', 'geel', 'breuksteen'];
+  function huisVorm(seed, n) {
+    let a = ((seed | 0) * 2654435761 + n * 40503 + 7) >>> 0; const r01 = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+    const x = r01(), lagen = x < 0.3 ? 1 : x < 0.75 ? 2 : 3;
+    return { lagen, gevel: HUIS_GEVELS[Math.floor(r01() * HUIS_GEVELS.length)], dakRand: r01() < 0.5, kozijn: r01() < 0.5 ? '#efe9dc' : '#3b3f44', r01 };
+  }
+  const huisMat = {};
+  const huisM = (k, c, ro = 0.6, me = 0) => huisMat[k] || (huisMat[k] = std({ color: c, roughness: ro, metalness: me }));
+  function kavelHuizen(o, solids, seed, q, r, i, baseY, cx, cz, col, addMesh) {
+    const Mt = mv2Mats(), glas = huisM('glas', '#33414c', 0.15, 0.4), deurM = huisM('deur', '#6b4a32', 0.7), dakM = M.roofFlat || M.blockTop;
+    const perMat = new Map(), doos = (mat, g) => { let L = perMat.get(mat); if (!L) perMat.set(mat, L = []); L.push(g); };
+    const box = (x, y, z, sx, sy, sz, ry) => { const g = G.unit.clone(); g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(UP, ry), new THREE.Vector3(sx, sy, sz))); return g; };
+    const kh = cells.kh || {}, buurLagen = (k, f) => {   // staat er op het buurvak in richting k op laag i+f iets? (dan geen raam op die buitengevel)
+      const nq = q + NEIGH[k][0], nr = r + NEIGH[k][1], st = stackOf(nq, nr); if (st.length > i + f) return true;
+      const nh = kh[nq + ',' + nr]; return !!nh && st.length === i + 1 && huisVorm(nh, 0).lagen > f; };
+    solids.forEach((P, n) => {
+      const V = huisVorm(seed, n), H = V.lagen * 3, muur = Mt.wl[V.gevel] || Mt.wl.brick || M.blockSide;
+      addMesh(extrudePoly(P, H), [dakM, muur]);
+      col.surfaces.push({ kind: 'poly', cx, cz, pts: P, top: baseY + H, bottom: baseY });
+      // dakrand: een randje van 0,4 m langs de hele omtrek (zoals de muurtjes van de Raatmaker)
+      let A2 = 0; for (let j = 0; j < P.length; j++) { const a = P[j], b = P[(j + 1) % P.length]; A2 += a[0] * b[1] - b[0] * a[1]; }
+      const uit = A2 > 0 ? -1 : 1;   // naar buiten: rechts of links van de rand, afhankelijk van de draairichting
+      const randM = V.dakRand ? muur : huisM('dakrand', '#d8d2c4', 0.8);
+      let deurGezet = false, langste = -1, lmax = 0;
+      const randen = P.map((a, j) => { const b = P[(j + 1) % P.length], dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+        const buiten = Math.max(...FRAMES.map(f => mx * f.nx + mz * f.nz)) > INNER - 0.05;   // op de rand van de zeshoek
+        return { a, b, dx, dz, L, mx, mz, buiten, nx: uit * dz / (L || 1), nz: -uit * dx / (L || 1) }; });
+      randen.forEach((e, j) => { if (!e.buiten && e.L > lmax) { lmax = e.L; langste = j; } });
+      randen.forEach((e, j) => {
+        if (e.L < 0.05) return;
+        const ry = Math.atan2(-e.dz, e.dx), tx = e.dx / e.L, tz = e.dz / e.L;
+        doos(randM, box(e.mx - e.nx * 0.12, H + 0.2, e.mz - e.nz * 0.12, e.L + 0.02, 0.4, 0.25, ry));
+        if (e.L < 1.6) return;   // korte stukjes (de ronding van een bocht): geen ramen
+        const kB = e.buiten ? FRAMES.reduce((bk, f, k) => (e.nx * f.nx + e.nz * f.nz > e.nx * FRAMES[bk].nx + e.nz * FRAMES[bk].nz ? k : bk), 0) : -1;
+        const nW = Math.max(1, Math.floor((e.L - 0.6) / 2.25)), stap = e.L / nW;
+        for (let f = 0; f < V.lagen; f++) {
+          if (e.buiten && (f === 0 || buurLagen(kB, f))) continue;   // buitengevel: niet op de begane grond (daar staat meestal een buurblok) en niet tegen iets aan
+          for (let w = 0; w < nW; w++) {
+            const s2 = (w + 0.5) * stap - e.L / 2, px = e.mx + tx * s2 + e.nx * 0.03, pz = e.mz + tz * s2 + e.nz * 0.03, y0 = f * 3;
+            if (f === 0 && !e.buiten && j === langste && w === Math.floor(nW / 2) && !deurGezet) {   // de voordeur, aan het pad
+              deurGezet = true; doos(deurM, box(px, 0.05 + 1.1, pz, 1.1, 2.2, 0.08, ry)); doos(huisM('kozijn' + V.kozijn, V.kozijn), box(px, 0.05 + 2.25, pz, 1.3, 0.1, 0.1, ry));
+              continue;
+            }
+            doos(glas, box(px, y0 + 1.75, pz, 1.1, 1.4, 0.06, ry));
+            doos(huisM('kozijn' + V.kozijn, V.kozijn), box(px, y0 + 1.0, pz, 1.3, 0.08, 0.14, ry));   // vensterbank
+            doos(huisM('kozijn' + V.kozijn, V.kozijn), box(px, y0 + 2.48, pz, 1.2, 0.06, 0.1, ry));   // bovendorpel
+          }
+        }
+        if (!e.buiten) col.walls.push({ ax: cx + e.a[0], az: cz + e.a[1], bx: cx + e.b[0], bz: cz + e.b[1], y0: baseY, y1: baseY + H, half: 0.05 });
+      });
+    });
+    for (const [mat, L] of perMat) { const m = addMesh(mergeGeos(L), mat); m.raycast = () => {}; for (const g of L) g.dispose(); }
   }
   // Inrichting van een helling (Ctrl+klik met het Bouwpad, cells.inr): 1 treden op het schuine stuk (lopen blijft een helling,
   // zoals bij Trappad), 2 wandlampen, 3 groene wanden; de vloerhoogte langs de hoge arm stijgt mee

@@ -233,6 +233,22 @@
   // De gekozen laag (Ctrl+scrollen, laagkiezer) is de laag van de volgende klik: dan wordt dat vak een Helling die van het vorige vak af omhoog (of ernaartoe
   // omlaag) loopt, en ga je een laag hoger of lager verder. Een helling is recht: het vak erna ligt in dezelfde richting.
   const BP = { prev: null, lv: 0, hell: -1 };
+  // Shift+klik met de Bouwpad op een stuk pad: alle blokken langs dit hele, aaneengesloten netwerk (vakken met een stuk
+  // Bouwpad, buur aan buur) worden huizen (cells.kh: per vak een zaadje voor de gevel en hoogte, 05 kavelHuizen). Staan er al
+  // overal huizen, dan andere huizen (nieuwe zaadjes). Ctrl+Shift+klik: weer lege kavels.
+  function kavelsVullen(q, r, leeg) {
+    const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
+    if (!heeftPad(q, r)) return toast('Shift+klik op een stuk Bouwpad: huizen op alle kavels langs dat netwerk', 1800);
+    const net = [], gezien = new Set([q + ',' + r]), rij = [[q, r]];
+    while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); for (const [dq, dr] of NEIGH) { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr)) { gezien.add(k); rij.push([a + dq, b + dr]); } } }
+    const kavel = net.filter(([a, b]) => { const st = stackOf(a, b), t = st[st.length - 1]; return t && ['looppad', 'helling', 'hellingb'].includes(baseOf(t)); });
+    const kh = cells.kh || (cells.kh = {});
+    if (leeg) { for (const [a, b] of net) delete kh[a + ',' + b]; rebuildMany(net); changed(); return toast('Kavels weer leeg (' + kavel.length + ' vakken)', 1600); }
+    const opnieuw = kavel.length && kavel.every(([a, b]) => kh[a + ',' + b]);
+    for (const [a, b] of kavel) kh[a + ',' + b] = 1 + Math.floor(Math.random() * 99999);
+    rebuildMany(kavel); changed();
+    toast((opnieuw ? 'Andere huizen' : 'Huizen') + ' op ' + kavel.length + ' vakken langs het pad · Shift+klik: andere huizen · Ctrl+Shift+klik: weer leeg', 2600);
+  }
   function bouwpadStop() { if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; if (mode === 'build') updateGhost(); }
   // De laag van de volgende klik is de gekozen laag (Ctrl+scrollen, laagkiezer, PageUp/Down, zoals bij alle gereedschap; Q/E
   // draaien het beeld). 'Alles' (geen laag gekozen): op de laag waar je bent blijven, een nieuw pad op de grond.
@@ -460,7 +476,7 @@
   }
   // Op een touchscreen eerst een voorbeeld tonen bij blokken met een richting: tik = voorbeeld, nog een tik = plaatsen
   let pendingKey = null, lastPickRes = null;
-  function handleTap(cx, cy, ctrl) {
+  function handleTap(cx, cy, ctrl, shift) {
     if (flyCam.on) return;   // cameramodus: niets bouwen of slopen
     if (tool === 'kies') { if (mode === 'build') kiesTap(cx, cy); return; }   // aanwijzen: opties voor een module of blok (15g)
     const res = pick(cx, cy); lastPickRes = res;
@@ -481,6 +497,7 @@
         return;
       }
     }
+    if (shift && tool === 'vbouw' && mode === 'build' && res.place) return kavelsVullen(res.place[0], res.place[1], ctrl);   // Shift+klik: huizen op alle kavels van dit netwerk (Ctrl+Shift: weer leeg)
     if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting
       // plein (drie of meer armen): de hofjes 0–5; recht stuk, bocht of eind: kaal → bankje → plantenbakken → wandlampen →
       // groene wanden (ZIJ_RONDE); helling: kaal → treden → wandlampen → groene wanden (HELLING_INR, in cells.inr). Met een

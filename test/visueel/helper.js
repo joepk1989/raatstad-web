@@ -57,7 +57,7 @@ async function loopAfstand(p, meters, maxMs = 120000) {
 async function tik(p, x, y, opts = {}) {
   await p.mouse.move(x, y, { steps: 2 });
   await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // Chrome levert muisbewegingen af bij het volgende beeld: eerst die laten aankomen, anders telt de klik als slepen
-  await p.evaluate(([x, y, o]) => { const c = document.querySelector('canvas'), base = { clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true, button: o.rechts ? 2 : 0, ctrlKey: !!o.ctrl };
+  await p.evaluate(([x, y, o]) => { const c = document.querySelector('canvas'), base = { clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true, button: o.rechts ? 2 : 0, ctrlKey: !!o.ctrl, shiftKey: !!o.shift };
     c.dispatchEvent(new PointerEvent('pointerdown', Object.assign({ buttons: o.rechts ? 2 : 1 }, base))); c.dispatchEvent(new PointerEvent('pointerup', Object.assign({ buttons: 0 }, base))); }, [x, y, opts]);
   await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));   // en wachten tot het gevolg getekend is
 }
