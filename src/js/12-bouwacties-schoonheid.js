@@ -234,12 +234,11 @@
   // omlaag) loopt, en ga je een laag hoger of lager verder. Een helling is recht: het vak erna ligt in dezelfde richting.
   const BP = { prev: null, lv: 0, hell: -1 };
   // Shift+klik met de Bouwpad op een stuk pad: langs dit hele, aaneengesloten netwerk (vakken met een stuk Bouwpad, buur aan
-  // buur) worden de blokken huizen. Elk huis is een Raatmaker-module (bpModule.huis, 08o) die als exemplaar op het vak staat
-  // (mid 'bphuis:q,r', op de laag van het stuk pad): de steeg loopt erdoor, de gevels staan op het raster, en met aanwijzen
-  // (V) → Bewerken pas je dat ene huis aan in de Raatmaker. Het oude blok op die plek wordt dan niet getekend (05). Per vak
-  // een andere gevel en hoogte (huisVorm). Nog eens Shift+klik: andere huizen. Ctrl+Shift+klik: weer lege kavels.
-  // Nu alleen op gewone stukken pad (geen helling of tunnel: daar blijft het beton).
-  const isBpHuis = I => typeof I.mid === 'string' && I.mid.startsWith('bphuis:');
+  // buur) worden de blokken huizen: per vak een Steeghuis uit de Raatmaker-lijst (08o) van de vorm van de steeg op dat vak,
+  // gedraaid naar de steeg, op de laag van het pad. Aanpassen gaat in de Raatmaker (K, of aanwijzen V → Bewerken), zoals
+  // bij elke module. Het oude blok op die plek wordt dan niet getekend (05). Nog eens Shift+klik: andere varianten.
+  // Ctrl+Shift+klik: weer lege kavels. Nu alleen op gewone stukken pad (geen helling of tunnel: daar blijft het beton).
+  const isBpHuis = I => (typeof I.mid === 'string' && I.mid.startsWith('bphuis:')) || !!(I.m && I.m.bp && I.m.bp.huis);
   function kavelsVullen(q, r, leeg) {
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
     if (!heeftPad(q, r)) return toast('Shift+klik op een stuk Bouwpad: huizen langs dat hele netwerk', 1800);
@@ -247,20 +246,21 @@
     while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); for (const [dq, dr] of NEIGH) { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr)) { gezien.add(k); rij.push([a + dq, b + dr]); } } }
     const kavel = net.filter(([a, b]) => { const st = stackOf(a, b), t = st[st.length - 1]; return t && baseOf(t) === 'looppad'; });
     const inst = cells.inst || (cells.inst = []), inNet = new Set(net.map(c => c.join(',')));
-    const had = inst.filter(I => isBpHuis(I) && inNet.has(I.q + ',' + I.r)).length;
+    const oud = new Map(inst.filter(I => isBpHuis(I) && inNet.has(I.q + ',' + I.r)).map(I => [I.q + ',' + I.r, I.mid]));
     cells.inst = inst.filter(I => !(isBpHuis(I) && inNet.has(I.q + ',' + I.r)));
     if (cells.kh) for (const c of net) delete cells.kh[c.join(',')];   // de oude huizen (eerste versie, niet in de Raatmaker)
-    if (leeg) { rebuildAll(); changed(); return toast('Kavels weer leeg (' + had + ' huizen weg)', 1600); }
-    const vorm = new Map(kavel.map(([a, b]) => { const st = stackOf(a, b); return [a + ',' + b, Object.assign(huisVorm(1 + Math.floor(Math.random() * 99999), 0), { lv: st.length - 1 })]; }));
+    if (leeg) { rebuildAll(); changed(); return toast('Kavels weer leeg (' + oud.size + ' huizen weg)', 1600); }
+    steeghuizenInstall();
+    let n = 0;
     for (const [a, b] of kavel) {
-      const k = a + ',' + b, V = vorm.get(k), st = stackOf(a, b), mask = pathMask(a, b, V.lv * 3), armen = [0, 1, 2, 3, 4, 5].filter(z => (mask >> z) & 1);
-      const buur = (z, li) => { const nq = a + NEIGH[z][0], nr = b + NEIGH[z][1], W = vorm.get(nq + ',' + nr), nst = stackOf(nq, nr);
-        return { huis: !!W && W.lv === V.lv && W.lagen > li, bezet: nst.length > V.lv + li || (!!W && W.lv === V.lv && W.lagen > li) }; };
-      const mod = bpModule.huis('pad', armen, { lagen: V.lagen, gevel: V.gevel, buur, naam: 'Huizen · ' + k });
-      cells.inst.push({ mid: 'bphuis:' + k, m: instData(mod, false), q: a, r: b, rot: 0, lv: V.lv });
+      const lv = stackOf(a, b).length - 1, mask = pathMask(a, b, lv * 3), V = steegVormVan(mask); if (!V) continue;
+      let keus = steeghuizenVan(V.c); if (!keus.length) continue;
+      if (keus.length > 1) keus = keus.filter(m => m.id !== oud.get(a + ',' + b));   // nog eens Shift+klik: een andere variant
+      const mod = keus[Math.floor(Math.random() * keus.length)];
+      cells.inst.push({ mid: mod.id, m: instData(mod, false), q: a, r: b, rot: V.rot, lv }); n++;
     }
     rebuildAll(); changed();
-    toast((had ? 'Andere huizen' : 'Huizen') + ' op ' + kavel.length + ' vakken langs de steeg (Raatmaker: V → Bewerken) · Shift+klik: andere · Ctrl+Shift+klik: weer leeg', 2800);
+    toast((oud.size ? 'Andere huizen' : 'Huizen') + ' op ' + n + ' vakken langs de steeg (Steeghuizen uit de Raatmaker) · Shift+klik: andere · Ctrl+Shift+klik: weer leeg', 2800);
   }
   function bouwpadStop() { if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; if (mode === 'build') updateGhost(); }
   // De laag van de volgende klik is de gekozen laag (Ctrl+scrollen, laagkiezer, PageUp/Down, zoals bij alle gereedschap; Q/E
