@@ -705,7 +705,8 @@
   }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
     const b = baseOf(t), upper = i > 0;
-    if (BP_RAATMAKER && !(cells.kh && cells.kh[q + ',' + r] && i === stackOf(q, r).length - 1)) {
+    if (BP_RAATMAKER && (cells.inst || []).some(I => I.q === q && I.r === r && (I.lv | 0) === i && typeof I.mid === 'string' && I.mid.startsWith('bphuis:'))) return;   // hier staat een huis-module (12, kavelsVullen): die tekent ook de steeg
+    if (BP_RAATMAKER) {
       bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col);
       if (b === 'looppad') hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i), pathMask(q, r, baseY));   // de inrichting nog zoals eerst (stap 4: ook in de Raatmaker)
       if (b === 'helling') hellingInr(o, q, r, i, dirOf(t), (1 << dirOf(t)) | (1 << ((dirOf(t) + 3) % 6)), baseY, cx, cz, col);
