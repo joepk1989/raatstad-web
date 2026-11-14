@@ -38,7 +38,7 @@ const fs = require('fs');
     const z = route[route.length - 1], eindVerwacht = Math.min(z.van, z.naar) * 3;   // midden op een helling sta je nog op de onderste laag
     zeg(!r.fout.length && r.sprong === 0 && r.inDeWeg === 0 && Math.abs(r.eind - eindVerwacht) < 0.3, naam, Object.assign(r, { verwacht: eindVerwacht, vakken: route.length }));
   };
-  const ZAAD = +(process.env.ZAAD || 2026), NAAM = ZAAD === 2026 ? 'wirwar' : 'wirwar' + ZAAD; let seed = ZAAD;   // ZAAD=…: een andere wirwar const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const ZAAD = +(process.env.ZAAD || 2026), NAAM = ZAAD === 2026 ? 'wirwar' : 'wirwar' + ZAAD; let seed = ZAAD; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };   // ZAAD=…: een andere wirwar
   const NB = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]], RAD = 6;
   const binnen = c => (Math.abs(c[0]) + Math.abs(c[1]) + Math.abs(c[0] + c[1])) / 2 <= RAD;
   // de randvakken van de zeshoek: daar beginnen de stegen, met een richting naar binnen
