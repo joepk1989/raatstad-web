@@ -1,5 +1,6 @@
 // Huizen op de kavels met één klik (Joep: "hoe kunnen we de kavels in de beton blokken vullen met 1 klik?"; koos: huizen op
-// maat, Shift+klik vult het hele netwerk). Een netwerk met klikken: recht, helling, bocht op laag 1, een helling in een bocht,
+// maat, Shift+klik vult het hele netwerk; daarna: "de huizen langs de steeg moeten in de Raatmaker gemaakt zijn"). Elk huis
+// is een Raatmaker-module (exemplaar 'bphuis:q,r' op het vak), met de steeg erin en de gevels op het raster. Een netwerk met klikken: recht, helling, bocht op laag 1, een helling in een bocht,
 // en een pad op laag 1 dat over het eerste heen gaat. Shift+klik op één stuk: alle kavels van het netwerk worden huizen
 // (cells.kh). Dan: nog steeds overal lopen, de daken zijn hoger dan de kavels, nog eens Shift+klik geeft andere huizen,
 // bewaren/openen houdt ze, Ctrl+Shift+klik maakt weer leeg. Screenshots: kavelhuizen_*.png
@@ -42,14 +43,22 @@ const { open, OUT, tik } = require('./helper');
   const Z = await pad(0, [[-2, 1], [-2, 2]]);   // verbindt P met Hb: één netwerk
   await toets('Escape'); await setLaag(null);
   const shiftKlik = async (q, r, ctrl) => { await p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.laag(null); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 120; S.orbit.phi = 0.05; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vbouw'); }, [q, r]); await beeld(); await tik(p, 640, 400, { shift: true, ctrl: !!ctrl }); await p.waitForTimeout(300); };
-  const telling = () => p.evaluate(() => { const C = window.__SC().getCells(), kh = C.kh || {}; let kavels = 0, vol = 0; for (const [k, st] of C) { if (!Array.isArray(st) || !st.length) continue; const t = st[st.length - 1]; if (/^(looppad|helling)/.test(t)) { kavels++; if (kh[k]) vol++; } } return { kavels, vol, kh: JSON.stringify(kh) }; });
+  const telling = () => p.evaluate(() => { const C = window.__SC().getCells(), H = (C.inst || []).filter(I => /^bphuis:/.test(I.mid)); let kavels = 0; for (const [k, st] of C) { if (!Array.isArray(st) || !st.length) continue; if (/^looppad/.test(st[st.length - 1])) kavels++; }
+    return { kavels, vol: H.length, kh: JSON.stringify(H.map(I => I.m.lv.length + I.m.lv[0].w[Object.keys(I.m.lv[0].w)[0]].m)), raatmaker: H.every(I => I.m.v === 2 && I.m.n === 8 && I.lv === (C.get(I.q + ',' + I.r).length - 1)), muren: H.reduce((n, I) => n + I.m.lv.reduce((a, L) => a + Object.keys(L.w).length, 0), 0) }; });
   await shiftKlik(1, 0);
   const t1 = await telling();
-  zeg(t1.kavels >= 20 && t1.vol === t1.kavels, 'Shift+klik: elke kavel van het netwerk een huis', { kavels: t1.kavels, huizen: t1.vol });
+  zeg(t1.kavels >= 15 && t1.vol === t1.kavels && t1.raatmaker && t1.muren > 100, 'Shift+klik: elk stuk steeg krijgt een huis-module (Raatmaker, op de laag van het pad)', { kavels: t1.kavels, huizen: t1.vol, raatmaker: t1.raatmaker, muren: t1.muren });
   await p.waitForTimeout(800);
   // de daken: boven een kavel sta je nu hoger dan op het blok (3 m), in de geul blijft de vloer gelijk
-  const dak = await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(-1, 0), F = window.__modDbg().floorAt; let hoog = 0, laag = 99; for (let x = -7; x <= 7; x += 0.5) for (let z = -7; z <= 7; z += 0.5) { const f = F(w.x + x, w.z + z, 20); if (f > 0.5) { hoog = Math.max(hoog, f); laag = Math.min(laag, f); } } return { hoog, laag, geul: F(w.x, w.z, 0.1) }; });
-  zeg(dak.laag >= 2.9 && dak.geul < 0.2, 'het dak is de bovenkant van het huis, de geul blijft vrij', dak);
+  const dak = await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(-1, 0), F = window.__modDbg().floorAt; let hoog = 0; for (let x = -7; x <= 7; x += 0.5) for (let z = -7; z <= 7; z += 0.5) hoog = Math.max(hoog, F(w.x + x, w.z + z, 30)); return { hoog, geul: F(w.x, w.z, 0.1) }; });
+  zeg(dak.hoog >= 2.9 && dak.geul < 0.2, 'de huizen hebben een dak (3 m of hoger), de steeg blijft op straathoogte', dak);
+  // aanwijzen (V) op een huis: de opties van een module, met Bewerken (de Raatmaker)
+  const aanw = await p.evaluate(() => { const S = window.__SC(), C = S.getCells(), I = C.inst.find(x => /^bphuis:/.test(x.mid)); return I ? [I.q, I.r, I.lv] : null; });
+  await p.evaluate(([q, r, lv]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.selectTool('kies'); S.orbit.target.set(w.x + 5.5, lv * 3 + 6, w.z + 3.5); S.orbit.dist = 60; S.orbit.phi = 0.05; S.orbit.theta = 0; S.applyOrbit(); }, aanw); await beeld();
+  await tik(p, 640, 400); await p.waitForTimeout(500);
+  const menu = await p.evaluate(() => [...document.querySelectorAll('.kies-grid button')].filter(b => /Bewerken/.test(b.textContent + b.title)).map(b => b.title));
+  zeg(menu.length > 0, 'aanwijzen op een huis: Bewerken (in de Raatmaker) staat erbij', menu);
+  await p.keyboard.press('Escape');
   await controleer('lopen: het eerste pad (recht, helling, bocht)', P);
   await controleer('lopen: de helling in een bocht', Hb);
   await controleer('lopen: het pad op laag 1 eroverheen', K);
@@ -64,8 +73,8 @@ const { open, OUT, tik } = require('./helper');
   zeg(t2.vol === t1.vol && t2.kh !== t1.kh, 'nog eens Shift+klik: andere huizen', { huizen: t2.vol });
   await foto('anders', 1, 1, 2, 0.6, 0.85, 95);
   // bewaren en openen
-  const terug = await p.evaluate(() => { const S = window.__SC(), t = S.serialize(S.getCells()), m = S.parseCity(t); return { n: Object.keys(m.kh || {}).length, h: !!JSON.parse(t).__h }; });
-  zeg(terug.h && terug.n === t2.vol, 'bewaren en openen: de huizen blijven', terug);
+  const terug = await p.evaluate(() => { const S = window.__SC(), t = S.serialize(S.getCells()), m = S.parseCity(t); return { n: (m.inst || []).filter(I => /^bphuis:/.test(I.mid)).length }; });
+  zeg(terug.n === t2.vol, 'bewaren en openen: de huizen blijven', terug);
   // Ctrl+Shift+klik: weer leeg
   await shiftKlik(1, 0, true);
   const t3 = await telling();

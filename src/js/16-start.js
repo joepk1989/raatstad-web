@@ -34,6 +34,10 @@
     try { for (const k of [MINE, STORE]) { const o = load(k); if (o && o.inst && o.inst.length) { const keep = cells; cells = o; for (const I of o.inst) removeInst(I); o.inst = []; cells = keep; localStorage.setItem(k, serialize(o)); } } } catch (e) { /* geen opslag */ }
   }
   rebuildAll(); updateStats();
+  // Bouwpad uit de Raatmaker (05): de materialen van de stukken alvast voorbereiden (shaders compileren). Anders gebeurde dat
+  // pas bij het eerste stuk in beeld, en dat ene beeld duurde (zeker zonder grafische kaart) zo lang dat een klik verloren ging.
+  try { const g = new THREE.Group(), col = { surfaces: [], walls: [] }; for (const i of [0, 1]) for (const t of ['looppad', 'helling0', 'hellingb02', 'blok', 'tunnel']) bpModuleBlok(g, t, 0, 0, i, i * 3, 0, 0, col);   // ook gestapeld (met plafond: een ander materiaal)
+    g.position.y = -500; scene.add(g); renderer.compile(scene, camera); scene.remove(g); } catch (e) { }
   if (modsReset) changed();
   if (libRefreshed) { let n = 0; for (const m of modules) if (m.v === 2) n += syncModule(m); if (n) changed(); }
   if (libNews) setTimeout(() => toast('Bibliotheek vernieuwd: ' + libNews + ' nieuwe modules (voorzieningen, sport, wonen, werken) en alles opnieuw nagekeken', 4200), 1800);   // vernieuwde standaardmodules ook in de stad

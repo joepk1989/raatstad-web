@@ -8,7 +8,7 @@ const { open, OUT } = require('./helper');
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(58), typeof info === 'string' ? info : JSON.stringify(info)); };
   await p.mouse.move(640, 400); await p.waitForTimeout(300);
   const stand = () => p.evaluate(() => ({ laag: window.__HUD.layer, theta: +window.__SC().orbit.theta.toFixed(3), hoogte: (document.querySelector('#dragH span') || {}).textContent }));
-  const houd = async toets => { await p.keyboard.down(toets); await p.waitForTimeout(500); await p.keyboard.up(toets); await p.waitForTimeout(200); };
+  const houd = async toets => { await p.keyboard.down(toets); await p.waitForTimeout(1000); await p.keyboard.up(toets); await p.waitForTimeout(200); };   // 1 s vasthouden: onder belasting (reeks, vier tests tegelijk) draaide 0,5 s soms net te weinig voor de drempel
   // 1. met elk gereedschap: E draait, Q draait terug, en de hoogte of laag verandert niet
   for (const t of ['vsteeg', 'vweg', 'looppad', 'vbouw', 'module', 'park']) {
     await p.evaluate(t => window.__SC().selectTool(t), t); await p.waitForTimeout(200);

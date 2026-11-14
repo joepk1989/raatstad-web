@@ -5,6 +5,10 @@
   const kiesHL = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#f2b233', transparent: true, opacity: 0.95, depthTest: false }));
   kiesHL.renderOrder = 7; kiesHL.frustumCulled = false; kiesHL.visible = false; kiesHL.userData.noOcc = true; scene.add(kiesHL);
   const kiesMod = I => modules.find(m => m.id === I.mid) || null;
+  // Een huis langs de steeg (bphuis:q,r, 12 kavelsVullen) is een eigen Raatmaker-module voor dat ene vak, die niet in de
+  // modulelijst staat. Bewerken zet hem er pas dan in (zelfde id), zodat je juist dat huis op de plek zelf aanpast.
+  const kiesModOfHuis = I => kiesMod(I) || (typeof I.mid === 'string' && I.mid.startsWith('bphuis:') && I.m && I.m.v === 2 ? (() => { const m = JSON.parse(JSON.stringify(I.m)); m.id = I.mid; m.name = I.m.name || 'Huizen'; m.cat = 'Wonen'; modules.push(m); try { saveMods(); } catch (e) { } return m; })() : null);
+  const isHuis = I => typeof I.mid === 'string' && I.mid.startsWith('bphuis:');
   // een SketchUp-module (15j3) telt als die dichterbij is dan wat de gewone keuze raakt
   function kiesSkp(cx, cy, res) {
     const h = skpBouw.raak(cx, cy); if (!h) return null;
@@ -100,7 +104,7 @@
         sub.textContent = [I.lv ? 'laag ' + I.lv : 'op de grond', M.fl ? M.fl + (M.fl === 1 ? ' laag' : ' lagen') : null, M.k ? '7 vakken' : null, ((I.rot || 0) % 6) * 60 + '°', I.mir ? 'gespiegeld' : null].filter(Boolean).join(' · ');
         if (v2) { btn('l', 'Draai links', 'Een zesde slag linksom (60°)'); btn('r', 'Draai rechts', 'Een zesde slag rechtsom (60°)'); btn('m', I.mir ? 'Niet spiegelen' : 'Spiegelen', 'In spiegelbeeld'); }
         if (Number.isInteger(I.q) && Number.isInteger(I.r)) btn('v', 'Andere variant', 'De volgende module die op de buren aansluit');
-        if (mod && v2) btn('e', 'Bewerken', 'Openen in de Raatmaker' + (n > 1 ? ' · past alle ' + n + ' exemplaren in de stad aan' : ''));
+        if ((mod || isHuis(I)) && v2) btn('e', 'Bewerken', 'Openen in de Raatmaker' + (n > 1 ? ' · past alle ' + n + ' exemplaren in de stad aan' : ''));
         if (mod) { btn('p', 'Meer hiervan', 'Deze module (met deze draaiing) in je hand nemen om er meer van te bouwen'); btn('o', 'Verplaatsen', 'Oppakken en ergens anders neerzetten'); }
         btn('x', 'Weghalen', 'Het hele exemplaar weghalen', !mod, true);
       } else {
@@ -124,7 +128,7 @@
         if (a === 'l' || a === 'r') { const J = kiesReplace(I, { rot: ((I.rot || 0) + (a === 'l' ? 1 : 5)) % 6 }); if (J !== I) { T2.I = J; toast('Gedraaid', 700); } }
         else if (a === 'm') { const J = kiesReplace(I, { mir: !I.mir }); if (J !== I) { T2.I = J; toast(J.mir ? 'Gespiegeld' : 'Niet meer gespiegeld', 800); } }
         else if (a === 'v') { const i = cells.inst.indexOf(I); if (i >= 0 && swapInst(i)) T2.I = cells.inst[cells.inst.length - 1]; else toast('Geen andere variant die past', 1400); }
-        else if (a === 'e') { kiesClose(); kiesShow(null); openSchets(mod); return; }
+        else if (a === 'e') { kiesClose(); kiesShow(null); openSchets(mod || kiesModOfHuis(I)); return; }
         else if (a === 'p' || a === 'o') {
           moduleSel = modules.indexOf(mod); moduleRot = (I.rot || 0) % 6; moduleMir = !!I.mir && mod.v === 2; moduleGhostKey = '';
           if (a === 'o') { const i = cells.inst.indexOf(I); if (i >= 0) { cells.inst.splice(i, 1); removeInst(I); buildTriNet(); buildPathNet(); buildEdgeNet(); buildModNet(); changed(); } }

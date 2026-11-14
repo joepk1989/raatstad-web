@@ -681,8 +681,38 @@
     const leg = (g, m, dy) => { const mm = addMesh(g, m); mm.position.y = y + dy; mm.raycast = () => {}; mm.castShadow = false; };
     if (pr.beton) leg(pr.beton, M.padRandBeton, 0); for (const g of pr.band) leg(g, M.padBand, 0.002); for (const g of pr.midden) leg(g, M.padKlinker, 0.004);
   }
+  // ---------- Bouwpad uit de Raatmaker (stap 2, november 2026) ----------
+  // Elk stuk van het Bouwpad (Steeg-blok, Blok, Helling, Helling in een bocht, Tunnel) wordt gebouwd door de Raatmaker
+  // (mv2Build) uit de module van bpModule (08o): zelfde pad, lagen, hellingen en verbindingen als eerst, maar zonder
+  // rondingen en op het raster. Per soort stuk één keer gebouwd en daarna gedeeld (de meshes delen hun geometrie; ze zijn
+  // niet 'own', dus disposeGroup ruimt ze niet op). Een vak met huizen (cells.kh) gebruikt nog de oude blokken, tot de
+  // huizen ook Raatmaker-modules zijn (stap 3). BP_RAATMAKER = false: weer de oude blokken.
+  const BP_RAATMAKER = true, bpBouwCache = new Map();
+  function bpStukModule(t, q, r, baseY) {
+    const b = baseOf(t); let soort = 'pad', armen = [], hoog;
+    if (b === 'looppad' || b === 'tunnel') { const m = pathMask(q, r, baseY); armen = [0, 1, 2, 3, 4, 5].filter(k => (m >> k) & 1); }
+    else if (b === 'helling') { const d = dirOf(t); armen = [d, (d + 3) % 6]; hoog = d; soort = 'helling'; }
+    else if (b === 'hellingb') { const [d, e] = hbKanten(t); armen = [d, e]; hoog = d; soort = 'hellingb'; }
+    return { soort, armen, hoog };
+  }
+  function bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col) {
+    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '');
+    let B = bpBouwCache.get(key);
+    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
+    for (const ch of B.group.children) { const c = ch.clone(); c.traverse(m => { if (m.userData) delete m.userData.own; }); o.add(c); }
+    for (const S of B.surfaces) col.surfaces.push(Object.assign({}, S, { cx: S.cx + cx, cz: S.cz + cz, base: (S.base || 0) + baseY, bottom: S.bottom + baseY }, S.top != null ? { top: S.top + baseY } : {}));
+    for (const w of B.walls) col.walls.push(Object.assign({}, w, { ax: w.ax + cx, az: w.az + cz, bx: w.bx + cx, bz: w.bz + cz, y0: w.y0 + baseY, y1: w.y1 + baseY }));
+  }
   function makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col) {
     const b = baseOf(t), upper = i > 0;
+    if (BP_RAATMAKER && (cells.inst || []).some(I => I.q === q && I.r === r && (I.lv | 0) === i && typeof I.mid === 'string' && I.mid.startsWith('bphuis:'))) return;   // hier staat een huis-module (12, kavelsVullen): die tekent ook de steeg
+    if (BP_RAATMAKER) {
+      bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col);
+      if (b === 'looppad') hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i), pathMask(q, r, baseY));   // de inrichting nog zoals eerst (stap 4: ook in de Raatmaker)
+      if (b === 'helling') hellingInr(o, q, r, i, dirOf(t), (1 << dirOf(t)) | (1 << ((dirOf(t) + 3) % 6)), baseY, cx, cz, col);
+      if (b === 'hellingb') { const [d, e] = hbKanten(t); hellingInr(o, q, r, i, d, (1 << d) | (1 << e), baseY, cx, cz, col); }
+      return;
+    }
     const addMesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
     let mask = 0;
     if (b === 'looppad') mask = pathMask(q, r, baseY);
@@ -735,7 +765,7 @@
   // aan het pad; op de buitenkant (de rand van de zeshoek) alleen waar het buurvak op die hoogte leeg is. Per huis (seed uit
   // cells.kh en het stuk) een andere gevel en hoogte. Staat er later iets op het vak (een pad een laag hoger), dan is het
   // geen kavel meer en is het huis vanzelf weg.
-  const HUIS_GEVELS = ['brick', 'plaster', 'darkbrick', 'oker', 'zalm', 'stone', 'terra', 'geel', 'breuksteen'];
+  const HUIS_GEVELS = ['oker', 'zalm', 'terra', 'geel', 'oker', 'zalm', 'plaster', 'breuksteen'];   // Italiaans (Joep): warm stucwerk, af en toe wit of breuksteen
   function huisVorm(seed, n) {
     let a = ((seed | 0) * 2654435761 + n * 40503 + 7) >>> 0; const r01 = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
     const x = r01(), lagen = x < 0.3 ? 1 : x < 0.75 ? 2 : 3;

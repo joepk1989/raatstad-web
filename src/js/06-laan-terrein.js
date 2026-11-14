@@ -114,6 +114,7 @@
     if (isBuilding(t)) { makeBuilding(o, t, q, r, i, baseY, cx, cz, col); return o; }
     if (['pad', 'trap', 'zuilen', 'hof'].includes(baseOf(t))) { makePedestrian(o, t, q, r, i, baseY, cx, cz, col); return o; }
     if (['looppad', 'blok', 'helling', 'hellingb'].includes(baseOf(t))) { makeChannelBlock(o, t, q, r, i, baseY, cx, cz, col); return o; }
+    if (baseOf(t) === 'tunnel' && BP_RAATMAKER) { bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col); return o; }   // Bouwpad-tunnel: ook uit de Raatmaker (05)
     if (['tunnel', 'muur', 'trappad', 'tribune', 'hofhelling'].includes(baseOf(t))) { makeModular(o, t, q, r, i, baseY, cx, cz, col); return o; }
     const kapels = /^dak\d$/.test(t) ? +t.slice(3) : 0;   // dak1: een dakkapel aan de voorkant, dak2: voor en achter
     if (kapels) t = 'dak';
