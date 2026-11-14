@@ -36,7 +36,7 @@
   rebuildAll(); updateStats();
   // Bouwpad uit de Raatmaker (05): de materialen van de stukken alvast voorbereiden (shaders compileren). Anders gebeurde dat
   // pas bij het eerste stuk in beeld, en dat ene beeld duurde (zeker zonder grafische kaart) zo lang dat een klik verloren ging.
-  try { const g = new THREE.Group(), col = { surfaces: [], walls: [] }; for (const t of ['looppad', 'helling0', 'blok']) bpModuleBlok(g, t, 0, 0, 0, 0, 0, 0, col); bpModuleBlok(g, 'looppad', 0, 0, 1, 3, 0, 0, col);
+  try { const g = new THREE.Group(), col = { surfaces: [], walls: [] }; for (const i of [0, 1]) for (const t of ['looppad', 'helling0', 'hellingb02', 'blok', 'tunnel']) bpModuleBlok(g, t, 0, 0, i, i * 3, 0, 0, col);   // ook gestapeld (met plafond: een ander materiaal)
     g.position.y = -500; scene.add(g); renderer.compile(scene, camera); scene.remove(g); } catch (e) { }
   if (modsReset) changed();
   if (libRefreshed) { let n = 0; for (const m of modules) if (m.v === 2) n += syncModule(m); if (n) changed(); }
