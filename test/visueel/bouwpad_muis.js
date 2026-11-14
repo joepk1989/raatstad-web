@@ -31,8 +31,8 @@ const { open, OUT, tik } = require('./helper');
   // 3. Ctrl+klik: bankje op een recht stuk, en op een bocht; nog eens: weer weg
   const ctrl = async (q, r) => { const s = await scherm(q, r); await p.mouse.move(s[0], s[1]); await beeld(); await tik(p, s[0], s[1], { ctrl: true }); await beeld(); return (await stapel(q, r)).join('+'); };
   const a = await ctrl(0, 0), bocht = await ctrl(2, 1), a2 = await ctrl(0, 0);
-  zeg(/05$/.test(a) && /05$/.test(bocht) && !/05$/.test(a2), 'Ctrl+klik: bankje op recht stuk en bocht, nog eens: weg', [a, bocht, a2]);
-  await ctrl(0, 0);
+  zeg(/05$/.test(a) && /05$/.test(bocht) && /06$/.test(a2), 'Ctrl+klik: bankje op recht stuk en bocht, nog eens: plantenbakken', [a, bocht, a2]);
+  for (let n = 0; n < 5 && !/05$/.test(await ctrl(0, 0)); n++);   // de ronde rond (wandlampen, groene wanden, kaal) tot het bankje terug is (zie inrichting.js)
   await p.mouse.move(5, 5); await beeld();
   // het bankje houdt je tegen: in de geul van het vak (straal 2,2 m rond het midden) is iets in de weg; zonder bankje niet
   const inDeWeg = (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r); let n = 0; for (let x = -2.2; x <= 2.2; x += 0.2) for (let z = -2.2; z <= 2.2; z += 0.2) if (Math.hypot(x, z) < 2.2 && S.blockedAt(w.x + x, w.z + z, 0.06)) n++; return n; }, [q, r]);

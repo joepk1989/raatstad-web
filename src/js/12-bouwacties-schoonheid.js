@@ -481,12 +481,19 @@
         return;
       }
     }
-    if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting (hofje; Groen hofje: ook bankjes op een recht stuk)
-      const [q, r] = res.place, st = stackOf(q, r); let i = st.length - 1; while (i >= 0 && baseOf(st[i]) !== 'looppad') i--;
-      if (i >= 0) { const [mat, hofje] = loopdekCijfers(st[i]), m = pathMask(q, r, i * 3); let armen = 0; for (let k = 0; k < 6; k++) if ((m >> k) & 1) armen++;
-        const plein = armen >= 3, nh = plein ? (hofje + 1) % LOOPDEK_HOFJE_NAMEN.length : hofje === 5 ? 0 : 5;   // alleen op een plein zie je boom, bloemen of lantaarns; op een recht stuk of bocht: wel of geen bankje
-        st[i] = loopdekCode(mat, nh); rebuildAround(q, r); changed(); toast(plein ? 'Plein: ' + LOOPDEK_HOFJE_NAMEN[nh] + ' · Ctrl+klik voor de volgende' : nh ? 'Bankje aan de kant · Ctrl+klik: weer weg' : 'Geen bankje', 1400); updateGhost(); return; }
-      return toast('Ctrl+klik op een stuk Bouwpad: inrichting (plein) of een bankje', 1400);
+    if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting
+      // plein (drie of meer armen): de hofjes 0–5; recht stuk, bocht of eind: kaal → bankje → plantenbakken → wandlampen →
+      // groene wanden (ZIJ_RONDE); helling: kaal → treden → wandlampen → groene wanden (HELLING_INR, in cells.inr). Met een
+      // laag gekozen het stuk op of onder die laag, anders het bovenste.
+      const [q, r] = res.place, st = stackOf(q, r), Lk = hudLayer(); let i = Math.min(st.length - 1, Lk !== null ? Lk : 99);
+      while (i >= 0 && !['looppad', 'helling', 'hellingb'].includes(baseOf(st[i]))) i--;
+      if (i >= 0 && baseOf(st[i]) === 'looppad') { const [mat, hofje] = loopdekCijfers(st[i]), m = pathMask(q, r, i * 3); let armen = 0; for (let k = 0; k < 6; k++) if ((m >> k) & 1) armen++;
+        const plein = armen >= 3, zi = ZIJ_RONDE.indexOf(hofje), nh = plein ? (hofje >= 5 ? 0 : hofje + 1) : ZIJ_RONDE[(zi + 1) % ZIJ_RONDE.length];   // alleen op een plein zie je boom, bloemen of lantaarns
+        st[i] = loopdekCode(mat, nh); rebuildAround(q, r); changed();
+        toast((plein ? 'Plein: ' : (armen === 2 && (m & (m >> 3) & 7) ? 'Recht stuk: ' : armen === 1 ? 'Eind: ' : 'Bocht: ')) + (nh === 5 && !plein ? 'Bankje aan de kant' : LOOPDEK_HOFJE_NAMEN[nh]) + ' · Ctrl+klik voor de volgende', 1600); updateGhost(); return; }
+      if (i >= 0) { const inr = cells.inr || (cells.inr = {}), k = q + ',' + r + ',' + i, v = ((inr[k] | 0) + 1) % HELLING_INR.length;
+        if (v) inr[k] = v; else delete inr[k]; rebuildAround(q, r); changed(); toast('Helling: ' + HELLING_INR[v] + ' · Ctrl+klik voor de volgende', 1600); updateGhost(); return; }
+      return toast('Ctrl+klik op een stuk Bouwpad: plein, recht stuk, bocht of helling inrichten', 1600);
     }
     if (ctrl && tool === 'looppad' && mode === 'build' && res.place) {
       const [q, r] = res.place, st = stackOf(q, r), top = st[st.length - 1];
@@ -495,7 +502,7 @@
         let armen = 0; for (let k = 0; k < 6; k++) if ((mask >> k) & 1) armen++;
         const [mat, hofje] = loopdekCijfers(top);
         if (armen >= 3) {
-          const nh = (hofje + 1) % LOOPDEK_HOFJE_NAMEN.length;
+          const nh = hofje >= 5 ? 0 : hofje + 1;   // de hofjes 0–5 (6–8 zijn voor langs de wanden)
           st[st.length - 1] = loopdekCode(mat, nh);
           rebuildAround(q, r); changed(); toast('Hofje: ' + LOOPDEK_HOFJE_NAMEN[nh], 1400);
         } else {
