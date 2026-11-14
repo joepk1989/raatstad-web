@@ -56,7 +56,7 @@ const { open, OUT, tik } = require('./helper');
   const aanw = await p.evaluate(() => { const S = window.__SC(), C = S.getCells(), I = C.inst.find(x => /^bphuis:/.test(x.mid)); return I ? [I.q, I.r, I.lv] : null; });
   await p.evaluate(([q, r, lv]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.selectTool('kies'); S.orbit.target.set(w.x + 5.5, lv * 3 + 6, w.z + 3.5); S.orbit.dist = 60; S.orbit.phi = 0.05; S.orbit.theta = 0; S.applyOrbit(); }, aanw); await beeld();
   await tik(p, 640, 400); await p.waitForTimeout(500);
-  const menu = await p.evaluate(() => [...document.querySelectorAll('button')].filter(b => b.offsetParent && /Bewerken/.test(b.textContent)).map(b => b.textContent.trim()));
+  const menu = await p.evaluate(() => [...document.querySelectorAll('.kies-grid button')].filter(b => /Bewerken/.test(b.textContent + b.title)).map(b => b.title));
   zeg(menu.length > 0, 'aanwijzen op een huis: Bewerken (in de Raatmaker) staat erbij', menu);
   await p.keyboard.press('Escape');
   await controleer('lopen: het eerste pad (recht, helling, bocht)', P);

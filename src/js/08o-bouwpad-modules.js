@@ -76,7 +76,7 @@
     const obstakels = armen => { const o = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) })); if (armen.length >= 3) o.push({ uit: pleinBuiten(), in: pleinBinnen() }); return o; };
     function maak(soort, armen, opts = {}) {
       const naam = opts.naam || ('Bouwpad · ' + soort + ' ' + armen.join('')), m = mv2New(naam);
-      m.cat = 'Verbindingen'; m.k = 0; m.n = 8; m.bp = { soort, armen: armen.slice(), hoog: opts.hoog };
+      m.cat = 'Verbindingen'; m.k = 0; m.n = 8; m.rand = 'muurtje'; m.bp = { soort, armen: armen.slice(), hoog: opts.hoog };   // rand: langs een dakrand lichte schuine muurtjes, geen hek (Joep)
       const L0 = m.lv[0], plein = armen.length >= 3;
       // obstakels: elke arm (strook), en bij een plein de zeshoek
       const obst = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) }));
