@@ -544,8 +544,12 @@ Daarnaast hebben de bordessen van de **Trap** nu ook de zeshoekige klinkers (`M.
      - Eromheen staat massief beton (`L.v`), afgeknipt langs de randen van het pad (`L.vk`). Per driehoekje worden alle combinaties van halve vlakken geprobeerd en wordt de grootste genomen. Eerst koos de rekenregel per strook, en dat liet in de binnenhoek een sliertje weg.
      - De vloer is `padoker` (nieuw in de Raatmaker: Bouwpadtegels); een helling is een plaat, een tunnel heeft een dek op laag 1.
      - Test: `test/visueel/bouwpad_modules.js`.
-  2. De Bouwpad zet deze modules neer in plaats van de oude Steeg-blokken (`makeChannelBlock`).
-  3. Huizen op de kavels als Raatmaker-modules, per vak aan te passen in de Raatmaker (aanwijzen → Bewerken).
+  2. **Klaar.** De Bouwpad bouwt zijn stukken (Steeg-blok, Blok, Helling, Helling in een bocht, Tunnel) met de Raatmaker (`bpModuleBlok` in 05, `mv2Build`): per soort stuk één keer gebouwd en daarna gedeeld. `BP_RAATMAKER = false` geeft de oude blokken terug. De materialen worden bij de start voorbereid (16), ook gestapeld; anders duurde het eerste beeld met zo'n stuk zo lang dat een klik verloren ging. De donkerbruine rand langs het pad is weg (die volgde de oude rondingen) en komt in stap 4 terug.
+  3. **Klaar.** Huizen langs de steeg als Raatmaker-modules (`bpModule.huis` in 08o): **Shift+klik** zet per vak een exemplaar `bphuis:q,r` neer op de laag van het pad, met de steeg erin. Het oude blok wordt daar niet getekend.
+     - De gevels staan op de rasterlijnen langs de steeg en de vakrand, de dakrand is een muurtje (`rand: 'muurtje'`).
+     - Italiaans (Joep: "veel minder ramen, het mag Italiaans"): stucwerk in oker, zalm, terracotta en geel (af en toe wit of breuksteen), daken van terracotta pannen. Een raam om de ~4 muurstukken, verspringend per verdieping; op de begane grond hier en daar een deur.
+     - **Aanwijzen (V) → Bewerken** opent dat ene huis in de Raatmaker (`kiesModOfHuis` in 15g zet het dan in de modulelijst).
+     - Nog niet op een helling of tunnel.
   4. De inrichting (hofjes, bankjes, plantenbakken, lampen, klimop, treden) als Raatmaker-objecten.
 - **Huizen op de kavels met één klik** (`kavelsVullen` in 12, `kavelHuizen` in 05, november 2026; Joep koos: huizen op maat, het hele netwerk in één keer):
   - **Shift+klik** met de Bouwpad op een stuk pad: alle blokken langs dat hele, aaneengesloten netwerk (vakken met een stuk Bouwpad, buur aan buur) worden huizen. Opgeslagen in `cells.kh` (per vak een zaadje, in het bestand `__h`). **Nog eens Shift+klik**: andere huizen. **Ctrl+Shift+klik**: weer lege kavels.

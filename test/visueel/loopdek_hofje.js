@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
   await p.waitForTimeout(500);
   const openAlle = async () => { await p.evaluate(() => { const b = document.getElementById('catOpen') || [...document.querySelectorAll('button')].find(x => x.textContent.includes('Alle blokken')); b && b.click(); }); await p.waitForTimeout(350); };
   const kiesTab = async naam => { await p.evaluate(naam => { const t = [...document.querySelectorAll('.pal-tab')].find(x => x.textContent === naam); t && t.click(); }, naam); await p.waitForTimeout(250); };
-  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else window.__SC().selectTool(id.slice(5)); }, id); await p.waitForTimeout(250); };   // Steeg-blok heeft geen knop meer (oud): dan rechtstreeks kiezen
+  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else { window.__SC().selectTool(id.slice(5)); window.__HUD.catalog(false); } }, id); await p.waitForTimeout(250); };   // Steeg-blok heeft geen knop meer (oud): dan rechtstreeks kiezen
   await openAlle(); await kiesTab('Paden'); await kiesKnop('tool-looppad');
   const s0 = await scherm(0, 0);
 

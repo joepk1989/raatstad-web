@@ -1,7 +1,7 @@
 // Ctrl+scrollen kiest de laag, niet alleen voor modules maar voor élk gereedschap: op een leeg vak komen de nodige
 // blokken er vanzelf onder (vulBlokken/metVulling in 05-blokken-netwerken.js), zodat je ook los van een buur ergens
 // op hoogte kunt beginnen. Echt via de knoppen, het wiel en het tekenvlak, zoals een speler. Screenshot: vulblokken.png
-const { open, OUT } = require('./helper');
+const { open, OUT, tik } = require('./helper');
 (async () => {
   const { b, p } = await open({ width: 1280, height: 800 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
@@ -11,8 +11,8 @@ const { open, OUT } = require('./helper');
   const scherm = async (q, r) => p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r), v = new THREE.Vector3(w.x, S.terrainHeightAt(w.x, w.z), w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, [q, r]);
   const openAlle = async () => { await p.evaluate(() => { const b = document.getElementById('catOpen') || [...document.querySelectorAll('button')].find(x => x.textContent.includes('Alle blokken')); b && b.click(); }); await p.waitForTimeout(350); };
   const kiesTab = async naam => { await p.evaluate(naam => { const t = [...document.querySelectorAll('.pal-tab')].find(x => x.textContent === naam); t && t.click(); }, naam); await p.waitForTimeout(250); };
-  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else window.__SC().selectTool(id.slice(5)); }, id); await p.waitForTimeout(250); };   // oud gereedschap (Steeg-blok, Helling, Opgang) heeft geen knop meer: dan rechtstreeks kiezen
-  const klik = async (q, r) => { const s = await scherm(q, r); await p.mouse.move(s[0], s[1]); await p.waitForTimeout(200); await p.mouse.click(s[0], s[1]); await p.waitForTimeout(400); };
+  const kiesKnop = async id => { await p.evaluate(id => { const b = document.getElementById(id); if (b && b.offsetParent !== null) b.click(); else { window.__SC().selectTool(id.slice(5)); window.__HUD.catalog(false); } }, id); await p.waitForTimeout(250); };   // oud gereedschap (Steeg-blok, Helling, Opgang) heeft geen knop meer: dan rechtstreeks kiezen
+  const klik = async (q, r) => { const s = await scherm(q, r); await tik(p, s[0], s[1]); await p.waitForTimeout(400); };   // tik (helper): indrukken en loslaten in één keer, zodat een traag beeld onder belasting de klik niet laat wegvallen
   const vak = q_r => p.evaluate(k => (window.__SC().getCells().get(k) || []).slice(), q_r);
 
   // los op een vak: Loopdek alleen plaatsen komt op de grond (geen buur, geen laag gekozen)
