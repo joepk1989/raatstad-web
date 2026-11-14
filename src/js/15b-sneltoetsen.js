@@ -5,7 +5,7 @@
   const keysPanel = document.getElementById('keysPanel'), keysBtn = document.getElementById('keysBtn'), keysList = document.getElementById('keysList');
   const K = (...k) => k.map(x => `<kbd>${x}</kbd>`).join(' ');
   const KEYS_BUILD = [
-    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien'], [K('Ctrl') + ' + scrollen', 'laag kiezen (blokken, modules, Bouwpad); een weg of pad: ▲▼, en tijdens het slepen het scrollwiel'], [K('+', '−'), 'in- en uitzoomen'], ['Middelste muisknop', 'slepen: draaien (of Alt + links); rechts of Shift + links slepen: schuiven'],
+    ['Kaart', null], [K('W', 'A', 'S', 'D'), 'schuiven (of pijltjes)'], [K('Q', 'E'), 'draaien'], [K('Ctrl') + ' + scrollen', 'laag kiezen (blokken, modules, Bouwpad); een weg of pad: ▲▼, en tijdens het slepen het scrollwiel'], [K('+', '−'), 'in- en uitzoomen'], [K('X'), 'doorkijk aan/uit bij een gekozen laag: de laag erboven doorzichtig, de laag eronder oranje door de vloer'], ['Middelste muisknop', 'slepen: draaien (of Alt + links); rechts of Shift + links slepen: schuiven'],
     ['Bouwen', null], [K('1') + '…' + K('9'), 'blok uit de snelbalk'], [K('Tab'), 'alle blokken (kies er één: hij komt in de snelbalk)'], [K('R'), 'draaien (Shift+R: terug)'],
     [K('K'), 'Raatmaker, overzicht: alle modules van boven; bekijken, bewerken, neerzetten of een nieuwe tekenen'], [K('V'), 'aanwijzen: klik op een module voor opties (draaien, spiegelen, variant, bewerken, verplaatsen)'], [K('Del'), 'gum aan/uit'], [K('Ctrl', 'Z'), 'ongedaan maken'], [K('PgUp', 'PgDn'), 'laag kiezen (wat erboven ligt wordt doorzichtig)'], [K('[', ']'), 'penseel: 1, 7, 19 of 37 vakken'], [K('Shift') + '+wiel', 'volgende in de snelbalk'],
     ['Modules', null], [K(',', '.'), 'vorige / volgende module'], [K('F'), 'module spiegelen'], [K('/'), 'zoek een module (Enter kiest de eerste)'],
@@ -47,6 +47,7 @@
     if (e.code === 'KeyL') { document.getElementById('modeBtn').click(); if (!keysPanel.hidden) renderKeys(); return; }
     if (mode === 'walk') return;   // de rest is voor bouwen
     if (roadDrag.on) return;       // tijdens slepen: hoogte (zie invoer)
+    if (e.code === 'KeyX' && HUD && HUD.layer !== null) { HUD.doorkijk = !HUD.doorkijk; toast(HUD.doorkijk ? 'Doorkijk aan: de laag erboven doorzichtig, de laag eronder oranje door de vloer heen' : 'Doorkijk uit: alleen de doorsnede', 1800); return; }   // doorkijk bij een gekozen laag (15d)
     if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); if (tool === 'gum' && prevTool) selectTool(prevTool); else { prevTool = tool; selectTool('gum'); } toast(tool === 'gum' ? 'Gum' : 'Gum uit', 700); return; }
     if (e.code === 'KeyV') { const kb = document.getElementById('kiesBtn'); if (kb) kb.click(); return; }   // aanwijzen (15g)
     if (e.code === 'Comma') { modStep(-1); return; }    // vorige / volgende module
