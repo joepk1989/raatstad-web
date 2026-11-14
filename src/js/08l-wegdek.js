@@ -66,15 +66,19 @@
     if (vecCover.has(q + ',' + r)) { const t = roadTopIn([[q, r]]); if (gH(I0.q, I0.r) + lv * MV2.LV_H < t + CLEAR - 1e-3) return false; }
     return true;
   }
-  // Poten onder zwevende modules: per vak dat niet op een module staat, op de zes hoekpunten (en het midden als daar geen
-  // weg is); niet op de rijbaan of te dicht erbij. Geeft per exemplaar een lijst [x, z, onder, boven].
+  // Pijlers onder zwevende (verhoogde) modules: per vak dat niet op een module staat zes stevige zeshoekige pijlers, één bij
+  // elk hoekpunt (Joep: "zodat je ziet dat er nog onderdoor kan", "de zes pijlers ... altijd dezelfde stijl als de module
+  // erboven"); niet op de rijbaan of te dicht erbij. Geeft per exemplaar een lijst [x, z, onder, boven].
+  // PIJLER_R: straal van de zeshoek (hoekpunt), PIJLER_IN: zo ver staat het hart binnen het hoekpunt van het vak, zodat de
+  // pijler binnen de omtrek van de module blijft.
+  const PIJLER_R = 0.75, PIJLER_IN = 1.0;
   function deckLegs(I) {
     const lv = instLv(I); if (!lv) return [];
     const G = gH(I.q, I.r), y1 = G + lv * MV2.LV_H - MV2.FLOOR_T, out = [], seen = new Set(); out.all = true;
     for (const [q, r] of mv2Area(I)) {
       if (legTops && legTops.has(q + ',' + r + ',' + lv)) { out.all = false; continue; }   // een andere module eindigt hier precies op deze laag: hij staat erop
-      const c = cellToWorld(q, r), spots = [[c.x, c.z]];
-      for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; spots.push([c.x + Math.cos(a) * (R - 0.6), c.z + Math.sin(a) * (R - 0.6)]); }
+      const c = cellToWorld(q, r), spots = [];
+      for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; spots.push([c.x + Math.cos(a) * (R - PIJLER_IN), c.z + Math.sin(a) * (R - PIJLER_IN)]); }
       for (const [x, z] of spots) {
         const k = Math.round(x * 2) + ',' + Math.round(z * 2); if (seen.has(k)) continue; seen.add(k);
         if (onCarriage(x, z)) continue;
@@ -97,10 +101,36 @@
     return false;
   }
   // Meshes en botsing van alle poten (één InstancedMesh); per exemplaar bewaard voor instorten (legParts)
-  var legGeo = new THREE.CylinderGeometry(0.42, 0.48, 1, 6).translate(0, 0.5, 0);
-  var legMesh = null, legData = new Map(), legCols = new Map(), legTops = null, towerMeshes = null;
+  // Stijl van de pijlers = het materiaal van de module erboven: het meest gebruikte muurmateriaal van zijn onderste
+  // verdieping (muren en massief; glas, hek en heg tellen niet), anders schoon beton.
+  const PIJLER_NIET = new Set(['glass', 'curtain', 'fence', 'hedge']);
+  function legStijl(I) {
+    const L = I.m && I.m.lv && I.m.lv[0], n = {}; if (!L) return 'concrete';
+    for (const id in L.w || {}) { const W = L.w[id], m = W && W.m; if (m && !PIJLER_NIET.has(m)) n[m] = (n[m] || 0) + 1; }
+    for (const id in L.v || {}) { const m = L.v[id]; if (m && !PIJLER_NIET.has(m)) n[m] = (n[m] || 0) + 1; }
+    let best = 'concrete', bn = 0; for (const m in n) if (n[m] > bn) { bn = n[m]; best = m; }
+    return best;
+  }
+  const legMat = I => { const Mt = mv2Mats(); return Mt.wl[legStijl(I)] || Mt.wl.concrete || Mt.slab; };
+  // Eén pijler: een zeshoekig prisma (hoekpunten op de richtingen van het raster) van y0 tot y1, textuur in meters zoals
+  // de muren van de Raatmaker (u langs de omtrek, v = hoogte), met een bredere voet en kop van 0,25 m.
+  function pijlerGeo(x, z, y0, y1) {
+    const pos = [], uv = [], P = (px, py, pz, u, v) => { pos.push(px, py, pz); uv.push(u, v); };
+    const ring = (r, i) => { const a = Math.PI / 6 + i * Math.PI / 3; return [x + Math.cos(a) * r, z + Math.sin(a) * r]; };
+    const band = (r, ya, yb) => { const l = r;   // zijde van een regelmatige zeshoek = straal
+      for (let i = 0; i < 6; i++) { const A = ring(r, i + 1), B = ring(r, i), u0 = i * l, u1 = u0 + l;
+        P(A[0], ya, A[1], u0, ya); P(B[0], ya, B[1], u1, ya); P(B[0], yb, B[1], u1, yb); P(A[0], ya, A[1], u0, ya); P(B[0], yb, B[1], u1, yb); P(A[0], yb, A[1], u0, yb); } };
+    const plat = (r0, r1, y, op) => {   // ring tussen twee stralen (bovenkant van de voet, onderkant van de kop)
+      for (let i = 0; i < 6; i++) { const A0 = ring(r0, i), B0 = ring(r0, i + 1), A1 = ring(r1, i), B1 = ring(r1, i + 1), T = op ? [A0, B1, A1, A0, B0, B1] : [A0, A1, B1, A0, B1, B0];
+        for (const q of T) P(q[0], y, q[1], q[0], q[1]); } };
+    const h = y1 - y0, rand = h > 1.2 ? 0.25 : 0, RB = PIJLER_R + 0.15;
+    if (rand) { band(RB, y0, y0 + rand); plat(PIJLER_R, RB, y0 + rand, true); band(PIJLER_R, y0 + rand, y1 - rand); plat(PIJLER_R, RB, y1 - rand, false); band(RB, y1 - rand, y1); }
+    else band(PIJLER_R, y0, y1);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+  }
+  var legMeshes = [], legData = new Map(), legCols = new Map(), legTops = null, towerMeshes = null;
   function buildLegs(live) {
-    if (legMesh) { scene.remove(legMesh); legMesh.dispose(); legMesh = null; }
+    for (const m of legMeshes) { scene.remove(m); m.geometry.dispose(); } legMeshes = [];
     for (const [k, col] of legCols) { const L = modCols.get(k); if (L) { const i = L.indexOf(col); if (i >= 0) L.splice(i, 1); } }   // oude botsing eruit
     legData = new Map(); legCols = new Map();
     const all = []; legTops = new Set();
@@ -114,21 +144,20 @@
       const Mt = mv2Mats(), mk = (arr, mat) => { if (!arr.length) return null; let g; if (Array.isArray(arr) && typeof arr[0] === 'number') { g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(arr.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); } else g = mergeGeos(arr); const m = new THREE.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; scene.add(m); return m; };
       towerMeshes = [mk(geo.step, Mt.step), mk(geo.metal, Mt.metal), mk(geo.slab, Mt.slab)].filter(Boolean); }
     if (!all.length) { for (const [k, col] of legCols) { let L = modCols.get(k); if (!L) modCols.set(k, L = []); L.push(col); } return; }
-    legMesh = new THREE.InstancedMesh(legGeo, mv2Mats().slab, all.length); legMesh.castShadow = true; legMesh.receiveShadow = true;
-    const M4 = new THREE.Matrix4(); let n = 0;
+    const perMat = new Map(), RC = PIJLER_R + 0.05;   // per materiaal één mesh (alle pijlers samengevoegd)
     for (const [I, [x, z, y0, y1]] of all) {
       const e = modGroups.get(I); if (e && e.collapsed) continue;
-      M4.makeScale(1, y1 - y0, 1).setPosition(x, y0, z); legMesh.setMatrixAt(n++, M4);
+      const mat = legMat(I); let L = perMat.get(mat); if (!L) perMat.set(mat, L = []); L.push(pijlerGeo(x, z, y0, y1));
       // botsing: zes korte muurtjes om de poot
       const k = worldToCell(x, z).join(','); let col = legCols.get(k); if (!col) legCols.set(k, col = { walls: [], surfaces: [] });
-      for (let i = 0; i < 6; i++) { const a0 = i * Math.PI / 3, a1 = a0 + Math.PI / 3; col.walls.push({ ax: x + Math.cos(a0) * 0.45, az: z + Math.sin(a0) * 0.45, bx: x + Math.cos(a1) * 0.45, bz: z + Math.sin(a1) * 0.45, y0, y1, half: 0.05 }); }
+      for (let i = 0; i < 6; i++) { const a0 = i * Math.PI / 3, a1 = a0 + Math.PI / 3; col.walls.push({ ax: x + Math.cos(a0) * RC, az: z + Math.sin(a0) * RC, bx: x + Math.cos(a1) * RC, bz: z + Math.sin(a1) * RC, y0, y1, half: 0.05 }); }
     }
-    legMesh.count = n; scene.add(legMesh);
+    for (const [mat, L] of perMat) { const g = mergeGeos(L); for (const x of L) x.dispose(); const me = new THREE.Mesh(g, mat); me.castShadow = true; me.receiveShadow = true; scene.add(me); legMeshes.push(me); }
     for (const [k, col] of legCols) { let L = modCols.get(k); if (!L) modCols.set(k, L = []); L.push(col); }
   }
   // de poten van een exemplaar als losse geometrie (instorten)
   function legGround(I) { const L = legData.get(I); return L && L.all && L.length ? Math.min(...L.map(g => g[2])) : null; }   // instorten: helemaal op poten? dan is alleen de voet van een poot grond
-  function legParts(I) { return (legData.get(I) || []).map(([x, z, y0, y1]) => legGeo.clone().scale(1, y1 - y0, 1).translate(x, y0, z)); }
+  function legParts(I) { return (legData.get(I) || []).map(([x, z, y0, y1]) => pijlerGeo(x, z, y0, y1)); }
   function legsHide(I, hide) { /* bij instorten: alles opnieuw, zonder de poten van dat gebouw (de stukken nemen het over) */ buildLegs((cells.inst || []).filter(J => J.m && J.m.v === 2 && modGroups.has(J))); }
   // ---------- Trappenhuis-poot: een zeshoekige wenteltrap naast een module die helemaal op poten staat ----------
   // Bij een deur of open doorgang van de begane grond van de module (die nu boven de weg hangt) komt buiten een
