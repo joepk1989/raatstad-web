@@ -765,7 +765,7 @@
   // aan het pad; op de buitenkant (de rand van de zeshoek) alleen waar het buurvak op die hoogte leeg is. Per huis (seed uit
   // cells.kh en het stuk) een andere gevel en hoogte. Staat er later iets op het vak (een pad een laag hoger), dan is het
   // geen kavel meer en is het huis vanzelf weg.
-  const HUIS_GEVELS = ['brick', 'plaster', 'darkbrick', 'oker', 'zalm', 'stone', 'terra', 'geel', 'breuksteen'];
+  const HUIS_GEVELS = ['oker', 'zalm', 'terra', 'geel', 'oker', 'zalm', 'plaster', 'breuksteen'];   // Italiaans (Joep): warm stucwerk, af en toe wit of breuksteen
   function huisVorm(seed, n) {
     let a = ((seed | 0) * 2654435761 + n * 40503 + 7) >>> 0; const r01 = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
     const x = r01(), lagen = x < 0.3 ? 1 : x < 0.75 ? 2 : 3;

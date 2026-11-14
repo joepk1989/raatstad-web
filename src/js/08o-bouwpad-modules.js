@@ -51,7 +51,7 @@
         const L = li === 0 ? L0 : (m.lv[li] || (m.lv[li] = mv2Level())), dak = li === lagen;
         for (const T of tris) { const d = deel.get(T.id), a = d.P.length ? opp(d.P) : 0;
           if (a < d.A * 0.001) { if (li === 0) L.f[T.id] = 'padoker'; else delete L.f[T.id]; continue; }
-          L.f[T.id] = dak ? 'roof' : li === 0 ? 'tile' : vloer;
+          L.f[T.id] = dak ? 'pannen' : li === 0 ? 'tile' : vloer;   // dak van terracotta pannen (Italiaans)
           if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; if (li === 0) (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } }
         if (dak) break;
         // muren: elk stukje rasterlijn (6 richtingen vanuit elk punt) dat precies op de grens huis | pad of huis | buiten ligt
@@ -64,10 +64,13 @@
             if (paar !== 'huis|pad' && paar !== 'buiten|huis') { ok = false; break; } kant = kant || paar; if (kant !== paar) { ok = false; break; } }
           if (!ok) continue;
           let o = '';
-          if (kant === 'huis|pad') o = li === 0 ? ((((i * 7 + j * 13) % 3) + 3) % 3 === 0 ? 'door' : 'window') : 'window';
+          // Italiaans (Joep: "veel minder ramen"): veel dichte muur, een raam ongeveer om de 4 stukken, verspringend per verdieping;
+          // op de begane grond hier en daar een deur, verder dicht
+          const h = ((i * 7 + j * 13 + li * 5) % 11 + 11) % 11;
+          if (kant === 'huis|pad') o = li === 0 ? (h === 0 ? 'door' : '') : (h % 4 === 1 ? 'window' : '');
           else { const k = FRAMES.reduce((bk, f, kk) => (mx * f.nx + mz * f.nz > mx * FRAMES[bk].nx + mz * FRAMES[bk].nz ? kk : bk), 0), b = buur(k, li) || {};
             if (k >= 3 && b.huis) continue;   // de buurman zet deze muur al (geen twee muren op elkaar)
-            o = b.bezet ? '' : 'window'; }
+            const h2 = ((i * 5 + j * 11 + li * 3) % 9 + 9) % 9; o = b.bezet ? '' : h2 === 2 ? 'window' : ''; }
           L.w[i + ',' + j + ',' + dw] = { m: gevel, o };
         }
       }
