@@ -29,7 +29,7 @@
       for (const { mat, g } of built.pieces) box(g, mat, built.G, {});
       // het hek op de rand van vloeren en daken (08c, buildRails) doet als losse stukken mee: het valt pas als de vloer eronder valt
       for (const g0 of railParts(I)) box(g0.clone(), mv2Mats().metal, 0, { flat: false, weak: true, rail: true });
-      for (const g0 of legParts(I)) box(g0, mv2Mats().slab, 0, { flat: false, leg: true });   // poten onder een module boven de weg (08l): dragers
+      for (const g0 of legParts(I)) box(g0, legMat(I), 0, { flat: false, leg: true });   // poten onder een module boven de weg (08l): dragers
       // deurbladen (09b) doen ook mee: ze staan in de opening zoals ze nu staan (open of dicht), dragen niets en vallen of breken los als de rest
       for (const d of doors.list) if (d.owner === I) {
         const th = Math.atan2(-d.tz, d.tx) + d.sgn * d.open * 1.5, g = new THREE.BoxGeometry(d.w, d.h, 0.05).translate(d.w / 2, d.h / 2, 0).rotateY(th).translate(d.hx, d.y, d.hz);
