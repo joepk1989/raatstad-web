@@ -15,8 +15,9 @@
       const b = baseOf(t);
       if (b === 'pad' || b === 'hof') out.push({ y, sides: 63 });
       else if (b === 'zuilen' && i === st.length - 1) out.push({ y: y + 3, sides: 63 });
-      else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t); out.push({ y, sides: 1 << ((d + 3) % 6) }); out.push({ y: y + 3, sides: 1 << d }); }
-      else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e }); out.push({ y: y + 3, sides: 1 << d }); }
+      else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t), sg = b === 'helling'; out.push({ y, sides: 1 << ((d + 3) % 6), steeg: sg }); out.push({ y: y + 3, sides: 1 << d, steeg: sg }); }
+      // een helling is ook een steeg: niet open naar het dak van een steegblok (daar zit de steeg zelf 3 m lager; bouwpad_fuzz)
+      else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e, steeg: true }); out.push({ y: y + 3, sides: 1 << d, steeg: true }); }
       else if (b === 'looppad') { out.push({ y, sides: 63, steeg: true }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true, steegDak: true }); }
       else if (b === 'blok' && i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true });
       else if (b === 'tunnel') { out.push({ y, sides: 63, steeg: true });   /* een tunnel is ook een steeg: niet open naar het dak van een buurblok (bouwpad_fuzz) */ if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
