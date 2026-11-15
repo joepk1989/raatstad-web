@@ -250,7 +250,9 @@
   // zo'n huis krijgt een eigen module (steeghuisModule met kleinOp), de andere blijven de module uit de Raatmaker-lijst.
   const KV_TS = R / 8;
   const kvTri = (x, z) => { const fi = x / (KV_TS * SQ3 / 2), fj = z / KV_TS - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1); };
-  const kvHuis = (q, r) => (cells.inst || []).find(I => I.q === q && I.r === r && I.m && I.m.bp && I.m.bp.huis && I.m.bp.huis.stukken && I.m.bp.vorm);
+  // een huis uit een eerdere versie (zonder de driehoeken per stuk, Joep: "het werkte niet"): eerst opnieuw maken uit de Raatmaker
+  const kvVers = I => { if (I.m.bp.huis.stukken.every(S => S.t)) return I; const m2 = steeghuisModule(I.m.bp.vorm, I.m.bp.variant | 0); m2.id = I.mid; I.m = instData(m2, false); delete I.kv; const e = modGroups.get(I); if (e) e.sig = ''; return I; };
+  const kvHuis = (q, r) => { const I = (cells.inst || []).find(I => I.q === q && I.r === r && I.m && I.m.bp && I.m.bp.huis && I.m.bp.huis.stukken && I.m.bp.vorm); return I && kvVers(I); };
   const kvLokaal = (I, X, Z) => { const o = cellToWorld(I.q, I.r), th = -I.rot * Math.PI / 3, c = Math.cos(th), s = Math.sin(th), dx = X - o.x, dz = Z - o.z; return [dx * c + dz * s, -dx * s + dz * c]; };
   const kvStuk = (I, x, z) => { const id = kvTri(x, z); return I.m.bp.huis.stukken.findIndex(S => S.t && S.t.includes(id)); };
   const kvMidden = id => { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, KV_TS); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };

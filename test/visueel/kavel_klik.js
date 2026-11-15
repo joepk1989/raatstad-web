@@ -9,12 +9,22 @@ const fs = require('fs');
   const { b, p } = await open({ width: 1280, height: 800 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const uit = [], zeg = (ok, naam, info) => { uit.push(ok); console.log((ok ? 'goed ' : 'FOUT ') + naam.padEnd(60), JSON.stringify(info)); };
+  // Joep: "het werkte niet": in zijn browser stonden de Steeghuizen nog uit een eerdere versie (zonder de kavels per stuk).
+  // Zo'n modulelijst bewaren en de pagina herladen: de Steeghuizen worden vernieuwd. Met OUD=1 krijgen ook de huizen in de stad
+  // de oude vorm (die vernieuwt de klik zelf).
+  const oud = await p.evaluate(() => { let n = 0; for (const m of window.__mods) if (m.bp && m.bp.huis && m.bp.huis.stukken) { m.bp.huis.stukken = m.bp.huis.stukken.map(s => ({ lagen: s.lagen, trappen: s.trappen })); n++; } window.__saveMods(); return n; });
+  await p.reload(); await p.waitForTimeout(2500);
+  const vers = await p.evaluate(() => window.__mods.filter(m => m.bp && m.bp.huis && m.bp.huis.stukken).map(m => m.bp.huis.stukken.every(s => s.t)));
+  zeg(oud > 0 && vers.length === oud && vers.every(Boolean), 'oude Steeghuizen in de browser: na laden vernieuwd', { oud, vers: vers.filter(Boolean).length });
   const stad = JSON.parse(fs.readFileSync(OUT + '/wirwar.json'));
   await p.evaluate(st => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) { } const k = document.getElementById('keysClose'); if (k) k.click();
     const S = window.__SC(); S.setCells(Object.fromEntries(Object.entries(st).filter(([k, v]) => Array.isArray(v)))); S.selectTool('vbouw'); const w = S.cellToWorld(2, 3); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 120; S.orbit.phi = 0.05; S.orbit.theta = 0; S.applyOrbit(); }, stad);
   await p.waitForTimeout(1500);
   const pt = await p.evaluate(() => { const S = window.__SC(), w = S.cellToWorld(2, 3), v = new THREE.Vector3(w.x, 3, w.z).project(S.camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; });
   await tik(p, pt[0], pt[1], { shift: true }); await p.waitForTimeout(1500);
+  if (process.env.OUD) await p.evaluate(() => { const S = window.__SC();   // een browser met Steeghuizen uit een eerdere versie (zonder kavels per stuk)
+    for (const m of window.__mods) if (m.bp && m.bp.huis && m.bp.huis.stukken) m.bp.huis.stukken = m.bp.huis.stukken.map(s => ({ lagen: s.lagen, trappen: s.trappen }));
+    for (const I of S.getCells().inst || []) if (I.m && I.m.bp && I.m.bp.huis && I.m.bp.huis.stukken) I.m.bp.huis.stukken = I.m.bp.huis.stukken.map(s => ({ lagen: s.lagen, trappen: s.trappen })); });
   const huizen = await p.evaluate(() => (window.__SC().getCells().inst || []).filter(I => I.m && I.m.bp && I.m.bp.huis).length);
   zeg(huizen > 20, 'Shift+klik op de steeg: huizen langs het netwerk', huizen);
   await p.evaluate(() => { const S = window.__SC(); const w = S.cellToWorld(2, 0); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = 2.2; S.orbit.phi = 0.75; S.orbit.dist = 45; S.applyOrbit(); });
