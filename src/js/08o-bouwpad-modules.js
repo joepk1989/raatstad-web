@@ -196,9 +196,13 @@
   // in de modulelijst zetten wat er nog niet in staat (op naam; een aangepaste module blijft zoals hij is)
   function steeghuizenInstall() {
     if (typeof modules === 'undefined') return 0;
+    let n0 = 0;
+    // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && m.bp.huis.stukken.some(S => !S.t)) {
+      const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }
-    if (n) try { saveMods(); } catch (e) { }
+    if (n || n0) try { saveMods(); } catch (e) { }
     return n;
   }
   const steeghuizenVan = c => (typeof modules === 'undefined' ? [] : modules).filter(m => m.v === 2 && m.bp && m.bp.huis && m.bp.vorm === c);

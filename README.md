@@ -556,6 +556,7 @@ Daarnaast hebben de bordessen van de **Trap** nu ook de zeshoekige klinkers (`M.
      - In de Raatmaker: `bpModule.huis(…, { kleinOp: [[x, z, soort], …] })` maakt van de stukken op die punten groen of plein; `m.bp.huis.stukken` heeft per stuk de driehoeken (`t`) en wat het is (`soort`). Zonder `kleinOp` en met `klein: 'groen'` worden alle stukken waar geen trap in past groen (proef, `kavels_klein_proef.js`).
      - Bewaard per huis in `I.kv`; zo'n huis krijgt een eigen module (`steeghuisModule` met `kleinOp`), de andere blijven de module uit de lijst. Opslaan en openen houdt het.
      - Aanwijzen met de huizen erbij (`pick(…, true)`); een groen of plein kavel ook door een boom of lantaarn heen (de straal op vloerhoogte).
+     - Steeghuizen uit een eerdere versie (in de browser bewaard, zonder `t` per stuk) worden bij het laden vernieuwd (`steeghuizenInstall`), een huis in de stad bij de klik (`kvVers`, 12). Daardoor werkte de klik eerst niet bij Joep.
      - Test: `test/visueel/kavel_klik.js` (beelden `kavel_klik_*.png`); het voorstel als beeld: `kavels_klik_reeks.png` (`kavels_klik_beeld.js`).
   4. De inrichting (hofjes, bankjes, plantenbakken, lampen, klimop, treden) als Raatmaker-objecten.
 - **Huizen op de kavels met één klik** (`kavelsVullen` in 12, `kavelHuizen` in 05, november 2026; Joep koos: huizen op maat, het hele netwerk in één keer):
