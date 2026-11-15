@@ -134,6 +134,10 @@
         if ((A.steeg && B.steegDak && !B.steeg) || (B.steeg && A.steegDak && !A.steeg)) continue;
         const score = (has(A.q - dq, A.r - dr, A.y, k) ? 1 : 0) + (has(bq + dq, br + dr, A.y, (k + 3) % 6) ? 1 : 0);
         const bp = cells.bpl, gk = bp ? ((bp[A.q + ',' + A.r + ',' + Math.round(A.y / 3)] >> k) & 1) || ((bp[bq + ',' + br + ',' + Math.round(A.y / 3)] >> ((k + 3) % 6)) & 1) : 0;   // met het Bouwpad zo geklikt
+        // Bouwpad (Joep: "een rechte steeg die niet verbindt met aangrenzende stegen"): een stuk van het Bouwpad (het vak heeft op
+        // deze laag een vermelding in cells.bpl, ook een los geklikt vak) gaat alleen open waar je van vak naar vak klikte of
+        // sleepte. Naar een passieve aansluiting (het eind van een getekend pad, een deur, een dak) blijft het zoals het was.
+        if (bp && !gk && !A.passive && !B.passive) { const lv = Math.round(A.y / 3); if (bp[A.q + ',' + A.r + ',' + lv] !== undefined || bp[bq + ',' + br + ',' + lv] !== undefined) continue; }
         edges.push({ ka, kb, A, k, bq, br, score, gk });
       }
     }

@@ -243,7 +243,9 @@
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
     if (!heeftPad(q, r)) return toast('Shift+klik op een stuk Bouwpad: huizen langs dat hele netwerk', 1800);
     const net = [], gezien = new Set([q + ',' + r]), rij = [[q, r]];
-    while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); for (const [dq, dr] of NEIGH) { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr)) { gezien.add(k); rij.push([a + dq, b + dr]); } } }
+    // het netwerk volgt de verbindingen van het pad (op welke laag dan ook), niet zomaar elk buurvak met een steeg
+    const verbonden = (a, b, kk) => { for (let l = 0; l <= stackOf(a, b).length; l++) if ((pathMask(a, b, l * 3) >> kk) & 1) return true; return false; };
+    while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); NEIGH.forEach(([dq, dr], kk) => { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr) && verbonden(a, b, kk)) { gezien.add(k); rij.push([a + dq, b + dr]); } }); }
     const kavel = net.filter(([a, b]) => { const st = stackOf(a, b), t = st[st.length - 1]; return t && baseOf(t) === 'looppad'; });
     const inst = cells.inst || (cells.inst = []), inNet = new Set(net.map(c => c.join(',')));
     const oud = new Map(inst.filter(I => isBpHuis(I) && inNet.has(I.q + ',' + I.r)).map(I => [I.q + ',' + I.r, I.mid]));
@@ -294,7 +296,7 @@
     let stuk, lv = blv, nieuw = blv; const lvVoor = blv;
     // de verbinding die je klikt onthouden: in een haarspeld (drie padvakken die aan elkaar grenzen) laat het spel dan de
     // verbinding weg die je níét klikte (computePathLinks, 05)
-    const onthoud = () => { if (side < 0) return; const bp = cells.bpl || (cells.bpl = {}), a = BP.prev[0] + ',' + BP.prev[1] + ',' + lvVoor, b = q + ',' + r + ',' + lvVoor; bp[a] = (bp[a] | 0) | (1 << side); bp[b] = (bp[b] | 0) | (1 << ((side + 3) % 6)); };
+    const onthoud = () => { const bp = cells.bpl || (cells.bpl = {}); if (side < 0) { const kk = q + ',' + r + ',' + lvVoor; if (bp[kk] === undefined) bp[kk] = 0; return; }   /* een los geklikt vak hoort ook bij het Bouwpad: het gaat alleen open waar je verder klikt (05) */ const a = BP.prev[0] + ',' + BP.prev[1] + ',' + lvVoor, b = q + ',' + r + ',' + lvVoor; bp[a] = (bp[a] | 0) | (1 << side); bp[b] = (bp[b] | 0) | (1 << ((side + 3) % 6)); };
     if (side >= 0 && bpDoel() > blv) { stuk = 'helling' + side; nieuw = lv + 1; }                    // omhoog: de helling loopt van het vorige vak af omhoog
     else if (side >= 0 && bpDoel() < blv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
     else stuk = 'looppad';
@@ -420,6 +422,8 @@
     if (flyCam.on) return;   // cameramodus: niets bouwen of slopen
     const k = key(q, r); const st = cells.get(k);
     if (!st || !st.length) return;
+    { const lv = st.length - 1, bp = cells.bpl;   // Bouwpad: de verbindingen van en naar dit stuk vergeten (anders ging een nieuw stuk daar vanzelf open)
+      if (bp) for (const l of [lv, lv + 1]) { delete bp[k + ',' + l]; NEIGH.forEach(([dq, dr], kk) => { const nk = (q + dq) + ',' + (r + dr) + ',' + l; if (bp[nk] !== undefined) bp[nk] &= ~(1 << ((kk + 3) % 6)); }); } }
     st.pop();
     while (st.length && (baseOf(st[st.length - 1]) === 'brug' || baseOf(st[st.length - 1]) === 'brugp')) st.pop();   // een brug zonder weg erop hoort er niet te blijven
     if (!st.length) { cells.delete(k); if (cells.sec) delete cells.sec[k]; }
