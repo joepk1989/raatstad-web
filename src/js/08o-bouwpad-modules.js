@@ -68,6 +68,8 @@
       // past: de trap met 0,9 m vrij ervoor en erna helemaal in dit huis
       const past = (S, a, d) => { const st = strook(a, d); for (let al = -0.9; al <= TL + 0.91; al += 0.3) for (let lat = -0.08; lat <= TW + 0.09; lat += 0.3) { const x = st.A[0] + st.ux * al + st.nx * lat, z = st.A[1] + st.uz * al + st.nz * lat; if (soortVan(x, z) !== 'huis' || stukOp(x, z) !== S) return false; } return true; };
       for (const S of stukken) {
+        // opts.kleinOp: punten (in de module) van kavels die je aanwees (klik op het gebied): die worden groen of plein, hoe groot ook
+        if (opts.kleinOp && opts.kleinOp.some(([x, z]) => stukOp(x, z) === S)) { S.lagen = 0; S.klein = true; continue; }
         if (lagen < 2) { S.lagen = 1; continue; }
         let best = null, een = null;   // best: twee trappen (drie verdiepingen); een: één trap (twee verdiepingen)
         const punten = new Map(); for (const T of S.tris) for (const p of T.v) { const fi = p[0] / (ts * SQ3 / 2), a = [Math.round(fi), Math.round(p[1] / ts - fi / 2)]; punten.set(a.join(','), a); }
@@ -75,7 +77,7 @@
             if (!past(S, a, d)) continue; een = een || { a, d, a2 }; if (lagen >= 3 && past(S, a2, (d + 3) % 6)) best = { a, d, a2 }; }
           if (best) break; }
         // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein)
-        best = best || een; if (!best) { if (opts.klein) { S.lagen = 0; S.klein = true; } else S.lagen = 1; continue; }
+        best = best || een; if (!best) { if (opts.klein && !opts.kleinOp) { S.lagen = 0; S.klein = true; } else S.lagen = 1; continue; }
         if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6))) S.lagen = 2;
         for (let li = 0; li < S.lagen - 1; li++) S.trap.push(li % 2 ? { a: best.a2, d: (best.d + 3) % 6 } : { a: best.a, d: best.d });
       }
