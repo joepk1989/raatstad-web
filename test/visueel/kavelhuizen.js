@@ -40,7 +40,7 @@ const { open, OUT, tik } = require('./helper');
   const P = await pad(0, [[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], 'E', [3, 0], [4, 0], [4, 1], [4, 2]]);
   const Hb = await pad(0, [[-3, 3], [-2, 3], 'E', [-1, 3], [-1, 4], [-1, 5]]);
   const K = await pad(1, [[0, -3], [0, -2], [0, -1], [0, 0], [0, 1], [0, 2]]);   // over P heen (tunnel op (0, 0)), en verder
-  const Z = await pad(0, [[-2, 1], [-2, 2]]);   // verbindt P met Hb: één netwerk
+  const Z = await pad(0, [[-2, 0], [-2, 1], [-2, 2], [-2, 3]]);   // verbindt P met Hb: één netwerk
   await toets('Escape'); await setLaag(null);
   const shiftKlik = async (q, r, ctrl) => { await p.evaluate(([q, r]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.laag(null); S.orbit.target.set(w.x, 0, w.z); S.orbit.dist = 120; S.orbit.phi = 0.05; S.orbit.theta = 0; S.applyOrbit(); S.selectTool('vbouw'); }, [q, r]); await beeld(); await tik(p, 640, 400, { shift: true, ctrl: !!ctrl }); await p.waitForTimeout(300); };
   const telling = () => p.evaluate(() => { const C = window.__SC().getCells(), H = (C.inst || []).filter(I => I.m && I.m.bp && I.m.bp.huis); let kavels = 0; for (const [k, st] of C) { if (!Array.isArray(st) || !st.length) continue; if (/^looppad/.test(st[st.length - 1])) kavels++; }
