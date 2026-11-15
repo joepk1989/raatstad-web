@@ -29,6 +29,7 @@ const { open, OUT, tik } = require('./helper');
   R.binnen = await pad(1, [[2, -1], [2, 0], [1, 1], [0, 2], [-1, 2], [-2, 2], [-2, 1], [-2, 0], [-1, -1], [0, -2], [1, -2], [2, -1]]);   // de ring dicht: terug naar het begin klikken (een steeg verbindt alleen waar je klikt)
   R.op1 = await pad(0, [[3, -3], 'E', [2, -2], [1, -1], [1, -2]]);   // van de buitenring een helling op naar de binnenring
   await pad(1, [[1, -1], [2, -1]]);   // en van het hofje ook naar de binnenring ernaast (een plein van drie)
+  R.binnen.splice(R.binnen.length - 1, 0, { c: [1, -1], van: 1, naar: 1 });   // lopen: 1,-2 en 2,-1 zijn geen buren, de ring sluit via het hofje op 1,-1
   // de spaken vanuit het midden (een klik op een vak met al pad gaat daar verder, dus niet bij de ring beginnen)
   R.spaak1 = await pad(2, [[0, 0], [1, 0], [2, 0], [3, 0]]);
   R.spaak2 = await pad(2, [[0, 0], [0, -1], [0, -2], [0, -3]]);
