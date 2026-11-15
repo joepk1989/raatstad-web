@@ -74,7 +74,9 @@
         for (const a of punten.values()) { for (let d = 0; d < 6 && !best; d++) { const D = MV2.DIR6[d], a2 = [a[0] + TN * D[0], a[1] + TN * D[1]];
             if (!past(S, a, d)) continue; een = een || { a, d, a2 }; if (lagen >= 3 && past(S, a2, (d + 3) % 6)) best = { a, d, a2 }; }
           if (best) break; }
-        best = best || een; if (!best) { if (opts.klein) { S.lagen = 0; S.klein = true; } else S.lagen = 1; continue; }   // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein) if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6))) S.lagen = 2;
+        // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein)
+        best = best || een; if (!best) { if (opts.klein) { S.lagen = 0; S.klein = true; } else S.lagen = 1; continue; }
+        if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6))) S.lagen = 2;
         for (let li = 0; li < S.lagen - 1; li++) S.trap.push(li % 2 ? { a: best.a2, d: (best.d + 3) % 6 } : { a: best.a, d: best.d });
       }
       const lpVan = T => (stukVan.get(T.id) || { lagen: 0 }).lagen, maxL = Math.max(1, ...stukken.map(S => S.lagen));
