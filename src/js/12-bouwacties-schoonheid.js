@@ -238,12 +238,18 @@
   // gedraaid naar de steeg, op de laag van het pad. Aanpassen gaat in de Raatmaker (K, of aanwijzen V → Bewerken), zoals
   // bij elke module. Het oude blok op die plek wordt dan niet getekend (05). Nog eens Shift+klik: andere varianten.
   // Ctrl+Shift+klik: weer lege kavels. Nu alleen op gewone stukken pad (geen helling of tunnel: daar blijft het beton).
+  // huizen langs de steeg weghalen op deze vakken (de steeg verandert er; bouwpad_fuzz: een huis bleef zweven boven een
+  // steeg die eronder een tunnel werd)
+  function huizenWeg(L) { if (!cells.inst) return; const S = new Set(L.map(c => c.join(','))), n0 = cells.inst.length;
+    cells.inst = cells.inst.filter(I => !(isBpHuis(I) && S.has(I.q + ',' + I.r))); if (cells.inst.length !== n0) { for (const c of L) rebuildAround(c[0], c[1]); if (typeof buildModNet === 'function') buildModNet(); } }
   const isBpHuis = I => (typeof I.mid === 'string' && I.mid.startsWith('bphuis:')) || !!(I.m && I.m.bp && I.m.bp.huis);
   function kavelsVullen(q, r, leeg) {
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
     if (!heeftPad(q, r)) return toast('Shift+klik op een stuk Bouwpad: huizen langs dat hele netwerk', 1800);
     const net = [], gezien = new Set([q + ',' + r]), rij = [[q, r]];
-    while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); for (const [dq, dr] of NEIGH) { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr)) { gezien.add(k); rij.push([a + dq, b + dr]); } } }
+    // het netwerk volgt de verbindingen van het pad (op welke laag dan ook), niet zomaar elk buurvak met een steeg
+    const verbonden = (a, b, kk) => { for (let l = 0; l <= stackOf(a, b).length; l++) if ((pathMask(a, b, l * 3) >> kk) & 1) return true; return false; };
+    while (rij.length) { const [a, b] = rij.shift(); net.push([a, b]); NEIGH.forEach(([dq, dr], kk) => { const k = (a + dq) + ',' + (b + dr); if (!gezien.has(k) && heeftPad(a + dq, b + dr) && verbonden(a, b, kk)) { gezien.add(k); rij.push([a + dq, b + dr]); } }); }
     const kavel = net.filter(([a, b]) => { const st = stackOf(a, b), t = st[st.length - 1]; return t && baseOf(t) === 'looppad'; });
     const inst = cells.inst || (cells.inst = []), inNet = new Set(net.map(c => c.join(',')));
     const oud = new Map(inst.filter(I => isBpHuis(I) && inNet.has(I.q + ',' + I.r)).map(I => [I.q + ',' + I.r, I.mid]));
@@ -268,6 +274,10 @@
   const bpDoel = () => { const L = hudLayer(); return L !== null ? Math.min(L, 49) : BP.prev ? BP.lv : 0; };
   // droog: niets veranderen, alleen zeggen wat een klik zou doen ({ fout } of { stuk, lv, verder }); voor het voorbeeld onder de muis
   function bouwpadKlik(q, r, droog) {
+    // het vorige vak moet er nog zijn (na Ctrl+Z of weghalen niet altijd): anders een nieuw pad (bouwpad_fuzz: de verbinding
+    // werd vastgelegd naar een vak dat er niet meer was)
+    if (BP.prev) { const ps = stackOf(BP.prev[0], BP.prev[1]), PB = ['looppad', 'tunnel', 'helling', 'hellingb'], t = ps[BP.lv], t0 = ps[BP.lv - 1];
+      if (!((t && PB.includes(baseOf(t))) || (t0 && /^helling/.test(baseOf(t0))))) { if (droog) { const bewaar = { prev: BP.prev, hell: BP.hell }; BP.prev = null; BP.hell = -1; try { return bouwpadKlik(q, r, droog); } finally { Object.assign(BP, bewaar); } } BP.prev = null; BP.hell = -1; } }
     const st = stackOf(q, r), k = key(q, r), meld = (m, ms) => droog ? { fout: m } : toast(m, ms);
     const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
@@ -294,7 +304,7 @@
     let stuk, lv = blv, nieuw = blv; const lvVoor = blv;
     // de verbinding die je klikt onthouden: in een haarspeld (drie padvakken die aan elkaar grenzen) laat het spel dan de
     // verbinding weg die je níét klikte (computePathLinks, 05)
-    const onthoud = () => { if (side < 0) return; const bp = cells.bpl || (cells.bpl = {}), a = BP.prev[0] + ',' + BP.prev[1] + ',' + lvVoor, b = q + ',' + r + ',' + lvVoor; bp[a] = (bp[a] | 0) | (1 << side); bp[b] = (bp[b] | 0) | (1 << ((side + 3) % 6)); };
+    const onthoud = () => { const bp = cells.bpl || (cells.bpl = {}); if (side < 0) { const kk = q + ',' + r + ',' + lvVoor; if (bp[kk] === undefined) bp[kk] = 0; return; }   /* een los geklikt vak hoort ook bij het Bouwpad: het gaat alleen open waar je verder klikt (05) */ const a = BP.prev[0] + ',' + BP.prev[1] + ',' + lvVoor, b = q + ',' + r + ',' + lvVoor; bp[a] = (bp[a] | 0) | (1 << side); bp[b] = (bp[b] | 0) | (1 << ((side + 3) % 6)); };
     if (side >= 0 && bpDoel() > blv) { stuk = 'helling' + side; nieuw = lv + 1; }                    // omhoog: de helling loopt van het vorige vak af omhoog
     else if (side >= 0 && bpDoel() < blv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
     else stuk = 'looppad';
@@ -306,6 +316,7 @@
     } else {   // onderdoor: op jouw laag staat al iets
       const t = st[lv], b0 = baseOf(t);
       if (b0 === 'looppad' || b0 === 'tunnel') { if (baseOf(stuk) === 'helling') return meld('Hier ligt al pad op deze laag: eerst vlak aansluiten', 1600); ns = null; }   // daar ligt al pad: aansluiten
+      else if (b0 === 'blok' && lv === st.length - 1) { ns = st.slice(); ns[lv] = stuk; }   // het bovenste Blok (er ligt niets op): dat wordt gewoon het pad (eerst een Tunnel zonder iets erboven, bouwpad_fuzz)
       else if (b0 === 'blok' && baseOf(stuk) !== 'helling') { ns = st.slice(); ns[lv] = 'tunnel'; }   // een Blok wordt een Tunnel: je loopt eronderdoor
       else return meld(baseOf(stuk) === 'helling' ? 'Een helling kan niet onder iets door: eerst vlak onderdoor, dan omhoog' : 'Op laag ' + lv + ' staat hier ' + NOUN[b0][1] + ': daar kan het pad niet door', 1800);
     }
@@ -313,6 +324,7 @@
     if (bocht) { cells.set(bocht.pk, bocht.ps); rebuildAround(bocht.q, bocht.r); }
     if (ns) cells.set(k, ns);
     onthoud(); const vorig = BP.prev;
+    huizenWeg([[q, r], ...(vorig ? [vorig] : [])]);   // de vorm van de steeg verandert hier: een huis dat er stond past niet meer (Shift+klik zet een nieuw)
     BP.prev = [q, r]; BP.lv = nieuw; BP.hell = baseOf(stuk) === 'helling' ? side : -1;   // na een helling (omhoog of omlaag): rechtdoor verder
     if (ns) rebuildAround(q, r); else if (side >= 0) rebuildMany([[q, r], vorig]); changed();
     toast(baseOf(stuk) === 'helling' ? 'Helling naar laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik rechtdoor verder' : (ns && st.length > lv ? 'Onderdoor (tunnel) op laag ' : ns && st.length ? 'Eroverheen op laag ' : 'Bouwpad op laag ') + BP.lv + ' (' + BP.lv * 3 + ' m) · klik het volgende vak · Ctrl+scrollen: laag hoger/lager', 1400);
@@ -420,8 +432,12 @@
     if (flyCam.on) return;   // cameramodus: niets bouwen of slopen
     const k = key(q, r); const st = cells.get(k);
     if (!st || !st.length) return;
+    { const lv = st.length - 1, bp = cells.bpl;   // Bouwpad: de verbindingen van en naar dit stuk vergeten (anders ging een nieuw stuk daar vanzelf open)
+      if (bp) for (const l of [lv, lv + 1]) { delete bp[k + ',' + l]; NEIGH.forEach(([dq, dr], kk) => { const nk = (q + dq) + ',' + (r + dr) + ',' + l; if (bp[nk] !== undefined) bp[nk] &= ~(1 << ((kk + 3) % 6)); }); } }
     st.pop();
     while (st.length && (baseOf(st[st.length - 1]) === 'brug' || baseOf(st[st.length - 1]) === 'brugp')) st.pop();   // een brug zonder weg erop hoort er niet te blijven
+    if (st.length && baseOf(st[st.length - 1]) === 'tunnel') st[st.length - 1] = 'looppad';
+    if (typeof huizenWeg === 'function') huizenWeg([[q, r], ...NEIGH.map(([dq, dr]) => [q + dq, r + dr])]);   // de steeg verandert hier en ernaast: die huizen passen niet meer   // een tunnel zonder iets erboven is weer een gewone steeg (bouwpad_fuzz)
     if (!st.length) { cells.delete(k); if (cells.sec) delete cells.sec[k]; }
     rebuildAround(q, r); terrainChanged([[q, r]]); changed();
   }

@@ -55,7 +55,7 @@ const { open, OUT, tik } = require('./helper');
   await controleer('D: laag pad', L);
   await controleer('D: pad gaat erover (laag 1, dan helling naar laag 2)', D);
   const E = await pad(0, [[-9, 1], [-9, 2], [-10, 3], [-11, 3], 'E', [-12, 3], [-13, 3], 'Q', [-14, 3], [-15, 3]]);
-  const Et = await pad(0, [[-10, 4], [-10, 5], [-11, 6]]);   // T: sluit aan op (-10, 3)
+  const Et = await pad(0, [[-10, 3], [-10, 4], [-10, 5], [-11, 6]]).then(r => r.slice(1));   // T: begint op (-10, 3) en gaat daar de zijkant uit (een steeg verbindt alleen waar je klikt)
   await controleer('E: bochten, helling op en weer af', E);
   await controleer('E: T-splitsing', [{ c: [-10, 3], van: 0, naar: 0 }, ...Et]);
   // G: bocht naar boven. Omhoog flauw (60°) en scherp (120°) afslaan, omlaag afslaan, en twee keer achter elkaar (een wenteltrap)

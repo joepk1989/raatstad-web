@@ -15,11 +15,12 @@
       const b = baseOf(t);
       if (b === 'pad' || b === 'hof') out.push({ y, sides: 63 });
       else if (b === 'zuilen' && i === st.length - 1) out.push({ y: y + 3, sides: 63 });
-      else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t); out.push({ y, sides: 1 << ((d + 3) % 6) }); out.push({ y: y + 3, sides: 1 << d }); }
-      else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e }); out.push({ y: y + 3, sides: 1 << d }); }
+      else if (b === 'trap' || b === 'helling' || b === 'trappad' || b === 'tribune') { const d = dirOf(t), sg = b === 'helling'; out.push({ y, sides: 1 << ((d + 3) % 6), steeg: sg }); out.push({ y: y + 3, sides: 1 << d, steeg: sg }); }
+      // een helling is ook een steeg: niet open naar het dak van een steegblok (daar zit de steeg zelf 3 m lager; bouwpad_fuzz)
+      else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e, steeg: true }); out.push({ y: y + 3, sides: 1 << d, steeg: true }); }
       else if (b === 'looppad') { out.push({ y, sides: 63, steeg: true }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true, steegDak: true }); }
       else if (b === 'blok' && i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true });
-      else if (b === 'tunnel') { out.push({ y, sides: 63 }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
+      else if (b === 'tunnel') { out.push({ y, sides: 63, steeg: true });   /* een tunnel is ook een steeg: niet open naar het dak van een buurblok (bouwpad_fuzz) */ if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
       else if (b === 'hofhelling') { const d = dirOf(t); out.push({ y, sides: 63 & ~(1 << d) }); out.push({ y: y + 3, sides: 1 << d }); }
       else if (isBuilding(b)) { const df = doorFace(q, r, y); if (df >= 0) out.push({ y, sides: 1 << df, passive: true }); }
       y += TY(t).h;
@@ -134,6 +135,10 @@
         if ((A.steeg && B.steegDak && !B.steeg) || (B.steeg && A.steegDak && !A.steeg)) continue;
         const score = (has(A.q - dq, A.r - dr, A.y, k) ? 1 : 0) + (has(bq + dq, br + dr, A.y, (k + 3) % 6) ? 1 : 0);
         const bp = cells.bpl, gk = bp ? ((bp[A.q + ',' + A.r + ',' + Math.round(A.y / 3)] >> k) & 1) || ((bp[bq + ',' + br + ',' + Math.round(A.y / 3)] >> ((k + 3) % 6)) & 1) : 0;   // met het Bouwpad zo geklikt
+        // Bouwpad (Joep: "een rechte steeg die niet verbindt met aangrenzende stegen"): een stuk van het Bouwpad (het vak heeft op
+        // deze laag een vermelding in cells.bpl, ook een los geklikt vak) gaat alleen open waar je van vak naar vak klikte of
+        // sleepte. Naar een passieve aansluiting (het eind van een getekend pad, een deur, een dak) blijft het zoals het was.
+        if (bp && !gk && !A.passive && !B.passive) { const lv = Math.round(A.y / 3); if (bp[A.q + ',' + A.r + ',' + lv] !== undefined || bp[bq + ',' + br + ',' + lv] !== undefined) continue; }
         edges.push({ ka, kb, A, k, bq, br, score, gk });
       }
     }
