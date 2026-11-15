@@ -243,6 +243,47 @@
   function huizenWeg(L) { if (!cells.inst) return; const S = new Set(L.map(c => c.join(','))), n0 = cells.inst.length;
     cells.inst = cells.inst.filter(I => !(isBpHuis(I) && S.has(I.q + ',' + I.r))); if (cells.inst.length !== n0) { for (const c of L) rebuildAround(c[0], c[1]); if (typeof buildModNet === 'function') buildModNet(); } }
   const isBpHuis = I => (typeof I.mid === 'string' && I.mid.startsWith('bphuis:')) || !!(I.m && I.m.bp && I.m.bp.huis);
+  // ---------- Shift+klik op een kavel (Joep: "shift klik naar park op deze kleine stukken is inderdaad de bedoeling") ----------
+  // Een kavel is een stuk Steeghuis tussen de stegen (bpModule.huis, 08o: m.bp.huis.stukken met de driehoeken). Shift+klik
+  // erop wisselt het hele kavel, ook waar het over de rand van het vak doorloopt in het huis ernaast: huis → groen (gras,
+  // boom) → plein (natuursteen, lantaarn of bankje) → huis. Bewaard per huis in I.kv: [x, z, soort], punten in de module;
+  // zo'n huis krijgt een eigen module (steeghuisModule met kleinOp), de andere blijven de module uit de Raatmaker-lijst.
+  const KV_TS = R / 8;
+  const kvTri = (x, z) => { const fi = x / (KV_TS * SQ3 / 2), fj = z / KV_TS - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1); };
+  const kvHuis = (q, r) => (cells.inst || []).find(I => I.q === q && I.r === r && I.m && I.m.bp && I.m.bp.huis && I.m.bp.huis.stukken && I.m.bp.vorm);
+  const kvLokaal = (I, X, Z) => { const o = cellToWorld(I.q, I.r), th = -I.rot * Math.PI / 3, c = Math.cos(th), s = Math.sin(th), dx = X - o.x, dz = Z - o.z; return [dx * c + dz * s, -dx * s + dz * c]; };
+  const kvStuk = (I, x, z) => { const id = kvTri(x, z); return I.m.bp.huis.stukken.findIndex(S => S.t && S.t.includes(id)); };
+  const kvMidden = id => { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, KV_TS); return [(v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3]; };
+  function kavelKlik(P, plat) {   // plat: P ligt op een vloerhoogte; dan alleen een groen of plein kavel op die laag
+    const c0 = worldToCell(P.x, P.z), I = kvHuis(c0[0], c0[1]); if (!I) return false;
+    const [x, z] = kvLokaal(I, P.x, P.z), k = kvStuk(I, x, z); if (k < 0) return false;
+    const S0 = I.m.bp.huis.stukken[k];
+    if (S0.soort === 'huis' && P.y < (I.lv | 0) * 3 + 0.3) return false;
+    if (plat && (S0.soort === 'huis' || Math.abs(P.y - (I.lv | 0) * 3) > 0.1)) return false;   // op de steeg zelf (een driehoekje dat half steeg, half huis is)
+    // het hele kavel: stukken die over de rand van het vak doorlopen in het huis ernaast (op dezelfde laag); alleen kleine stukken
+    // (een huisje zonder trap) of stukken die al hetzelfde zijn (groen of plein), geen groot huis dat ertegenaan staat
+    const hoort = S => S0.soort === 'huis' ? S.soort === 'huis' && !S.trappen : S.soort === S0.soort;
+    const kav = [[I, k]], gezien = new Set([I.q + ',' + I.r + ',' + k]);
+    for (let n = 0; n < kav.length; n++) { const [J, kk] = kav[n], tf = mv2Tf(J.rot, J.q, J.r);
+      for (const id of J.m.bp.huis.stukken[kk].t) { const [cx, cz] = kvMidden(id);
+        for (const f of FRAMES) { const d = cx * f.nx + cz * f.nz - INNER; if (d < -1.2) continue;
+          const W = tf(cx + f.nx * (0.5 - d), cz + f.nz * (0.5 - d)), c2 = worldToCell(W[0], W[1]), J2 = kvHuis(c2[0], c2[1]); if (!J2 || J2 === J || (J2.lv | 0) !== (J.lv | 0)) continue;
+          const l2 = kvLokaal(J2, W[0], W[1]), k2 = kvStuk(J2, l2[0], l2[1]), g = J2.q + ',' + J2.r + ',' + k2; if (k2 >= 0 && !gezien.has(g) && hoort(J2.m.bp.huis.stukken[k2])) { gezien.add(g); kav.push([J2, k2]); } } } }
+    const nieuw = ({ huis: 'groen', groen: 'plein', plein: 'huis' })[S0.soort] || 'groen', per = new Map();
+    for (const [J, kk] of kav) { if (!per.has(J)) per.set(J, []); per.get(J).push(kk); }
+    for (const [J, ks] of per) {
+      J.kv = (J.kv || []).filter(([x, z]) => !ks.includes(kvStuk(J, x, z)));   // de oude keuze voor deze stukken weg
+      if (nieuw !== 'huis') for (const kk of ks) J.kv.push([...kvMidden(J.m.bp.huis.stukken[kk].t[0]).map(v => +v.toFixed(3)), nieuw]);
+      const mod = modules.find(m => m.id === J.mid) || J.m;
+      if (!J.kv.length) { delete J.kv; J.m = mod === J.m ? J.m : instData(mod, !!J.mir); }
+      else { const m2 = steeghuisModule(J.m.bp.vorm, J.m.bp.variant | 0, { kleinOp: J.kv }); m2.id = J.mid; J.m = instData(m2, false); }
+      const e = modGroups.get(J); if (e) e.sig = '';   // het huis zelf is veranderd: opnieuw bouwen (de rest van zijn sig blijft gelijk)
+    }
+    rebuildAll(); changed();
+    toast('Kavel: ' + ({ huis: 'huis', groen: 'groen vlak', plein: 'pleintje' })[nieuw] + (per.size > 1 ? ' (over ' + per.size + ' vakken)' : '') + ' · Shift+klik: huis → groen → plein', 1800);
+    return true;
+  }
+  window.__kavelKlik = kavelKlik;
   function kavelsVullen(q, r, leeg) {
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
     if (!heeftPad(q, r)) return toast('Shift+klik op een stuk Bouwpad: huizen langs dat hele netwerk', 1800);
@@ -535,6 +576,9 @@
         return;
       }
     }
+    if (shift && !ctrl && tool === 'vbouw' && mode === 'build') { const rm = pick(cx, cy, true); if (rm && rm.point && kavelKlik(rm.point)) return;   // met de huizen (modules) erbij aanwijzen
+      // een groen of plein kavel ligt plat op padhoogte: door een boom of lantaarn heen kijken (de dichtstbijzijnde laag eerst)
+      const ray = raycaster.ray; for (let lv = 12; lv >= 0; lv--) { const t = (lv * 3 + 0.02 - ray.origin.y) / ray.direction.y; if (t > 0 && kavelKlik(ray.at(t, new THREE.Vector3()), true)) return; } }   // Shift+klik op een kavel: huis → groen → plein
     if (shift && tool === 'vbouw' && mode === 'build' && res.place) return kavelsVullen(res.place[0], res.place[1], ctrl);   // Shift+klik: huizen op alle kavels van dit netwerk (Ctrl+Shift: weer leeg)
     if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting
       // plein (drie of meer armen): de hofjes 0–5; recht stuk, bocht of eind: kaal → bankje → plantenbakken → wandlampen →
