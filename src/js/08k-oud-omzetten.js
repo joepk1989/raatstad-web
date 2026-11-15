@@ -10,7 +10,7 @@
     blok: { 1: ['Blok · beton · 1L'], 2: ['Blok · beton · 2L'] },
     zuilen: { 1: ['Zuilen · galerij · 1L'] }, hof: { 1: ['Hof · muren · 1L'] }, tribune: { 1: ['Tribune · klein'] }, tunnel: { 1: ['Poort · tunnel · 1L'] },
   };
-  function oudOmzetten(map, only) {
+  function oudOmzetten(map, only, auto) {
     const byName = new Map(libStandard().map(m => [m.name, m])); for (const m of modules) byName.set(m.name, m);
     const roads = (map.paths || []).filter(p => p.t !== 'rot' && PATH_DEF[p.t]).map(p => smoothPts(p.p));
     const isRoad = (q, r) => { const s = map.get(key(q, r)); return !!s && s.some(t => ['weg', 'laan'].includes(baseOf(t))); };
@@ -26,6 +26,7 @@
       if (!st) continue;
       let s = st.map(baseOf); while (s.length && s[s.length - 1] === 'dak') s.pop();
       if (!s.length || s.some(tp => !OUD_MAP[tp])) { if (s.some(tp => OUD_MAP[tp])) kept++; continue; }
+      if (auto && s.every(tp => tp === 'blok' || tp === 'tunnel')) continue;   // vanzelf (bij elke opbouw): niet de Blokken en Tunnels van het Bouwpad (bleven over na het weghalen van een steeg; ze werden modules en hun verbindingen raakten zoek, bouwpad_fuzz). Via het menu wel.
       const [q, r] = k.split(',').map(Number), h = (q * 7 + r * 13 + 99) % 17, rot = facing(q, r), put = []; let lv = 0, ok = true;
       for (let i = 0; i < s.length && ok;) {   // per soort een stuk aaneengesloten lagen (blok, dan woning, ...), elk als eigen module opgestapeld
         let j = i; while (j < s.length && s[j] === s[i]) j++;

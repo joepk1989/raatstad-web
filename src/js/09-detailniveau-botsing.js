@@ -104,7 +104,7 @@
   }
   function rebuildAll() {
     nearbyClear();
-    try { oudOmzetten(cells); } catch (e) { console.warn('oude blokken omzetten mislukt', e); }   // woningen en kantoren zijn altijd modules (zie 08k)
+    try { oudOmzetten(cells, null, true); } catch (e) { console.warn('oude blokken omzetten mislukt', e); }   // woningen en kantoren zijn altijd modules (zie 08k)
     convertCellRoads();   // oude vakwegen worden getekende wegen
     terrMigrate(); terrHold = true; terrRebuildAll();   // oude verhogingen worden terreinhoogte
     terrVer++; roadCols = new Map();

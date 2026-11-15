@@ -426,6 +426,7 @@
       if (bp) for (const l of [lv, lv + 1]) { delete bp[k + ',' + l]; NEIGH.forEach(([dq, dr], kk) => { const nk = (q + dq) + ',' + (r + dr) + ',' + l; if (bp[nk] !== undefined) bp[nk] &= ~(1 << ((kk + 3) % 6)); }); } }
     st.pop();
     while (st.length && (baseOf(st[st.length - 1]) === 'brug' || baseOf(st[st.length - 1]) === 'brugp')) st.pop();   // een brug zonder weg erop hoort er niet te blijven
+    if (st.length && baseOf(st[st.length - 1]) === 'tunnel') st[st.length - 1] = 'looppad';   // een tunnel zonder iets erboven is weer een gewone steeg (bouwpad_fuzz)
     if (!st.length) { cells.delete(k); if (cells.sec) delete cells.sec[k]; }
     rebuildAround(q, r); terrainChanged([[q, r]]); changed();
   }

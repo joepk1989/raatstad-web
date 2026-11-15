@@ -82,6 +82,7 @@ const fs = require('fs');
   for (let n = 1; n <= N && !slecht; n++) {
     const a = trek(); let w; try { w = await acties[a](); } catch (e) { w = a + ' (mislukt: ' + e.message.split('\n')[0] + ')'; }
     log.push(n + '. ' + w);
+    if (process.env.KIJK) console.log(n + '. ' + w + '  →  ' + await p.evaluate(k => { const C = window.__SC().getCells(); return (C.get(k) || []).join('+') + ' | bpl ' + JSON.stringify(Object.fromEntries(Object.entries(C.bpl || {}).filter(([kk]) => kk.startsWith(k + ',')))) + ' | inst ' + JSON.stringify((C.inst || []).filter(I => I.q + ',' + I.r === k).map(I => [I.m && I.m.name, I.lv, I.rot])); }, process.env.KIJK));
     await p.waitForTimeout(120);
     const c = await controle(n % 25 === 0 || n === N); gelopen += c.gelopen;
     if (c.fout.length || errs.length) slecht = { n, actie: w, fout: c.fout, pagina: errs.slice() };
