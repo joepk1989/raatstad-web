@@ -268,10 +268,13 @@
     rebuildAll(); changed();
     toast((oud.size ? 'Andere huizen' : 'Huizen') + ' op ' + n + ' vakken langs de steeg (Steeghuizen uit de Raatmaker) · Shift+klik: andere · Ctrl+Shift+klik: weer leeg', 2800);
   }
-  function bouwpadStop() { if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; if (mode === 'build') updateGhost(); }
+  // Een helling komt altijd ergens op uit (Joep: "een helling die nergens op uitkomt"): stop je na een helling (Esc, of een
+  // klik ergens anders), dan komt er rechtdoor één vlak stuk steeg achter op de hoge (of lage) kant.
+  function bpLanding() { if (!BP.prev || BP.hell < 0) return; const [pq, pr] = BP.prev, D = NEIGH[BP.hell]; BP.vlak = true; try { bouwpadKlik(pq + D[0], pr + D[1]); } finally { BP.vlak = false; } }
+  function bouwpadStop() { bpLanding(); if (BP.prev) toast('Bouwpad klaar · de volgende klik begint een nieuw pad', 1200); BP.prev = null; BP.hell = -1; if (mode === 'build') updateGhost(); }
   // De laag van de volgende klik is de gekozen laag (Ctrl+scrollen, laagkiezer, PageUp/Down, zoals bij alle gereedschap; Q/E
   // draaien het beeld). 'Alles' (geen laag gekozen): op de laag waar je bent blijven, een nieuw pad op de grond.
-  const bpDoel = () => { const L = hudLayer(); return L !== null ? Math.min(L, 49) : BP.prev ? BP.lv : 0; };
+  const bpDoel = () => { if (BP.vlak) return BP.lv; const L = hudLayer(); return L !== null ? Math.min(L, 49) : BP.prev ? BP.lv : 0; };
   // droog: niets veranderen, alleen zeggen wat een klik zou doen ({ fout } of { stuk, lv, verder }); voor het voorbeeld onder de muis
   function bouwpadKlik(q, r, droog) {
     // het vorige vak moet er nog zijn (na Ctrl+Z of weghalen niet altijd): anders een nieuw pad (bouwpad_fuzz: de verbinding
@@ -281,6 +284,8 @@
     const st = stackOf(q, r), k = key(q, r), meld = (m, ms) => droog ? { fout: m } : toast(m, ms);
     const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
+    // een nieuw pad na een helling: eerst het vlakke stuk erachter, dan pas het nieuwe pad
+    if (!droog && side < 0 && BP.prev && BP.hell >= 0) { bpLanding(); BP.prev = null; BP.hell = -1; return bouwpadKlik(q, r); }
     if (st.length && side < 0) {   // niet naast het vorige vak, op een bestaand stuk pad: daar ga je verder (het bovenste stuk pad)
       let i = Math.min(st.length - 1, hudLayer() !== null ? hudLayer() : 99); while (i >= 0 && !PADB.has(baseOf(st[i]))) i--;   // het bovenste stuk pad (met een laag gekozen: op of onder die laag)
       if (i < 0) return meld('Hier staat al iets · klik een vak naast je pad, of een stuk pad om daar verder te gaan', 1800);
@@ -309,6 +314,10 @@
     else if (side >= 0 && bpDoel() < blv && lv > 0) { stuk = 'helling' + ((side + 3) % 6); lv = lv - 1; nieuw = lv; }   // omlaag: de hoge kant naar het vorige vak
     else stuk = 'looppad';
     if ((lv + 1) * 3 > MAX_H + 0.01) return meld('Maximaal ' + MAX_H + ' meter hoog');
+    // na een helling moet rechtdoor een vlak stuk passen (op de laag waar de helling uitkomt), anders loopt hij dood
+    if (baseOf(stuk) === 'helling') { const aq = q + NEIGH[side][0], ar = r + NEIGH[side][1], as = stackOf(aq, ar), b1 = as[nieuw] && baseOf(as[nieuw]);
+      const kan = !vecCover.has(key(aq, ar)) && !modCellOccupied(aq, ar) && (as.length <= nieuw ? as.every(t => MAG.has(baseOf(t))) : MAG.has(b1));
+      if (!kan) return meld('Hier kan de helling niet uitkomen: rechtdoor moet op laag ' + nieuw + ' een vlak stuk passen', 1800); }
     let ns;
     if (st.length <= lv) {   // eroverheen (of een leeg vak): Blokken tot jouw laag; een open steeg eronder krijgt een dek (Tunnel)
       if (st.some(t => !MAG.has(baseOf(t)))) return meld('Over ' + NOUN[baseOf(st[st.length - 1])][1] + ' kan het Bouwpad niet heen', 1600);
