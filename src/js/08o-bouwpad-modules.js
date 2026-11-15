@@ -68,6 +68,9 @@
       // past: de trap met 0,9 m vrij ervoor en erna helemaal in dit huis
       const past = (S, a, d) => { const st = strook(a, d); for (let al = -0.9; al <= TL + 0.91; al += 0.3) for (let lat = -0.08; lat <= TW + 0.09; lat += 0.3) { const x = st.A[0] + st.ux * al + st.nx * lat, z = st.A[1] + st.uz * al + st.nz * lat; if (soortVan(x, z) !== 'huis' || stukOp(x, z) !== S) return false; } return true; };
       for (const S of stukken) {
+        // opts.kleinOp: punten (in de module) van kavels die je aanwees (klik op het gebied): die worden groen of plein, hoe groot ook
+        // ([x, z, soort]: soort 'groen' of 'plein', anders opts.klein)
+        { const k = opts.kleinOp && opts.kleinOp.find(([x, z]) => stukOp(x, z) === S); if (k) { S.lagen = 0; S.klein = true; S.soort = k[2] || opts.klein || 'groen'; continue; } }
         if (lagen < 2) { S.lagen = 1; continue; }
         let best = null, een = null;   // best: twee trappen (drie verdiepingen); een: één trap (twee verdiepingen)
         const punten = new Map(); for (const T of S.tris) for (const p of T.v) { const fi = p[0] / (ts * SQ3 / 2), a = [Math.round(fi), Math.round(p[1] / ts - fi / 2)]; punten.set(a.join(','), a); }
@@ -75,7 +78,7 @@
             if (!past(S, a, d)) continue; een = een || { a, d, a2 }; if (lagen >= 3 && past(S, a2, (d + 3) % 6)) best = { a, d, a2 }; }
           if (best) break; }
         // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein)
-        best = best || een; if (!best) { if (opts.klein) { S.lagen = 0; S.klein = true; } else S.lagen = 1; continue; }
+        best = best || een; if (!best) { if (opts.klein && !opts.kleinOp) { S.lagen = 0; S.klein = true; S.soort = opts.klein; } else S.lagen = 1; continue; }
         if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6))) S.lagen = 2;
         for (let li = 0; li < S.lagen - 1; li++) S.trap.push(li % 2 ? { a: best.a2, d: (best.d + 3) % 6 } : { a: best.a, d: best.d });
       }
@@ -83,7 +86,7 @@
       for (let li = 0; li <= maxL; li++) {
         const L = li === 0 ? L0 : (m.lv[li] || (m.lv[li] = mv2Level()));
         for (const T of tris) { const d = deel.get(T.id), a = d.P.length ? opp(d.P) : 0, lp = lpVan(T);
-          if (li === 0 && a >= d.A * 0.001 && (stukVan.get(T.id) || {}).klein) { L.f[T.id] = opts.klein === 'plein' ? 'paver' : 'grass'; if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } continue; }
+          if (li === 0 && a >= d.A * 0.001 && (stukVan.get(T.id) || {}).klein) { L.f[T.id] = stukVan.get(T.id).soort === 'plein' ? 'stonetile' : 'grass'; if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } continue; }
           if (a < d.A * 0.001 || li > lp) { if (li === 0) L.f[T.id] = 'padoker'; else delete L.f[T.id]; continue; }
           L.f[T.id] = li === lp ? 'pannen' : li === 0 ? 'tile' : vloer;   // dak van terracotta pannen (Italiaans)
           if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; if (li === 0) (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } }
@@ -120,8 +123,9 @@
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
-        if (opts.klein === 'plein') L0.o.push({ t: 'bench', x: cx, z: cz, rot: 0 }); else L0.o.push({ t: A > 12 ? 'tree' : 'bush', x: cx, z: cz, rot: 0 }); }
-      m.bp.huis.stukken = stukken.map(S => ({ lagen: S.lagen, trappen: S.trap.length }));
+        if (S.soort === 'plein') { L0.o.push({ t: A > 12 ? 'lamp' : 'bench', x: cx, z: cz, rot: 0 }); } else L0.o.push({ t: A > 12 ? 'tree' : 'bush', x: cx, z: cz, rot: 0 }); }
+      // per kavel (stuk): de driehoeken (om een klik op een kavel te vinden, kavelKlik in 12) en wat het is: huis, groen of plein
+      m.bp.huis.stukken = stukken.map(S => ({ lagen: S.lagen, trappen: S.trap.length, soort: S.klein ? S.soort : 'huis', t: S.tris.map(T => T.id) }));
       return mv2Fix(m);
     }
     const obstakels = armen => { const o = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) })); if (armen.length >= 3) o.push({ uit: pleinBuiten(), in: pleinBinnen() }); return o; };
@@ -185,8 +189,8 @@
     for (const c of STEEG_VORMEN) for (let r = 0; r < 6; r++) if (rot(c, r) === mask) return { c, rot: r }; return null; }
   const STEEGHUIS_VARIANTEN = [['oker', 3, 'oker'], ['zalm', 2, 'zalm'], ['terra', 3, 'terracotta']];
   const steeghuisNaam = (c, v) => 'Steeghuis · ' + steegVormNaam(c) + ' · ' + STEEGHUIS_VARIANTEN[v][2];
-  function steeghuisModule(c, v) {
-    const [gevel, lagen] = STEEGHUIS_VARIANTEN[v], m = bpModule.huis('pad', armenVan(c), { gevel, lagen, naam: steeghuisNaam(c, v) });
+  function steeghuisModule(c, v, extra) {   // extra: bijvoorbeeld { kleinOp } (kavels die groen of plein zijn, kavelKlik in 12)
+    const [gevel, lagen] = STEEGHUIS_VARIANTEN[v], m = bpModule.huis('pad', armenVan(c), Object.assign({ gevel, lagen, naam: steeghuisNaam(c, v) }, extra));
     m.cat = 'Wonen'; m.bp.vorm = c; m.bp.variant = v; return m;
   }
   // in de modulelijst zetten wat er nog niet in staat (op naam; een aangepaste module blijft zoals hij is)
