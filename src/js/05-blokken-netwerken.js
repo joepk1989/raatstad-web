@@ -19,7 +19,7 @@
       else if (b === 'hellingb') { const [d, e] = hbKanten(t); out.push({ y, sides: 1 << e }); out.push({ y: y + 3, sides: 1 << d }); }
       else if (b === 'looppad') { out.push({ y, sides: 63, steeg: true }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true, steegDak: true }); }
       else if (b === 'blok' && i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true });
-      else if (b === 'tunnel') { out.push({ y, sides: 63 }); if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
+      else if (b === 'tunnel') { out.push({ y, sides: 63, steeg: true });   /* een tunnel is ook een steeg: niet open naar het dak van een buurblok (bouwpad_fuzz) */ if (i === st.length - 1) out.push({ y: y + 3, sides: 63, passive: true }); }
       else if (b === 'hofhelling') { const d = dirOf(t); out.push({ y, sides: 63 & ~(1 << d) }); out.push({ y: y + 3, sides: 1 << d }); }
       else if (isBuilding(b)) { const df = doorFace(q, r, y); if (df >= 0) out.push({ y, sides: 1 << df, passive: true }); }
       y += TY(t).h;

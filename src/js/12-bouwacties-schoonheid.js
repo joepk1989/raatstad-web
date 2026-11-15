@@ -316,6 +316,7 @@
     } else {   // onderdoor: op jouw laag staat al iets
       const t = st[lv], b0 = baseOf(t);
       if (b0 === 'looppad' || b0 === 'tunnel') { if (baseOf(stuk) === 'helling') return meld('Hier ligt al pad op deze laag: eerst vlak aansluiten', 1600); ns = null; }   // daar ligt al pad: aansluiten
+      else if (b0 === 'blok' && lv === st.length - 1) { ns = st.slice(); ns[lv] = stuk; }   // het bovenste Blok (er ligt niets op): dat wordt gewoon het pad (eerst een Tunnel zonder iets erboven, bouwpad_fuzz)
       else if (b0 === 'blok' && baseOf(stuk) !== 'helling') { ns = st.slice(); ns[lv] = 'tunnel'; }   // een Blok wordt een Tunnel: je loopt eronderdoor
       else return meld(baseOf(stuk) === 'helling' ? 'Een helling kan niet onder iets door: eerst vlak onderdoor, dan omhoog' : 'Op laag ' + lv + ' staat hier ' + NOUN[b0][1] + ': daar kan het pad niet door', 1800);
     }
