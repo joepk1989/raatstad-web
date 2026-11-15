@@ -68,7 +68,8 @@ const fs = require('fs');
     for (const I of C.inst || []) if (I.m && I.m.bp && I.m.bp.huis) { const st = C.get(I.q + ',' + I.r) || [], t = st[I.lv | 0]; if (!t || base(t) !== 'looppad' || st.length - 1 !== (I.lv | 0)) fout.push('huis op ' + I.q + ',' + I.r + ' laag ' + I.lv + ' zonder steeg eronder (' + st.join('+') + ')'); }
     let gelopen = 0;
     if (lopen) for (const [kk, m] of L) { const [q, r, y] = kk.split(',').map(Number), a = S.cellToWorld(q, r);
-      for (let s = 0; s < 3; s++) if ((m >> s) & 1) { const bq = q + NB[s][0], br = r + NB[s][1], bw = S.cellToWorld(bq, br); gelopen++;
+      const boom = (qq, rr) => (C.get(qq + ',' + rr) || []).some(t => /^looppad\d?[15]$/.test(t));   // een plein met een boom in het midden: daar loop je omheen
+      for (let s = 0; s < 3; s++) if ((m >> s) & 1) { const bq = q + NB[s][0], br = r + NB[s][1], bw = S.cellToWorld(bq, br); if (boom(q, r) || boom(bq, br)) continue; gelopen++;
         // van midden A naar midden B op hoogte y; een helling begint of eindigt hier: de vloer mag geleidelijk mee
         let f = D.floorAt(a.x, a.z, y + 0.6), fo = null;
         if (Math.abs(f - y) > 3.2) continue;   // A is hier een helling die ergens anders begint

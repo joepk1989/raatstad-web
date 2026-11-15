@@ -238,6 +238,10 @@
   // gedraaid naar de steeg, op de laag van het pad. Aanpassen gaat in de Raatmaker (K, of aanwijzen V → Bewerken), zoals
   // bij elke module. Het oude blok op die plek wordt dan niet getekend (05). Nog eens Shift+klik: andere varianten.
   // Ctrl+Shift+klik: weer lege kavels. Nu alleen op gewone stukken pad (geen helling of tunnel: daar blijft het beton).
+  // huizen langs de steeg weghalen op deze vakken (de steeg verandert er; bouwpad_fuzz: een huis bleef zweven boven een
+  // steeg die eronder een tunnel werd)
+  function huizenWeg(L) { if (!cells.inst) return; const S = new Set(L.map(c => c.join(','))), n0 = cells.inst.length;
+    cells.inst = cells.inst.filter(I => !(isBpHuis(I) && S.has(I.q + ',' + I.r))); if (cells.inst.length !== n0) { for (const c of L) rebuildAround(c[0], c[1]); if (typeof buildModNet === 'function') buildModNet(); } }
   const isBpHuis = I => (typeof I.mid === 'string' && I.mid.startsWith('bphuis:')) || !!(I.m && I.m.bp && I.m.bp.huis);
   function kavelsVullen(q, r, leeg) {
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), heeftPad = (q, r) => stackOf(q, r).some(t => PADB.has(baseOf(t)));
@@ -270,6 +274,10 @@
   const bpDoel = () => { const L = hudLayer(); return L !== null ? Math.min(L, 49) : BP.prev ? BP.lv : 0; };
   // droog: niets veranderen, alleen zeggen wat een klik zou doen ({ fout } of { stuk, lv, verder }); voor het voorbeeld onder de muis
   function bouwpadKlik(q, r, droog) {
+    // het vorige vak moet er nog zijn (na Ctrl+Z of weghalen niet altijd): anders een nieuw pad (bouwpad_fuzz: de verbinding
+    // werd vastgelegd naar een vak dat er niet meer was)
+    if (BP.prev) { const ps = stackOf(BP.prev[0], BP.prev[1]), PB = ['looppad', 'tunnel', 'helling', 'hellingb'], t = ps[BP.lv], t0 = ps[BP.lv - 1];
+      if (!((t && PB.includes(baseOf(t))) || (t0 && /^helling/.test(baseOf(t0))))) { if (droog) { const bewaar = { prev: BP.prev, hell: BP.hell }; BP.prev = null; BP.hell = -1; try { return bouwpadKlik(q, r, droog); } finally { Object.assign(BP, bewaar); } } BP.prev = null; BP.hell = -1; } }
     const st = stackOf(q, r), k = key(q, r), meld = (m, ms) => droog ? { fout: m } : toast(m, ms);
     const side = BP.prev ? NEIGH.findIndex(([dq, dr]) => BP.prev[0] + dq === q && BP.prev[1] + dr === r) : -1;   // van het vorige vak naar dit vak
     const PADB = new Set(['looppad', 'tunnel', 'helling', 'hellingb']), MAG = new Set(['blok', 'looppad', 'tunnel']);   // waar het Bouwpad onderdoor of overheen mag
@@ -315,6 +323,7 @@
     if (bocht) { cells.set(bocht.pk, bocht.ps); rebuildAround(bocht.q, bocht.r); }
     if (ns) cells.set(k, ns);
     onthoud(); const vorig = BP.prev;
+    huizenWeg([[q, r], ...(vorig ? [vorig] : [])]);   // de vorm van de steeg verandert hier: een huis dat er stond past niet meer (Shift+klik zet een nieuw)
     BP.prev = [q, r]; BP.lv = nieuw; BP.hell = baseOf(stuk) === 'helling' ? side : -1;   // na een helling (omhoog of omlaag): rechtdoor verder
     if (ns) rebuildAround(q, r); else if (side >= 0) rebuildMany([[q, r], vorig]); changed();
     toast(baseOf(stuk) === 'helling' ? 'Helling naar laag ' + BP.lv + ' (' + BP.lv * 3 + ' m) · klik rechtdoor verder' : (ns && st.length > lv ? 'Onderdoor (tunnel) op laag ' : ns && st.length ? 'Eroverheen op laag ' : 'Bouwpad op laag ') + BP.lv + ' (' + BP.lv * 3 + ' m) · klik het volgende vak · Ctrl+scrollen: laag hoger/lager', 1400);
@@ -426,7 +435,8 @@
       if (bp) for (const l of [lv, lv + 1]) { delete bp[k + ',' + l]; NEIGH.forEach(([dq, dr], kk) => { const nk = (q + dq) + ',' + (r + dr) + ',' + l; if (bp[nk] !== undefined) bp[nk] &= ~(1 << ((kk + 3) % 6)); }); } }
     st.pop();
     while (st.length && (baseOf(st[st.length - 1]) === 'brug' || baseOf(st[st.length - 1]) === 'brugp')) st.pop();   // een brug zonder weg erop hoort er niet te blijven
-    if (st.length && baseOf(st[st.length - 1]) === 'tunnel') st[st.length - 1] = 'looppad';   // een tunnel zonder iets erboven is weer een gewone steeg (bouwpad_fuzz)
+    if (st.length && baseOf(st[st.length - 1]) === 'tunnel') st[st.length - 1] = 'looppad';
+    if (typeof huizenWeg === 'function') huizenWeg([[q, r], ...NEIGH.map(([dq, dr]) => [q + dq, r + dr])]);   // de steeg verandert hier en ernaast: die huizen passen niet meer   // een tunnel zonder iets erboven is weer een gewone steeg (bouwpad_fuzz)
     if (!st.length) { cells.delete(k); if (cells.sec) delete cells.sec[k]; }
     rebuildAround(q, r); terrainChanged([[q, r]]); changed();
   }
