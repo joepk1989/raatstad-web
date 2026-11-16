@@ -346,7 +346,7 @@
     const isEmptyLevel = L => !Object.keys(L.f).length && !Object.keys(L.v || {}).length && !Object.keys(L.w).length && !L.s.length && !Object.keys(L.r).length && !L.o.length;
     function copyUp() { snap(); const L = lvl(); while (E.m.lv.length <= E.lv + 1) E.m.lv.push(mv2Level()); const U = E.m.lv[E.lv + 1]; U.f = Object.assign({}, L.f, U.f); U.w = Object.assign({}, JSON.parse(JSON.stringify(L.w)), U.w); E.lv++; changed(); say('Verdieping gekopieerd naar boven'); }
     // ---------- zijpaneel: materiaal of keuze bij het gereedschap ----------
-    const COL = { paver: '#8a5141', tile: '#cbc8bd', wood: '#a97c52', carpet: '#8b9397', concrete: '#c4c6c2', grass: '#6fa356', water: '#2d5a66', asphalt: '#3c4045', roof: '#5a5d59',
+    const COL = { pannen: '#b5562f', paver: '#8a5141', tile: '#cbc8bd', wood: '#a97c52', carpet: '#8b9397', concrete: '#c4c6c2', grass: '#6fa356', water: '#2d5a66', asphalt: '#3c4045', roof: '#5a5d59',
       brick: '#9a5b45', plaster: '#ece8e0', stone: '#bdb5a5', breuksteen: '#a08e74', oker: '#d99a3a', zalm: '#fbcdb4', terra: '#eba07c', geel: '#fcebb6', hedge: '#5a9440', fence: '#3b4248',
       glass: '#bfe0f0', zand: '#d9c38e', darkbrick: '#3d3a36', panel: '#4b5157', slats: '#a8743f', corten: '#97512e', curtain: '#6d8ea6', parquet: '#9a6a3e', polished: '#c9c8c3', stonetile: '#d9d0bf', hexbeton: '#b6b4ae', hexgroot: '#c3c0b8', hexdonker: '#3f4245', hexsteen: '#c8b89c', hexraat: '#a9a69e', hexgras: '#8fae6a', hexkei: '#6b6250', pannen: '#a5502e' };
     const OBJ_GLYPH = { tree: '🌳', bush: '🌿', bench: '🪑', lamp: '💡', pillar: '🏛', table: '☕', planter: '🌷', fountain: '⛲', bin: '🗑', bike: '🚲', shelf: '🗄', counter: '🛒', sign: '🪧', bed: '🛏', sofa: '🛋', desk: '🖥', kitchen: '🍳', screen: '🎬', car: '🚗', pump: '⛽', charger: '🔌', solar: '🔆', turbine: '🌬', chimney: '🏭', container: '♻', goal: '🥅', grave: '🪦', boat: '🛥', shelter: '🚏', slide: '🛝', swing: '🎡', sheep: '🐑' };
@@ -359,7 +359,9 @@
         hint.textContent = E.vmode === 'ruimte' ? 'Klik in een holle ruimte: alles tot aan de muren (ook schuine wanden) wordt dicht, van deze vloer tot de verdieping erboven. Ligt erboven een vloer, dan alleen onder die vloer (een opening blijft open). Rechtermuisknop maakt de ruimte weer hol.' : 'Schilder driehoeken massief, één verdieping hoog: een vak in beton is een pijler (op elke verdieping herhalen voor een hogere). Penseel wisselen met N; rechtermuisknop haalt weg.'; }
       else if (E.tool === 'pad') { title.textContent = 'Pad'; mk({ 4.5: 'Pad · 4,5 m', 2.25: 'Smal · 2,25 m' }, String(E.pw || 4.5), k => { E.pw = +k; }); mk(MV2.floors, E.pmat || 'hexsteen', k => { E.pmat = k; });
         hint.textContent = 'Sleep een hartlijn: van het midden van een zijde naar het midden van het vak, of naar een andere zijde (gele ringen; elders springt de muis naar het dichtstbijzijnde rasterpunt). Er komt een strook met strakke randen; driehoeken langs de rand worden doorgeknipt, met de vloer die er lag aan de overkant. Een bocht teken je in twee stukken: zijde → midden → zijde. Volgens de afspraak sluit een pad van 4,5 m dat in het midden van een zijde uitkomt op elke buurmodule aan. Weghalen: Vloer of Gum.'; }
-      else if (E.tool === 'fill') { title.textContent = 'Vullen'; mk(MV2.floors, E.fmat, k => { E.fmat = k; }); hint.textContent = 'Klik in een ruimte: alle driehoeken tot aan de muren (en de rand van het gebied) krijgen deze vloer.'; }
+      else if (E.tool === 'fill') { title.textContent = 'Vullen'; mk({ vloer: 'Vloer', dak: 'Dak' }, E.fwat || 'vloer', k => { E.fwat = k; });
+        if (E.fwat === 'dak') { mk(DAK_MAT, E.dmat || 'pannen', k => { E.dmat = k; }); hint.textContent = 'Klik in een ruimte: tussen de muren van deze verdieping komt bovenop een dak (op de verdieping erboven, tot aan de muren). Rechtermuisknop haalt het dak weer weg.'; }
+        else { mk(MV2.floors, E.fmat, k => { E.fmat = k; }); hint.textContent = 'Klik in een ruimte: alle driehoeken tot aan de muren (en de rand van het gebied) krijgen deze vloer.'; } }
       else if (E.tool === 'room') { title.textContent = 'Kamer'; mk(MV2.walls, E.wmat, k => { E.wmat = k; }); hint.textContent = 'Klik op een vak: er komen muren op alle zes zijden. Bestaande muren blijven staan.'; }
       else if (E.tool === 'wall') { title.textContent = 'Muur'; mk({ vol: 'Hele hoogte · 3 m', half: 'Halve hoogte · 1,5 m', laag: 'Laag muurtje · 1 m' }, E.wh || 'vol', k => { E.wh = k; }); mk(MV2.walls, E.wmat, k => { E.wmat = k; }); hint.textContent = 'Sleep van rasterpunt naar rasterpunt. Kies de hoogte: een halve wand (1,5 m) of een laag muurtje (1 m) is een borstwering of afscheiding zonder ramen of deuren. Haag en hek zijn laag; glas is een glaswand. Een muur op een bestaande muur wisselt het materiaal en de hoogte.'; }
       else if (['door', 'window', 'gate', 'open', 'close'].includes(E.tool)) { title.textContent = MV2.openings[E.tool === 'close' ? '' : E.tool]; hint.textContent = E.tool === 'close' ? 'Klik op een muur om de opening dicht te maken.' : 'Klik op een muur. Deur 1,2 m breed en 2,2 m hoog; raam vanaf 0,9 m; poort tot 2,8 m; open laat alleen een latei staan.'; }
@@ -455,14 +457,23 @@
     E.solidFill = solidFill; E.paintSolid = paintSolid;   // voor tests
     // vullen: driehoeken bereikbaar vanaf (x, z) zonder een muur te kruisen
     const triEdges = ([i, j, t]) => t ? [[wallKey(i + 1, j, 1), [i + 1, j, 0]], [wallKey(i, j + 1, 0), [i, j + 1, 0]], [wallKey(i + 1, j, 2), [i, j, 0]]] : [[wallKey(i, j, 0), [i, j - 1, 1]], [wallKey(i, j, 1), [i - 1, j, 1]], [wallKey(i + 1, j, 2), [i, j, 1]]];
-    function fillFrom(x, z, erase) {   // vloer: dezelfde ruimte als Massief (ook tot aan wanden die dwars door driehoeken lopen)
-      const L = lvl(), Rz = ruimteZoeken(x, z, false); if (!Rz) return 0; let n = 0;
+    // Dak als vuller (Joep: "ik wil in de Raatmaker een dak als vuller hebben, zodat de ruimte tussen de wanden met een emmertje
+    // gevuld kan worden en dan een dak ontstaat"): Vullen → Dak. De ruimte tussen de muren van deze verdieping wordt op de
+    // verdieping erboven dicht, met dakpannen, dakbedekking, glas of een groen dak; de vloer daar is ook het plafond eronder.
+    const DAK_MAT = { pannen: 'Dakpannen', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak', grass: 'Groen dak' };
+    function dakFrom(x, z, erase) {
+      if (E.lv >= MV2.MAX_LV - 1) { say('Op de bovenste verdieping kan geen dak erboven', 1600); return 0; }
+      while (E.m.lv.length <= E.lv + 1) E.m.lv.push(mv2Level());
+      return fillFrom(x, z, erase, E.m.lv[E.lv + 1], E.dmat || 'pannen');
+    }
+    function fillFrom(x, z, erase, doel, mat) {   // vloer: dezelfde ruimte als Massief (ook tot aan wanden die dwars door driehoeken lopen)
+      const L = doel || lvl(), Rz = ruimteZoeken(x, z, false); if (!Rz) return 0; let n = 0; const fmat = mat || E.fmat;
       for (const [k, P] of Rz.kant) {
         if (erase) { if (Rz.seen.has(k) && L.f[k]) { delete L.f[k]; if (L.fk) delete L.fk[k]; if (L.f2) delete L.f2[k]; n++; } continue; }
         const { knip, leeg } = knipVoor(k, P, Rz.pm); if (leeg) continue;
-        if (knip.length && L.f[k]) { if (Rz.seen.has(k) && L.f[k] !== E.fmat) { L.f[k] = E.fmat; n++; } continue; }   // doormidden gesneden en al vloer: de vloer aan de andere kant blijft
-        if (L.f[k] !== E.fmat || (knip.length && !(L.fk && L.fk[k]))) n++;
-        L.f[k] = E.fmat; if (L.f2) delete L.f2[k]; if (knip.length) { if (!L.fk) L.fk = {}; L.fk[k] = knip.length === 1 ? knip[0] : knip; } else if (L.fk && L.fk[k]) { delete L.fk[k]; n++; }
+        if (knip.length && L.f[k]) { if (Rz.seen.has(k) && L.f[k] !== fmat) { L.f[k] = fmat; n++; } continue; }   // doormidden gesneden en al vloer: de vloer aan de andere kant blijft
+        if (L.f[k] !== fmat || (knip.length && !(L.fk && L.fk[k]))) n++;
+        L.f[k] = fmat; if (L.f2) delete L.f2[k]; if (knip.length) { if (!L.fk) L.fk = {}; L.fk[k] = knip.length === 1 ? knip[0] : knip; } else if (L.fk && L.fk[k]) { delete L.fk[k]; n++; }
       }
       return n;
     }
@@ -804,7 +815,7 @@
       }
       if (E.tool === 'floor') { snap(); paintFloor(x, z, right); E.drag = { kind: 'floor', erase: right }; changed(); return; }
       if (E.tool === 'pad') { if (right) return; const a = padVang(x, z); E.drag = { kind: 'pad', a, b: a }; draw(); return; }
-      if (E.tool === 'fill') { snap(); const n = fillFrom(x, z, right); changed(); say(n ? n + ' driehoeken' : 'Niets gevuld', 900); return; }
+      if (E.tool === 'fill') { snap(); const dak = E.fwat === 'dak', n = dak ? dakFrom(x, z, right) : fillFrom(x, z, right); changed(); say(n ? (dak ? (right ? 'Dak weggehaald: ' : 'Dak op de ' + (E.lv + 1) + 'e verdieping (▲ om het van boven te zien): ') : '') + n + ' driehoeken' : 'Niets gevuld', dak ? 2200 : 900); return; }
       if (E.tool === 'solid') {
         snap();
         if (E.vmode === 'ruimte') { const n = solidFill(x, z, right); if (!n) E.undo.pop(); changed(); say(n ? (right ? 'Hol gemaakt: ' : 'Massief: ') + n + ' driehoeken' : (right ? 'Hier is niets massief' : 'Niets te vullen'), 1200); return; }
