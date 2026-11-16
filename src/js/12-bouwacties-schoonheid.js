@@ -276,9 +276,9 @@
     for (const [J, ks] of per) {
       J.kv = (J.kv || []).filter(([x, z]) => !ks.includes(kvStuk(J, x, z)));   // de oude keuze voor deze stukken weg
       if (nieuw !== 'huis') for (const kk of ks) J.kv.push([...kvMidden(J.m.bp.huis.stukken[kk].t[0]).map(v => +v.toFixed(3)), nieuw]);
-      const mod = modules.find(m => m.id === J.mid) || J.m;
-      if (!J.kv.length) { delete J.kv; J.m = mod === J.m ? J.m : instData(mod, !!J.mir); }
-      else { const m2 = steeghuisModule(J.m.bp.vorm, J.m.bp.variant | 0, { kleinOp: J.kv }); m2.id = J.mid; J.m = instData(m2, false); }
+      // de module uit de lijst (zoals Joep hem in de Raatmaker bewerkte), met de parkjes erop
+      const mod = modules.find(m => m.id === J.mid); if (!J.kv.length) delete J.kv;
+      if (mod) J.m = kavelsToepassen(instData(mod, !!J.mir), J.kv);
       const e = modGroups.get(J); if (e) e.sig = '';   // het huis zelf is veranderd: opnieuw bouwen (de rest van zijn sig blijft gelijk)
     }
     rebuildAll(); changed();

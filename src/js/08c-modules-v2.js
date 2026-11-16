@@ -1114,7 +1114,9 @@
     modCols.clear(); modCellSet.clear(); modTopRefresh(live);
     const skips = wallSkips(live);
     for (const I of live) {
-      const cov = instCover(I), skip = skips.get(I) || new Set(), sig = cov.sig + '#' + [...skip].sort().join(';');
+      // ook de module zelf telt mee (m._sig, nieuw bij elke keer bewaren in de Raatmaker): anders bleef een bewerkte module in de
+      // stad zoals hij was (Joep: "de steeg raatmaker modules worden niet realtime aangepast")
+      const cov = instCover(I), skip = skips.get(I) || new Set(), sig = cov.sig + '#' + [...skip].sort().join(';') + '#' + (I.m._sig || 0);
       let e = modGroups.get(I);
       if (e && e.cand && e.sig === sig && e.off !== e.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join('')) e.sig = '';   // er ligt nu een weg onder een boom of bankje (of juist niet meer)
       if (e && e.sig === sig) { /* ongewijzigd */ } else {
