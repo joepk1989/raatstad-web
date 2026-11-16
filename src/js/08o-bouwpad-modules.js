@@ -19,8 +19,17 @@
       if (armen.length === 1) return [f.nx, f.nz, -WE];
       if (armen.length === 2) { const g = FRAMES[armen[0] === k ? armen[1] : armen[0]], nx = f.nx - g.nx, nz = f.nz - g.nz, l = Math.hypot(nx, nz); return [nx / l, nz / l, 0]; }
       return [f.nx, f.nz, 0]; };
-    const buiten = (k, armen) => { const f = FRAMES[k], a = achter(k, armen); return [[f.tx, f.tz, W], [-f.tx, -f.tz, W], [-a[0], -a[1], -a[2]]]; };
-    const binnen = (k, armen) => { const f = FRAMES[k]; return [[-f.tx, -f.tz, -W], [f.tx, f.tz, -W], achter(k, armen)]; };
+    // Flauwe bocht op het raster (Joep: "maak deze beter op het raster, met extra schuine muren"): twee armen onder 120°. De
+    // scherpe punt in de buitenhoek gaat eraf (een schuine muur op een rasterlijn, 2 rijen = 1,95 m uit het midden) en de
+    // binnenhoek wordt ruimer (een schuine muur 4 rijen = 3,90 m uit het midden, van strook tot strook). b: de richting midden
+    // tussen de armen (naar de binnenhoek).
+    const RIJ = ts * SQ3 / 2, QO = 2 * RIJ, QI = 4 * RIJ;
+    const flauw = armen => { if (armen.length !== 2 || ![2, 4].includes((armen[1] - armen[0] + 6) % 6)) return null; const f = FRAMES[armen[0]], g = FRAMES[armen[1]], l = Math.hypot(f.nx + g.nx, f.nz + g.nz); return [(f.nx + g.nx) / l, (f.nz + g.nz) / l]; };
+    const buiten = (k, armen) => { const f = FRAMES[k], a = achter(k, armen), b = flauw(armen); return [[f.tx, f.tz, W], [-f.tx, -f.tz, W], [-a[0], -a[1], -a[2]], ...(b ? [[-b[0], -b[1], QO]] : [])]; };
+    const binnen = (k, armen) => { const f = FRAMES[k], b = flauw(armen); return [[-f.tx, -f.tz, -W], [f.tx, f.tz, -W], achter(k, armen), ...(b ? [[b[0], b[1], -QO]] : [])]; };
+    // de ruimere binnenhoek: de driehoek tussen de armen tot de schuine muur
+    const hoekBinnen = armen => { const b = flauw(armen), f = FRAMES[armen[0]], g = FRAMES[armen[1]]; return [[-b[0], -b[1], -QI], [f.nx, f.nz, 0], [g.nx, g.nz, 0]]; };
+    const hoekBuiten = armen => { const b = flauw(armen), f = FRAMES[armen[0]], g = FRAMES[armen[1]]; return [[b[0], b[1], QI], [-f.nx, -f.nz, 0], [-g.nx, -g.nz, 0]]; };
     const pleinBuiten = () => FRAMES.map(f => [f.nx, f.nz, PLEIN]);
     const pleinBinnen = () => FRAMES.map(f => [-f.nx, -f.nz, -PLEIN]);
     const driehoeken = () => { const out = [], M = 9; for (let i = -M; i <= M; i++) for (let j = -2 * M; j <= 2 * M; j++) for (const t of [0, 1]) {
@@ -31,7 +40,7 @@
     // kant waar een helling omhoog gaat (hellingb: de andere arm is de lage kant)
     // binnen het pad? (een van de stroken, of het plein)
     const inPad = (armen, x, z) => { const inH = hs => hs.every(([nx, nz, c]) => x * nx + z * nz >= c - 1e-6);
-      return armen.some(k => inH(binnen(k, armen))) || (armen.length >= 3 && inH(pleinBinnen())); };
+      return armen.some(k => inH(binnen(k, armen))) || (armen.length >= 3 && inH(pleinBinnen())) || (!!flauw(armen) && inH(hoekBinnen(armen))); };
     const inCel = (x, z) => FRAMES.every(f => x * f.nx + z * f.nz <= INNER + 1e-6);
     // Huizen langs de steeg (stap 3): de module van het stuk, maar in plaats van massief beton huizen. De gevel staat op de
     // rand van het pad: op de 'haakse' rasterlijnen (muurrichting 3–5, stukken van 1,95 m) langs de stroken en op de
@@ -120,6 +129,21 @@
           L.w[L2[Math.floor(L2.length / 2)].key].o = 'door';
         }
       }
+      // Schuin dak (Joep: "de daken mogen wel schuin aflopen; kan het dak in het midden hoger zijn en dan aflopen?"): een
+      // schilddak op elk huis, hoe de plattegrond ook loopt. De hoogte op een punt is de afstand tot de dichtstbijzijnde rand van
+      // het huis (de steeg, het plein, de rand van het vak) keer de helling: laag langs alle gevels, hoog in het midden. Per
+      // driehoekje van het raster een eigen vlakje (een 'plaat' met dak: true, 08c), bovenop het platte pannendak.
+      if (opts.dak !== false) {
+        const DH = 0.45, DMAX = 2.6, G = 14, groot = [[-G, -G], [G, -G], [G, G], [-G, G]], vormen = obst.map(O => knip(groot, O.in)).filter(Q => Q.length >= 3);
+        const dSeg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t); };
+        const afst = (x, z) => { let dm = Infinity; for (const f of FRAMES) dm = Math.min(dm, INNER - (x * f.nx + z * f.nz)); for (const Q of vormen) for (let i = 0; i < Q.length; i++) dm = Math.min(dm, dSeg(x, z, Q[i], Q[(i + 1) % Q.length])); return Math.max(0, dm); };
+        const hg = p => +(0.12 + Math.min(DMAX, DH * afst(p[0], p[1]))).toFixed(3);
+        for (const S of stukken) { if (!S.lagen || S.klein) continue; const pl = [];
+          for (const T of S.tris) { const Q = deel.get(T.id).P; for (let i = 1; i + 1 < Q.length; i++) pl.push([Q[0], Q[i], Q[i + 1]].map(p => [+p[0].toFixed(3), +p[1].toFixed(3), hg(p)])); }
+          if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
+        m.bp.dak = 1;
+      }
+      m.bp.v = 3;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
@@ -128,14 +152,13 @@
       m.bp.huis.stukken = stukken.map(S => ({ lagen: S.lagen, trappen: S.trap.length, soort: S.klein ? S.soort : 'huis', t: S.tris.map(T => T.id) }));
       return mv2Fix(m);
     }
-    const obstakels = armen => { const o = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) })); if (armen.length >= 3) o.push({ uit: pleinBuiten(), in: pleinBinnen() }); return o; };
+    const obstakels = armen => { const o = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) })); if (armen.length >= 3) o.push({ uit: pleinBuiten(), in: pleinBinnen() }); if (flauw(armen)) o.push({ uit: hoekBuiten(armen), in: hoekBinnen(armen) }); return o; };
     function maak(soort, armen, opts = {}) {
       const naam = opts.naam || ('Bouwpad · ' + soort + ' ' + armen.join('')), m = mv2New(naam);
       m.cat = 'Verbindingen'; m.k = 0; m.n = 8; m.rand = 'muurtje'; m.bp = { soort, armen: armen.slice(), hoog: opts.hoog };   // rand: langs een dakrand lichte schuine muurtjes, geen hek (Joep)
       const L0 = m.lv[0], plein = armen.length >= 3;
       // obstakels: elke arm (strook), en bij een plein de zeshoek
-      const obst = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) }));
-      if (plein) obst.push({ uit: pleinBuiten(), in: pleinBinnen() });
+      const obst = obstakels(armen);
       for (const T of driehoeken()) {
         const A = opp(T.v);
         // massief: wat buiten alle obstakels (stroken, plein) valt. Per obstakel dat de driehoek raakt één van zijn 'buiten'-
@@ -165,20 +188,20 @@
             else { if (!(L0.vk && L0.vk[T.id])) L1.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2 && p > 1) bomen[1].push([cx, cz, Math.abs(u)]); } }
           for (const li of [0, 1]) { const B = bomen[li].sort((a, b) => b[2] - a[2]); for (const sg of [1, -1]) { const c = B.find(([x, z]) => Math.sign(x * f.tx + z * f.tz) === sg); if (c) (li ? L1 : L0).o.push({ t: 'tree', x: c[0], z: c[1], rot: 0 }); } }
         }
-      } else if (soort === 'hellingb' && opts.midden !== false) {
-        // een helling in een bocht in dezelfde stijl (Joep: "de flauwe bocht is ook nog niet in de juiste stijl"): het schuine stuk
-        // in het midden, half op de lage arm (0 → 1,5 m naar het midden) en half op de hoge arm (1,5 → 3 m), vlakke bordessen aan
-        // de randen; de twee hoeken van de bocht liggen op 1,5 m
-        const d = opts.hoog != null ? opts.hoog : armen[0], e = armen.find(k => k !== d), H = 3.4, P = (k, u, p, y) => { const f = FRAMES[k]; return [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y]; };
+      } else if (soort === 'hellingb' && opts.midden !== false && flauw(armen)) {
+        // een helling in een flauwe bocht, op het raster (Joep: "met extra schuine muren, bijvoorbeeld met trap"): in het midden
+        // een vlak bordes op 1,5 m (de hele bocht, tot 4 rijen = 3,90 m op elke arm), op elke arm een trap (de treden zet 05 erop,
+        // bochtTreden; lopen gaat over het schuine vlak eronder) tot 7 rijen = 6,82 m, daarna vlak tot de rand van het vak
+        const d = opts.hoog != null ? opts.hoog : armen[0], e = armen.find(k => k !== d), L = QI, RE = 7 * RIJ, P = (k, u, p, y) => { const f = FRAMES[k]; return [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y]; };
         const zin = Q => { let a = 0; for (let i = 0; i < Q.length; i++) { const p = Q[i], q = Q[(i + 1) % Q.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.sign(a); };
-        const ref = [P(d, -W, 0, 1.5), P(d, W, 0, 1.5), P(d, W, H, 3), P(d, -W, H, 3)], richt = Q => zin(Q) === zin(ref) ? Q : Q.slice().reverse();
-        // de hoeken van de bocht: waar de randen van de twee armen elkaar snijden; de binnenhoek ligt vóór het midden van allebei
-        const fd = FRAMES[d], fe = FRAMES[e], snij = (ud, ue) => { const det = fd.tx * fe.tz - fd.tz * fe.tx, x = (ud * fe.tz - ue * fd.tz) / det, z = (fd.tx * ue - fe.tx * ud) / det; return [x, z, 1.5]; };
-        let sd = W, se = W; for (const a of [-W, W]) for (const c of [-W, W]) { const [x, z] = snij(a, c); if (x * fd.nx + z * fd.nz > -1e-6 && x * fe.nx + z * fe.nz > -1e-6) { sd = a; se = c; } }
-        const Ci = snij(sd, se), Co = snij(-sd, -se), A1 = P(e, se, H, 0.05), A2 = P(e, -se, H, 0.05), B1 = P(d, sd, H, 3), B2 = P(d, -sd, H, 3);
-        // één doorlopend schuin vlak in vier driehoeken (gedeelde randen, geen naden): lage arm → hoeken (1,5 m) → hoge arm
-        L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [richt([A1, Ci, A2]), richt([A2, Ci, Co]), richt([Ci, B1, Co]), richt([Co, B1, B2]),
-          richt([P(d, -W, H, 3), P(d, W, H, 3), P(d, W, INNER, 3), P(d, -W, INNER, 3)])] });
+        const ref = [P(d, -W, L, 1.5), P(d, W, L, 1.5), P(d, W, RE, 3), P(d, -W, RE, 3)], richt = Q => zin(Q) === zin(ref) ? Q : Q.slice().reverse();
+        const G = 12, groot = [[-G, -G], [G, -G], [G, G], [-G, G]], vlak = hs => { const Q = knip(groot, hs); return Q.length >= 3 ? [richt(Q.map(p => [p[0], p[1], 1.5]))] : []; };
+        const tot = k => [[-FRAMES[k].nx, -FRAMES[k].nz, -L]];   // op arm k tot aan de trap
+        L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [
+          ...vlak([...binnen(d, armen), ...tot(d)]), ...vlak([...binnen(e, armen), ...tot(e)]), ...vlak([...hoekBinnen(armen), ...tot(d), ...tot(e)]),
+          ref, richt([P(e, -W, RE, 0.05), P(e, W, RE, 0.05), P(e, W, L, 1.5), P(e, -W, L, 1.5)]),
+          richt([P(d, -W, RE, 3), P(d, W, RE, 3), P(d, W, INNER, 3), P(d, -W, INNER, 3)])] });
+        m.bp.trap = { L, RE };
       } else if (soort === 'helling' || soort === 'hellingb') {   // het schuine vlak op de hoge arm (zoals 'Pad · helling tussen twee wanden')
         const k = opts.hoog != null ? opts.hoog : armen[0], f = FRAMES[k], pt = (u, p, y) => [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y];
         L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [[pt(-W, 0, 0.05), pt(W, 0, 0.05), pt(W, 6.8, 3), pt(-W, 6.8, 3)], [pt(-W, 6.8, 3), pt(W, 6.8, 3), pt(W, INNER, 3), pt(-W, INNER, 3)]] });
@@ -209,6 +232,7 @@
         L.s = (L.s || []).filter(St => { if (St.k !== 'stair') return true; const a = mv2P(St.a[0], St.a[1], ts), D = MV2.DIR12[St.d] || MV2.DIR6[0], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, o = St.off || 0;
           return !ids.has(triAt(a[0] + ux * 1.5 - uz * o, a[1] + uz * 1.5 + ux * o)); });
         L.o = (L.o || []).filter(O => !ids.has(triAt(O.x, O.z)));
+        for (const St of L.s || []) if (St.k === 'plaat' && St.dak) St.p = St.p.filter(Q => !ids.has(triAt((Q[0][0] + Q[1][0] + Q[2][0]) / 3, (Q[0][1] + Q[1][1] + Q[2][1]) / 3)));
       });
       let g = null, gA = -1, A = 0; for (const id of S.t) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), a = Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) / 2; A += a; if (a > gA) { gA = a; g = v; } }
       if (g) { const cx = (g[0][0] + g[1][0] + g[2][0]) / 3, cz = (g[0][1] + g[1][1] + g[2][1]) / 3; m.lv[0].o.push({ t: soort === 'plein' ? (A > 12 ? 'lamp' : 'bench') : (A > 12 ? 'tree' : 'bush'), x: +cx.toFixed(2), z: +cz.toFixed(2), rot: 0 }); }
@@ -249,7 +273,7 @@
     if (typeof modules === 'undefined') return 0;
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
-    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && m.bp.huis.stukken.some(S => !S.t)) {
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 3))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van vóór het schuine dak */
       const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }

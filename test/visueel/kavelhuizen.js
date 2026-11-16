@@ -69,7 +69,7 @@ const { open, OUT, tik } = require('./helper');
       const dn = Object.entries(L0.w).filter(([k, w]) => w.o === 'door'); deuren += dn.length;
       for (const [k] of dn) { const [i, j, dw] = k.split(',').map(Number), A = P(i, j), B = P(i + DIRW[dw][0], j + DIRW[dw][1]); const [x, z] = W((A[0] + B[0]) / 2, (A[1] + B[1]) / 2);
         if (D.blockedAt(x, z, y0 + 0.05)) deurDicht.push(I.mid + ' ' + k); }
-      I.m.lv.forEach((L, li) => (L.s || []).forEach(T => { trappen++; const A = P(T.a[0], T.a[1]), Dd = DIR6[T.d], B = P(T.a[0] + Dd[0], T.a[1] + Dd[1]), l = Math.hypot(B[0] - A[0], B[1] - A[1]), ux = (B[0] - A[0]) / l, uz = (B[1] - A[1]) / l, nx = -uz, nz = ux, len = T.n * ts;
+      I.m.lv.forEach((L, li) => (L.s || []).filter(T => T.k === 'stair').forEach(T => { trappen++; const A = P(T.a[0], T.a[1]), Dd = DIR6[T.d], B = P(T.a[0] + Dd[0], T.a[1] + Dd[1]), l = Math.hypot(B[0] - A[0], B[1] - A[1]), ux = (B[0] - A[0]) / l, uz = (B[1] - A[1]) / l, nx = -uz, nz = ux, len = T.n * ts;
         let f = y0 + li * 3 + 0.02, fout = null;
         for (let al = -0.6; al <= len + 0.6; al += 0.1) { const [x, z] = W(A[0] + ux * al + nx * T.off, A[1] + uz * al + nz * T.off), g = D.floorAt(x, z, f + 0.45); if (Math.abs(g - f) > 0.45) { fout = 'sprong bij ' + al.toFixed(1) + ': ' + f.toFixed(2) + '→' + g.toFixed(2); break; } if (D.blockedAt(x, z, g)) { fout = 'in de weg bij ' + al.toFixed(1); break; } f = g; }
         if (!fout && Math.abs(f - (y0 + li * 3 + 3)) > 0.3) fout = 'eind op ' + f.toFixed(2);

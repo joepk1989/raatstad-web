@@ -209,6 +209,7 @@
     const cen = v => loc((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3);
     const keepAl = (al0, sign) => [ux * sign, uz * sign, sign * (a[0] * ux + a[1] * uz + al0)];   // houd al >= al0 (sign 1) of al <= al0 (sign −1)
     if (S.k === 'plaat' && S.muur) return () => null;
+    if (S.k === 'plaat' && S.dak) return () => null;   // een schuin dak (08o) maakt geen gat in een vloer erboven
     if (S.k === 'plaat') { const G0 = mv2Plaat(S), op = G0.hi && G0.lo && G0.hi[2] - G0.lo[2] > MV2.LV_H - 0.4; return v => { const h = G0.at((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3); return h && (op || MV2.LV_H - h.y < 2.0) ? { keep: null } : null; }; }   // een helling naar de verdieping erboven: open boven de hele helling, al vanaf het begin (anders stoot je je hoofd tegen de vloerrand); anders alleen waar je je hoofd zou stoten
     if (S.k === 'spiral') {
       const dx0 = D[0] * ts * SQ3 / 2, dz0 = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz0, dx0), sd = S.side || 1;
@@ -410,7 +411,7 @@
     const triAt = (x, z) => { const fi = x / (ts * SQ3 / 2), fj = z / ts - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return [i, j, (fi - i) + (fj - j) < 1 ? 0 : 1]; };
     const muurOp = (L, a, b) => { for (let d = 0; d < 3; d++) { const D = MV2.DIRW[d]; let w = null; if (b[0] - a[0] === D[0] && b[1] - a[1] === D[1]) w = L.w[a[0] + ',' + a[1] + ',' + d]; else if (a[0] - b[0] === D[0] && a[1] - b[1] === D[1]) w = L.w[b[0] + ',' + b[1] + ',' + d]; if (w) return w; } return null; };
     const lagen = m.lv || [], gaten = lagen.map((L, li) => li > 0 ? ((lagen[li - 1] || {}).s || []).map(S => mv2StairHole(S, ts)) : []);
-    const platen = lagen.map(L => (L.s || []).filter(S => S.k === 'plaat' && !S.muur && S.p).map(S => mv2Plaat(S)));
+    const platen = lagen.map(L => (L.s || []).filter(S => S.k === 'plaat' && !S.muur && !S.dak && S.p).map(S => mv2Plaat(S)));
     const cellen = []; for (let q = -k; q <= k; q++) for (let r = -k; r <= k; r++) if (mv2HexDist(q, r) <= k) cellen.push([q, r]);
     for (const [q, r] of cellen) FRAMES.forEach((f, kz) => {
       const c = mv2CellXZ(q, r);
@@ -681,8 +682,9 @@
             // bovenvlak als waaier (de veelhoeken zijn bol), met de normaal omhoog
             for (let i = 1; i + 1 < n; i++) { let A = W[0], B = W[i], C = W[i + 1]; const ny = (B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]); if (ny < 0) [B, C] = [C, B];
               for (const V of [A, B, C]) { top.push(V[0], V[2], V[1]); uvT.push(V[0] / 2, V[1] / 2); }
-              pushWalk(P.pl[0], P.pl[i], P.pl[i + 1], y0 + P.pl[0][2] + 0.02, y0 + P.pl[i][2] + 0.02, y0 + P.pl[i + 1][2] + 0.02); }
-            for (let i = 0; i < n; i++) { const A = W[i], B = W[(i + 1) % n]; if (A[2] - y0 < 0.06 && B[2] - y0 < 0.06) continue;
+              if (!S.dak) pushWalk(P.pl[0], P.pl[i], P.pl[i + 1], y0 + P.pl[0][2] + 0.02, y0 + P.pl[i][2] + 0.02, y0 + P.pl[i + 1][2] + 0.02); }
+            // dak (08o, schuin pannendak in veel kleine vlakken): geen zijkanten, niet beloopbaar
+            if (!S.dak) for (let i = 0; i < n; i++) { const A = W[i], B = W[(i + 1) % n]; if (A[2] - y0 < 0.06 && B[2] - y0 < 0.06) continue;
               side.push(A[0], y0, A[1], B[0], y0, B[1], B[0], B[2], B[1], A[0], y0, A[1], B[0], B[2], B[1], A[0], A[2], A[1]);
               side.push(A[0], y0, A[1], B[0], B[2], B[1], B[0], y0, B[1], A[0], y0, A[1], A[0], A[2], A[1], B[0], B[2], B[1]); } }
           const mk = (pos, uv, M2) => { if (!pos.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv || new Array(pos.length / 3 * 2).fill(0), 2)); g.computeVertexNormals(); put(M2, g); };
@@ -1186,7 +1188,7 @@
         const y = G + li * LH + 0.02; if (li >= fl && !Object.keys(L.f).length) return;
         for (const P of mv2FloorPolys(m, li, ts)) {   // zonder de trapgaten: rond een gat komt een hek
           const v = P.v, cx = (v[0][0] + v[1][0] + v[2][0]) / 3, cz = (v[0][1] + v[1][1] + v[2][1]) / 3;
-          if (!mv2InArea(m, cx, cz) || P.mat === 'water') continue;
+          if (!mv2InArea(m, cx, cz) || P.mat === 'water' || (P.mat === 'pannen' && m.bp && m.bp.dak)) continue;   // onder een schuin dak geen muurtje op de dakrand
           if (li >= fl && mask) { const W = tf(cx, cz); if (mask(W[0], W[1]) === 2) continue; }
           const W = v.map(p => tf(p[0], p[1])), Wc = tf(cx, cz);
           for (const [A, B] of [[W[0], W[1]], [W[1], W[2]], [W[2], W[0]]]) {

@@ -16,7 +16,7 @@ const fs = require('fs');
   // elke trap van een huis helemaal in zijn eigen vak (Joep zag een trap die door de gevel naar buiten stak)
   const trapUit = await p.evaluate(() => { const S = window.__SC(), M = S.MV2, ts = 1.125, SQ3 = Math.sqrt(3), uit = [];
     for (const I of S.getCells().inst || []) { if (!(I.m && I.m.bp && I.m.bp.huis)) continue; const tf = S.mv2Tf(I.rot, I.q, I.r);
-      I.m.lv.forEach((L, li) => (L.s || []).forEach(St => { const D = M.DIR12[St.d], a = S.mv2P(St.a[0], St.a[1], ts), len = St.n * ts, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
+      I.m.lv.forEach((L, li) => (L.s || []).filter(St => St.k === 'stair').forEach(St => { const D = M.DIR12[St.d], a = S.mv2P(St.a[0], St.a[1], ts), len = St.n * ts, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
         for (let al = 0.2; al < len; al += 0.5) for (let lat = -St.w / 2 + 0.15; lat < St.w / 2; lat += 0.4) { const W = tf(a[0] + ux * al - uz * (lat + St.off), a[1] + uz * al + ux * (lat + St.off)), c = S.worldToCell(W[0], W[1]);
           if (c[0] !== I.q || c[1] !== I.r) { uit.push(I.q + ',' + I.r + ' laag ' + li); return; } } })); }
     return [...new Set(uit)]; });

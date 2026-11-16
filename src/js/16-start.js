@@ -39,6 +39,9 @@
   try { const g = new THREE.Group(), col = { surfaces: [], walls: [] }; for (const i of [0, 1]) for (const t of ['looppad', 'helling0', 'hellingb02', 'blok', 'tunnel']) bpModuleBlok(g, t, 0, 0, i, i * 3, 0, 0, col);   // ook gestapeld (met plafond: een ander materiaal)
     g.position.y = -500; scene.add(g); renderer.compile(scene, camera); scene.remove(g); } catch (e) { }
   if (modsReset) changed();
+  // Steeghuizen in de stad die ouder zijn dan de module in de lijst (schuin dak, nieuwe bocht): bijwerken
+  try { const oud = new Set(); for (const I of cells.inst || []) if (I.m && I.m.bp && I.m.bp.huis) { const mod = modules.find(m => m.id === I.mid); if (mod && mod.bp && (mod.bp.v | 0) > (I.m.bp.v | 0)) oud.add(mod); }
+    let n = 0; for (const mod of oud) n += syncModule(mod); if (n) changed(); } catch (e) { console.warn('Steeghuizen bijwerken', e); }
   if (libRefreshed) { let n = 0; for (const m of modules) if (m.v === 2) n += syncModule(m); if (n) changed(); }
   if (libNews) setTimeout(() => toast('Bibliotheek vernieuwd: ' + libNews + ' nieuwe modules (voorzieningen, sport, wonen, werken) en alles opnieuw nagekeken', 4200), 1800);   // vernieuwde standaardmodules ook in de stad
   selectTool('woning');
