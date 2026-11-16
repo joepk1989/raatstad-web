@@ -165,6 +165,20 @@
             else { if (!(L0.vk && L0.vk[T.id])) L1.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2 && p > 1) bomen[1].push([cx, cz, Math.abs(u)]); } }
           for (const li of [0, 1]) { const B = bomen[li].sort((a, b) => b[2] - a[2]); for (const sg of [1, -1]) { const c = B.find(([x, z]) => Math.sign(x * f.tx + z * f.tz) === sg); if (c) (li ? L1 : L0).o.push({ t: 'tree', x: c[0], z: c[1], rot: 0 }); } }
         }
+      } else if (soort === 'hellingb' && opts.midden !== false) {
+        // een helling in een bocht in dezelfde stijl (Joep: "de flauwe bocht is ook nog niet in de juiste stijl"): het schuine stuk
+        // in het midden, half op de lage arm (0 → 1,5 m naar het midden) en half op de hoge arm (1,5 → 3 m), vlakke bordessen aan
+        // de randen; de twee hoeken van de bocht liggen op 1,5 m
+        const d = opts.hoog != null ? opts.hoog : armen[0], e = armen.find(k => k !== d), H = 3.4, P = (k, u, p, y) => { const f = FRAMES[k]; return [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y]; };
+        const zin = Q => { let a = 0; for (let i = 0; i < Q.length; i++) { const p = Q[i], q = Q[(i + 1) % Q.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.sign(a); };
+        const ref = [P(d, -W, 0, 1.5), P(d, W, 0, 1.5), P(d, W, H, 3), P(d, -W, H, 3)], richt = Q => zin(Q) === zin(ref) ? Q : Q.slice().reverse();
+        // de hoeken van de bocht: waar de randen van de twee armen elkaar snijden; de binnenhoek ligt vóór het midden van allebei
+        const fd = FRAMES[d], fe = FRAMES[e], snij = (ud, ue) => { const det = fd.tx * fe.tz - fd.tz * fe.tx, x = (ud * fe.tz - ue * fd.tz) / det, z = (fd.tx * ue - fe.tx * ud) / det; return [x, z, 1.5]; };
+        let sd = W, se = W; for (const a of [-W, W]) for (const c of [-W, W]) { const [x, z] = snij(a, c); if (x * fd.nx + z * fd.nz > -1e-6 && x * fe.nx + z * fe.nz > -1e-6) { sd = a; se = c; } }
+        const Ci = snij(sd, se), Co = snij(-sd, -se), A1 = P(e, se, H, 0.05), A2 = P(e, -se, H, 0.05), B1 = P(d, sd, H, 3), B2 = P(d, -sd, H, 3);
+        // één doorlopend schuin vlak in vier driehoeken (gedeelde randen, geen naden): lage arm → hoeken (1,5 m) → hoge arm
+        L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [richt([A1, Ci, A2]), richt([A2, Ci, Co]), richt([Ci, B1, Co]), richt([Co, B1, B2]),
+          richt([P(d, -W, H, 3), P(d, W, H, 3), P(d, W, INNER, 3), P(d, -W, INNER, 3)])] });
       } else if (soort === 'helling' || soort === 'hellingb') {   // het schuine vlak op de hoge arm (zoals 'Pad · helling tussen twee wanden')
         const k = opts.hoog != null ? opts.hoog : armen[0], f = FRAMES[k], pt = (u, p, y) => [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y];
         L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [[pt(-W, 0, 0.05), pt(W, 0, 0.05), pt(W, 6.8, 3), pt(-W, 6.8, 3)], [pt(-W, 6.8, 3), pt(W, 6.8, 3), pt(W, INNER, 3), pt(-W, INNER, 3)]] });
