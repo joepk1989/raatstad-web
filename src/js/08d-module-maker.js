@@ -1214,7 +1214,10 @@
       const zicht = li => li === E.lv || stand === 'alles' || stand === 'verberg' ? 1 : li > E.lv ? 0.16 : stand === 'anders' ? 0.3 : 1;
       try {
         const b = mv2Build(mm, (x, z) => [x, z], [0, 0], { pieces: true }); grp = b.group; const zak = new Map(), bb = new THREE.Box3();
-        for (const { mat, g } of b.pieces || []) { g.computeBoundingBox(); bb.copy(g.boundingBox); const li = Math.max(0, Math.min(mm.lv.length - 1, Math.floor(((bb.min.y + bb.max.y) / 2 + 0.05) / MV2.LV_H))), a = zicht(li), kk = a < 1 ? a : 1;
+        // een dunne plaat (vloer) hoort bij de verdieping waar zijn bovenkant ligt: de vloer van de 1e verdieping zit net onder 3 m en
+        // telde eerst als begane grond, zodat hij het zicht op de muren eronder blokkeerde (Joep: "muren slepen op de begane grond")
+        for (const { mat, g } of b.pieces || []) { g.computeBoundingBox(); bb.copy(g.boundingBox); const plaat = bb.max.y - bb.min.y < 0.6, yy = plaat ? bb.max.y + 0.25 : (bb.min.y + bb.max.y) / 2 + 0.05;   /* ook het plafond eronder (2,80 m) */
+          const li = Math.max(0, Math.min(mm.lv.length - 1, Math.floor(yy / MV2.LV_H))), a = zicht(li), kk = a < 1 ? a : 1;
           let Z = zak.get(mat); if (!Z) zak.set(mat, Z = new Map()); let L2 = Z.get(kk); if (!L2) Z.set(kk, L2 = []); L2.push(g); }
         for (const [mat, Z] of zak) for (const [a, list] of Z) {
           let M = mat; if (a < 1) { E._doorzicht = E._doorzicht || new Map(); const sl = mat.uuid + a; M = E._doorzicht.get(sl); if (!M) { M = mat.clone(); M.transparent = true; M.opacity = a; M.depthWrite = false; E._doorzicht.set(sl, M); } }

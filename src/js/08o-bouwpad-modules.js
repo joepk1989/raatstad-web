@@ -152,7 +152,17 @@
         if (mA > A * 0.001) { L0.v = L0.v || {}; L0.v[T.id] = 'concrete'; if (keep.length) { L0.vk = L0.vk || {}; L0.vk[T.id] = keep.length === 1 ? keep[0] : keep; } }
         if (mA < A * 0.999) L0.f[T.id] = 'padoker';   // vloer waar (een deel van) het pad ligt; onder het massief is hij niet te zien
       }
-      if (soort === 'helling' || soort === 'hellingb') {   // het schuine vlak op de hoge arm (zoals 'Pad · helling tussen twee wanden')
+      if (soort === 'helling' && opts.midden) {   // ontwerp (Joep): het schuine stuk in het midden, vlakke bordessen aan beide kanten
+        const k = opts.hoog != null ? opts.hoog : armen[0], f = FRAMES[k], pt = (u, p, y) => [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y], H = 3.4;
+        L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [[pt(-W, -H, 0.05), pt(W, -H, 0.05), pt(W, H, 3), pt(-W, H, 3)], [pt(-W, H, 3), pt(W, H, 3), pt(W, INNER, 3), pt(-W, INNER, 3)]] });
+        if (opts.park) {   // de kavels worden een parkje: laag aan de lage kant (open naar de zijkant), een groen terras op 3 m aan de hoge kant
+          const L1 = mv2Level(); m.lv.push(L1); const bomen = [[], []];
+          for (const T of driehoeken()) { if (!(L0.v && L0.v[T.id])) continue; const cx = (T.v[0][0] + T.v[1][0] + T.v[2][0]) / 3, cz = (T.v[0][1] + T.v[1][1] + T.v[2][1]) / 3, p = cx * f.nx + cz * f.nz, u = cx * f.tx + cz * f.tz;
+            if (p < 0) { delete L0.v[T.id]; if (L0.vk) delete L0.vk[T.id]; L0.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2) bomen[0].push([cx, cz, Math.abs(u)]); }
+            else { if (!(L0.vk && L0.vk[T.id])) L1.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2 && p > 1) bomen[1].push([cx, cz, Math.abs(u)]); } }
+          for (const li of [0, 1]) { const B = bomen[li].sort((a, b) => b[2] - a[2]); for (const sg of [1, -1]) { const c = B.find(([x, z]) => Math.sign(x * f.tx + z * f.tz) === sg); if (c) (li ? L1 : L0).o.push({ t: 'tree', x: c[0], z: c[1], rot: 0 }); } }
+        }
+      } else if (soort === 'helling' || soort === 'hellingb') {   // het schuine vlak op de hoge arm (zoals 'Pad · helling tussen twee wanden')
         const k = opts.hoog != null ? opts.hoog : armen[0], f = FRAMES[k], pt = (u, p, y) => [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y];
         L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [[pt(-W, 0, 0.05), pt(W, 0, 0.05), pt(W, 6.8, 3), pt(-W, 6.8, 3)], [pt(-W, 6.8, 3), pt(W, 6.8, 3), pt(W, INNER, 3), pt(-W, INNER, 3)]] });
       }

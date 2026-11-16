@@ -701,9 +701,9 @@
     return { soort, armen, hoog };
   }
   function bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col) {
-    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '');
+    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), O = window.__bpOntwerp || {}, key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '') + (O.midden ? ':m' : '') + (O.park ? ':p' : '');
     let B = bpBouwCache.get(key);
-    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
+    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key, midden: O.midden, park: O.park }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
     for (const ch of B.group.children) { const c = ch.clone(); c.traverse(m => { if (m.userData) delete m.userData.own; }); o.add(c); }
     for (const S of B.surfaces) col.surfaces.push(Object.assign({}, S, { cx: S.cx + cx, cz: S.cz + cz, base: (S.base || 0) + baseY, bottom: S.bottom + baseY }, S.top != null ? { top: S.top + baseY } : {}));
     for (const w of B.walls) col.walls.push(Object.assign({}, w, { ax: w.ax + cx, az: w.az + cz, bx: w.bx + cx, bz: w.bz + cz, y0: w.y0 + baseY, y1: w.y1 + baseY }));
