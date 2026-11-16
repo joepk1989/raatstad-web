@@ -715,7 +715,7 @@
       bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col);
       if (b === 'looppad') hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i), pathMask(q, r, baseY));   // de inrichting nog zoals eerst (stap 4: ook in de Raatmaker)
       if (b === 'helling') hellingInr(o, q, r, i, dirOf(t), (1 << dirOf(t)) | (1 << ((dirOf(t) + 3) % 6)), baseY, cx, cz, col, true);
-      if (b === 'hellingb') { const [d, e] = hbKanten(t); hellingInr(o, q, r, i, d, (1 << d) | (1 << e), baseY, cx, cz, col, 'bocht', e); }
+      if (b === 'hellingb') { const [d, e] = hbKanten(t); bochtTreden(o, d, e); hellingInr(o, q, r, i, d, (1 << d) | (1 << e), baseY, cx, cz, col, 'bocht', e); }
       return;
     }
     const addMesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
@@ -828,15 +828,25 @@
   const hellingInrVan = (q, r, i) => ((cells.inr || {})[q + ',' + r + ',' + i] | 0) % HELLING_INR.length;
   // midden: een rechte helling (Raatmaker, 08o) heeft het schuine stuk in het midden, van -RAMP_MID tot +RAMP_MID langs d
   const RAMP_MID = 3.4;
+  // Een helling in een bocht (08o): een bordes op 1,5 m in het midden en op elke arm een trap van 8 treden, van 4 tot 7
+  // rasterrijen uit het midden (3,90 tot 6,82 m). De treden staan er altijd; lopen gaat over het schuine vlak eronder.
+  const BT_L = 4 * (R / 8) * SQ3 / 2, BT_E = 7 * (R / 8) * SQ3 / 2;
+  let bochtTredenGeo = new Map();
+  function bochtTreden(o, d, e) {
+    const key = d + ',' + e; let g = bochtTredenGeo.get(key);
+    if (!g) { const N = 8, run = (BT_E - BT_L) / N, parts = [], fd = FRAMES[d], fe = FRAMES[e];
+      for (let j = 0; j < N; j++) { const top = 1.5 + (j + 1) * 1.5 / N; parts.push(boxAt(fd, 0, BT_L + (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
+      for (let j = 0; j < N; j++) { const top = 1.5 - j * 1.45 / N; parts.push(boxAt(fe, 0, BT_L + (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
+      g = mergeGeos(parts); bochtTredenGeo.set(key, g); }
+    const m = new THREE.Mesh(g, M.stone); m.castShadow = true; m.receiveShadow = true; o.add(m);
+  }
   function hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col, midden, laag) {
     const v = hellingInrVan(q, r, i); if (!v) return;
-    const f = FRAMES[d], k3 = midden === 'bocht' ? laag : (d + 3) % 6, hoogte = midden ? (k, p) => k === d ? Math.min(3, Math.max(0, (p + RAMP_MID) / (2 * RAMP_MID) * 3)) : k === k3 ? Math.min(3, Math.max(0, (RAMP_MID - p) / (2 * RAMP_MID) * 3)) : 0
+    const f = FRAMES[d], k3 = midden === 'bocht' ? laag : (d + 3) % 6, tr = p => Math.min(1.5, Math.max(0, (p - BT_L) / (BT_E - BT_L) * 1.5));
+    const hoogte = midden === 'bocht' ? (k, p) => k === d ? 1.5 + tr(p) : k === k3 ? 1.5 - tr(p) : 1.5
+      : midden ? (k, p) => k === d ? Math.min(3, Math.max(0, (p + RAMP_MID) / (2 * RAMP_MID) * 3)) : k === k3 ? Math.min(3, Math.max(0, (RAMP_MID - p) / (2 * RAMP_MID) * 3)) : 0
       : (k, p) => k === d ? Math.min(3, Math.max(0, p / RAMP_END * 3)) : 0;
-    if (v === 1 && midden === 'bocht') {   // treden op beide armen: op de lage arm van de rand van het schuine stuk naar het midden, op de hoge verder omhoog
-      const N = 7, run = RAMP_MID / N, rise = 1.45 / N, parts = [], fe = FRAMES[laag];
-      for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; parts.push(boxAt(fe, 0, RAMP_MID - (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
-      for (let j = 0; j < N; j++) { const top = 1.5 + (j + 1) * rise; parts.push(boxAt(f, 0, (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
-      const m = new THREE.Mesh(mergeGeos(parts), M.stone); m.castShadow = true; m.receiveShadow = true; o.add(m);
+    if (v === 1 && midden === 'bocht') { /* de treden staan er al (bochtTreden) */
     } else if (v === 1) {
       const N = 14, run = (midden ? 2 * RAMP_MID : RAMP_END) / N, p0 = midden ? -RAMP_MID : 0, rise = 2.95 / N, parts = [];
       for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; parts.push(boxAt(f, 0, p0 + (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }

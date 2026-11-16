@@ -1,5 +1,5 @@
-// Helling in een flauwe bocht in de nieuwe stijl (Joep: "de flauwe bocht is ook nog niet in de juiste stijl"): het schuine
-// stuk in het midden, half op de lage arm en half op de hoge, vlakke bordessen aan de randen. Lopen van de steeg ervoor, over
+// Helling in een flauwe bocht (Joep: "maak deze beter op het raster, met extra schuine muren, bijvoorbeeld met trap"): een bordes
+// op 1,5 m in het midden met schuine muren op het raster, op elke arm een trap van 8 treden. Lopen van de steeg ervoor, over
 // de bocht, naar de steeg erna op 3 m: geen sprong, niets in de weg, in het midden op 1,5 m. Screenshots: helling_bocht*.png
 const { open, OUT } = require('./helper');
 (async () => {
@@ -15,7 +15,7 @@ const { open, OUT } = require('./helper');
       if (Math.abs(g - f) > 0.6) sprong++; if (S.blockedAt(x, z, g)) weg++; f = g; if (k === 2 && i === 0) midden = +g.toFixed(2); if (i % 10 === 0) h.push(+g.toFixed(1)); }
     return { sprong, weg, midden, eind: +f.toFixed(2), h: h.join(' ') }; });
   zeg(!r.sprong && !r.weg && Math.abs(r.midden - 1.5) < 0.3 && Math.abs(r.eind - 3) < 0.3, 'lopen over de bocht: geen sprong, in het midden 1,5 m', r);
-  for (const [n, th, ph, d] of [['', 4.4, 1.0, 34], ['_boven', 4.4, 0.25, 40]]) {
+  for (const [n, th, ph, d] of [['', 5.3, 0.85, 26], ['_boven', 4.4, 0.25, 34]]) {
     await p.evaluate(([th, ph, d]) => { const S = window.__SC(), w = S.cellToWorld(0, 0); S.orbit.target.set(w.x, 1.5, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [th, ph, d]);
     await p.waitForTimeout(1200); await p.screenshot({ path: OUT + '/helling_bocht' + n + '.png' }); }
   console.log(uit.every(Boolean) && !errs.length ? 'GOED' : 'FOUT', 'pagina-fouten', JSON.stringify(errs.slice(0, 3)));
