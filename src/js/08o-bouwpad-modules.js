@@ -129,6 +129,21 @@
           L.w[L2[Math.floor(L2.length / 2)].key].o = 'door';
         }
       }
+      // Schuin dak (Joep: "de daken mogen wel schuin aflopen; kan het dak in het midden hoger zijn en dan aflopen?"): een
+      // schilddak op elk huis, hoe de plattegrond ook loopt. De hoogte op een punt is de afstand tot de dichtstbijzijnde rand van
+      // het huis (de steeg, het plein, de rand van het vak) keer de helling: laag langs alle gevels, hoog in het midden. Per
+      // driehoekje van het raster een eigen vlakje (een 'plaat' met dak: true, 08c), bovenop het platte pannendak.
+      if (opts.dak !== false) {
+        const DH = 0.45, DMAX = 2.6, G = 14, groot = [[-G, -G], [G, -G], [G, G], [-G, G]], vormen = obst.map(O => knip(groot, O.in)).filter(Q => Q.length >= 3);
+        const dSeg = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t); };
+        const afst = (x, z) => { let dm = Infinity; for (const f of FRAMES) dm = Math.min(dm, INNER - (x * f.nx + z * f.nz)); for (const Q of vormen) for (let i = 0; i < Q.length; i++) dm = Math.min(dm, dSeg(x, z, Q[i], Q[(i + 1) % Q.length])); return Math.max(0, dm); };
+        const hg = p => +(0.12 + Math.min(DMAX, DH * afst(p[0], p[1]))).toFixed(3);
+        for (const S of stukken) { if (!S.lagen || S.klein) continue; const pl = [];
+          for (const T of S.tris) { const Q = deel.get(T.id).P; for (let i = 1; i + 1 < Q.length; i++) pl.push([Q[0], Q[i], Q[i + 1]].map(p => [+p[0].toFixed(3), +p[1].toFixed(3), hg(p)])); }
+          if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
+        m.bp.dak = 1;
+      }
+      m.bp.v = 3;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
@@ -217,6 +232,7 @@
         L.s = (L.s || []).filter(St => { if (St.k !== 'stair') return true; const a = mv2P(St.a[0], St.a[1], ts), D = MV2.DIR12[St.d] || MV2.DIR6[0], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, o = St.off || 0;
           return !ids.has(triAt(a[0] + ux * 1.5 - uz * o, a[1] + uz * 1.5 + ux * o)); });
         L.o = (L.o || []).filter(O => !ids.has(triAt(O.x, O.z)));
+        for (const St of L.s || []) if (St.k === 'plaat' && St.dak) St.p = St.p.filter(Q => !ids.has(triAt((Q[0][0] + Q[1][0] + Q[2][0]) / 3, (Q[0][1] + Q[1][1] + Q[2][1]) / 3)));
       });
       let g = null, gA = -1, A = 0; for (const id of S.t) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), a = Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) / 2; A += a; if (a > gA) { gA = a; g = v; } }
       if (g) { const cx = (g[0][0] + g[1][0] + g[2][0]) / 3, cz = (g[0][1] + g[1][1] + g[2][1]) / 3; m.lv[0].o.push({ t: soort === 'plein' ? (A > 12 ? 'lamp' : 'bench') : (A > 12 ? 'tree' : 'bush'), x: +cx.toFixed(2), z: +cz.toFixed(2), rot: 0 }); }
@@ -257,7 +273,7 @@
     if (typeof modules === 'undefined') return 0;
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
-    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && m.bp.huis.stukken.some(S => !S.t)) {
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 3))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van vóór het schuine dak */
       const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }
