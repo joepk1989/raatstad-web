@@ -176,6 +176,30 @@
     return maak;
   })();
   window.__bpMod = bpModule;
+  // Kavels als park of plein op een (bewerkte) Steeghuis-module zetten (kavelKlik in 12, syncModule in 08): de module uit de
+  // lijst blijft zoals Joep hem maakte, alleen de stukken op de punten kv ([x, z, soort]) worden groen of plein: vloer op de
+  // begane grond gras of natuursteen, alles erboven weg (verdiepingen, dak, trappen, muren van dat stuk), een boom of lantaarn.
+  function kavelsToepassen(m, kv) {
+    const H = m.bp && m.bp.huis; if (!H || !H.stukken || !kv || !kv.length) return m;
+    const ts = R / 8, triAt = (x, z) => { const fi = x / (ts * SQ3 / 2), fj = z / ts - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1); };
+    const per = new Map(); for (const [x, z, s] of kv) { const id = triAt(x, z), k = H.stukken.findIndex(S => S.t && S.t.includes(id)); if (k >= 0) per.set(k, s || 'groen'); }
+    for (const [k, soort] of per) { const S = H.stukken[k], ids = new Set(S.t);
+      m.lv.forEach((L, li) => {
+        for (const id of ids) { if (L.v) delete L.v[id]; if (L.vk) delete L.vk[id];
+          if (li === 0) { if (L.f[id] !== undefined) L.f[id] = soort === 'plein' ? 'stonetile' : 'grass'; } else { delete L.f[id]; if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; } }
+        for (const key in L.w || {}) { const [i, j, dw] = key.split(',').map(Number), D = MV2.DIRW[dw]; if (!D) continue; const A = mv2P(i, j, ts), B = mv2P(i + D[0], j + D[1], ts), mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2, l = Math.hypot(B[0] - A[0], B[1] - A[1]), nx = -(B[1] - A[1]) / l * 0.12, nz = (B[0] - A[0]) / l * 0.12;
+          if (ids.has(triAt(mx + nx, mz + nz)) || ids.has(triAt(mx - nx, mz - nz))) delete L.w[key]; }
+        L.s = (L.s || []).filter(St => { if (St.k !== 'stair') return true; const a = mv2P(St.a[0], St.a[1], ts), D = MV2.DIR12[St.d] || MV2.DIR6[0], dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, o = St.off || 0;
+          return !ids.has(triAt(a[0] + ux * 1.5 - uz * o, a[1] + uz * 1.5 + ux * o)); });
+        L.o = (L.o || []).filter(O => !ids.has(triAt(O.x, O.z)));
+      });
+      let g = null, gA = -1, A = 0; for (const id of S.t) { const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts), a = Math.abs((v[1][0] - v[0][0]) * (v[2][1] - v[0][1]) - (v[2][0] - v[0][0]) * (v[1][1] - v[0][1])) / 2; A += a; if (a > gA) { gA = a; g = v; } }
+      if (g) { const cx = (g[0][0] + g[1][0] + g[2][0]) / 3, cz = (g[0][1] + g[1][1] + g[2][1]) / 3; m.lv[0].o.push({ t: soort === 'plein' ? (A > 12 ? 'lamp' : 'bench') : (A > 12 ? 'tree' : 'bush'), x: +cx.toFixed(2), z: +cz.toFixed(2), rot: 0 }); }
+      S.soort = soort; S.lagen = 0; S.trappen = 0;
+    }
+    m._sig = (m._sig || 0) + ':' + kv.map(k => k.join(',')).join(';');   // opnieuw tekenen als de parkjes veranderen
+    return m;
+  }
   // ---------- Steeghuizen in de Raatmaker-lijst (Joep: "maak ze in de Raatmaker zoals altijd") ----------
   // Net als de rijhuizen en de andere standaardmodules staan de huizen langs de steeg als gewone modules in de modulelijst
   // (categorie Wonen, "Steeghuis · …"), te zien en aan te passen in de Raatmaker (K). Per vorm van de steeg (welke kanten
