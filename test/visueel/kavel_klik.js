@@ -29,7 +29,7 @@ const fs = require('fs');
   zeg(huizen > 20, 'Shift+klik op de steeg: huizen langs het netwerk', huizen);
   await p.evaluate(() => { const S = window.__SC(); const w = S.cellToWorld(2, 0); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = 2.2; S.orbit.phi = 0.75; S.orbit.dist = 45; S.applyOrbit(); });
   await p.mouse.move(5, 300); await p.waitForTimeout(1200);
-  const M = [944, 527];   // het kleine kavel (zie kavels_klik_beeld.js)
+  const M = [944, 527]; if (process.env.LAAG !== 'geen') { await p.evaluate(l => window.__SC().laag(l), +(process.env.LAAG || 0)); await p.waitForTimeout(800); }   // standaard met laag 0 gekozen: het huis ligt dan boven de doorsnede (zo werkte het bij Joep niet)
   const kijk = () => p.evaluate(([x, y]) => { const S = window.__SC(), h = S.pick(x, y, true), pt = h && h.point; if (!pt) return null; const c = S.worldToCell(pt.x, pt.z);
     const I = (S.getCells().inst || []).filter(I => I.m && I.m.bp && I.m.bp.huis && I.kv); return { y: +pt.y.toFixed(2), vak: c.join(','), kv: I.map(I => I.q + ',' + I.r + ':' + I.kv.map(k => k[2]).join('/')) }; }, M);
   await p.screenshot({ path: OUT + '/kavel_klik_0.png' });
