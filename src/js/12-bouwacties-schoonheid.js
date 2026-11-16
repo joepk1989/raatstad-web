@@ -260,7 +260,10 @@
     const c0 = worldToCell(P.x, P.z), I = kvHuis(c0[0], c0[1]); if (!I) return false;
     const [x, z] = kvLokaal(I, P.x, P.z), k = kvStuk(I, x, z); if (k < 0) return false;
     const S0 = I.m.bp.huis.stukken[k];
-    if (S0.soort === 'huis' && P.y < (I.lv | 0) * 3 + 0.3) return false;
+    // op de steeg zelf (een driehoekje dat half steeg, half huis is) telt niet; de vloer binnen in een huis wel (met een laag
+    // gekozen kijk je in de doorsnede op die vloer)
+    const geknipt = !!(I.m.lv[0].fk && I.m.lv[0].fk[kvTri(x, z)]);
+    if (S0.soort === 'huis' && geknipt && P.y < (I.lv | 0) * 3 + 0.3) return false;
     if (plat && (S0.soort === 'huis' || Math.abs(P.y - (I.lv | 0) * 3) > 0.1)) return false;   // op de steeg zelf (een driehoekje dat half steeg, half huis is)
     // het hele kavel: stukken die over de rand van het vak doorlopen in het huis ernaast (op dezelfde laag); alleen kleine stukken
     // (een huisje zonder trap) of stukken die al hetzelfde zijn (groen of plein), geen groot huis dat ertegenaan staat
@@ -579,6 +582,8 @@
       }
     }
     if (shift && !ctrl && tool === 'vbouw' && mode === 'build') { const rm = pick(cx, cy, true); if (rm && rm.point && kavelKlik(rm.point)) return;   // met de huizen (modules) erbij aanwijzen
+      // ook een huis boven de doorsnede (met een laag gekozen): zonder het filter van de laagkiezer
+      { const h = curvedHits(raycaster, [ground, terrGroup, blocks, ...[...modGroups.values()].map(e => e.group)]); if (h.length && kavelKlik(h[0].point)) return; }
       // een groen of plein kavel ligt plat op padhoogte: door een boom of lantaarn heen kijken (de dichtstbijzijnde laag eerst)
       const ray = raycaster.ray; for (let lv = 12; lv >= 0; lv--) { const t = (lv * 3 + 0.02 - ray.origin.y) / ray.direction.y; if (t > 0 && kavelKlik(ray.at(t, new THREE.Vector3()), true)) return; } }   // Shift+klik op een kavel: huis → groen → plein
     if (shift && tool === 'vbouw' && mode === 'build' && res.place) return kavelsVullen(res.place[0], res.place[1], ctrl);   // Shift+klik: huizen op alle kavels van dit netwerk (Ctrl+Shift: weer leeg)
