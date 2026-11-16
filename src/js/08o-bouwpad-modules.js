@@ -152,7 +152,10 @@
         if (mA > A * 0.001) { L0.v = L0.v || {}; L0.v[T.id] = 'concrete'; if (keep.length) { L0.vk = L0.vk || {}; L0.vk[T.id] = keep.length === 1 ? keep[0] : keep; } }
         if (mA < A * 0.999) L0.f[T.id] = 'padoker';   // vloer waar (een deel van) het pad ligt; onder het massief is hij niet te zien
       }
-      if (soort === 'helling' && opts.midden) {   // ontwerp (Joep): het schuine stuk in het midden, vlakke bordessen aan beide kanten
+      // een rechte helling (Joep, november 2026: "herontwerp de schans zodat het schuin stuk in het midden zit; dan kan je meer
+      // toegang maken vanaf een kant"): het schuine stuk in het midden (6,8 m, even steil als eerst), vlakke bordessen aan beide
+      // kanten. Een helling in een bocht houdt het schuine stuk op de hoge arm (de lage arm sluit in het midden aan).
+      if (soort === 'helling' && opts.midden !== false) {
         const k = opts.hoog != null ? opts.hoog : armen[0], f = FRAMES[k], pt = (u, p, y) => [f.tx * u + f.nx * p, f.tz * u + f.nz * p, y], H = 3.4;
         L0.s.push({ k: 'plaat', a: [0, 0], d: 0, n: 1, w: 2, m: 'padoker', raster: 1, p: [[pt(-W, -H, 0.05), pt(W, -H, 0.05), pt(W, H, 3), pt(-W, H, 3)], [pt(-W, H, 3), pt(W, H, 3), pt(W, INNER, 3), pt(-W, INNER, 3)]] });
         if (opts.park) {   // de kavels worden een parkje: laag aan de lage kant (open naar de zijkant), een groen terras op 3 m aan de hoge kant

@@ -701,9 +701,9 @@
     return { soort, armen, hoog };
   }
   function bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col) {
-    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), O = window.__bpOntwerp || {}, key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '') + (O.midden ? ':m' : '') + (O.park ? ':p' : '');
+    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), O = window.__bpOntwerp || {}, key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '') + (O.park ? ':p' : '');
     let B = bpBouwCache.get(key);
-    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key, midden: O.midden, park: O.park }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
+    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key, park: O.park }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
     for (const ch of B.group.children) { const c = ch.clone(); c.traverse(m => { if (m.userData) delete m.userData.own; }); o.add(c); }
     for (const S of B.surfaces) col.surfaces.push(Object.assign({}, S, { cx: S.cx + cx, cz: S.cz + cz, base: (S.base || 0) + baseY, bottom: S.bottom + baseY }, S.top != null ? { top: S.top + baseY } : {}));
     for (const w of B.walls) col.walls.push(Object.assign({}, w, { ax: w.ax + cx, az: w.az + cz, bx: w.bx + cx, bz: w.bz + cz, y0: w.y0 + baseY, y1: w.y1 + baseY }));
@@ -714,7 +714,7 @@
     if (BP_RAATMAKER) {
       bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col);
       if (b === 'looppad') hofjeDecor(o, loopdekHofje(t), baseY, cx, cz, col, hash(q, r, i), pathMask(q, r, baseY));   // de inrichting nog zoals eerst (stap 4: ook in de Raatmaker)
-      if (b === 'helling') hellingInr(o, q, r, i, dirOf(t), (1 << dirOf(t)) | (1 << ((dirOf(t) + 3) % 6)), baseY, cx, cz, col);
+      if (b === 'helling') hellingInr(o, q, r, i, dirOf(t), (1 << dirOf(t)) | (1 << ((dirOf(t) + 3) % 6)), baseY, cx, cz, col, true);
       if (b === 'hellingb') { const [d, e] = hbKanten(t); hellingInr(o, q, r, i, d, (1 << d) | (1 << e), baseY, cx, cz, col); }
       return;
     }
@@ -826,12 +826,15 @@
   // Inrichting van een helling (Ctrl+klik met het Bouwpad, cells.inr): 1 treden op het schuine stuk (lopen blijft een helling,
   // zoals bij Trappad), 2 wandlampen, 3 groene wanden; de vloerhoogte langs de hoge arm stijgt mee
   const hellingInrVan = (q, r, i) => ((cells.inr || {})[q + ',' + r + ',' + i] | 0) % HELLING_INR.length;
-  function hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col) {
+  // midden: een rechte helling (Raatmaker, 08o) heeft het schuine stuk in het midden, van -RAMP_MID tot +RAMP_MID langs d
+  const RAMP_MID = 3.4;
+  function hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col, midden) {
     const v = hellingInrVan(q, r, i); if (!v) return;
-    const f = FRAMES[d], hoogte = (k, p) => k === d ? Math.min(3, Math.max(0, p / RAMP_END * 3)) : 0;
+    const f = FRAMES[d], k3 = (d + 3) % 6, hoogte = midden ? (k, p) => k === d ? Math.min(3, Math.max(0, (p + RAMP_MID) / (2 * RAMP_MID) * 3)) : k === k3 ? Math.min(3, Math.max(0, (RAMP_MID - p) / (2 * RAMP_MID) * 3)) : 0
+      : (k, p) => k === d ? Math.min(3, Math.max(0, p / RAMP_END * 3)) : 0;
     if (v === 1) {
-      const N = 14, run = RAMP_END / N, rise = 2.95 / N, parts = [];
-      for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; parts.push(boxAt(f, 0, (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
+      const N = 14, run = (midden ? 2 * RAMP_MID : RAMP_END) / N, p0 = midden ? -RAMP_MID : 0, rise = 2.95 / N, parts = [];
+      for (let j = 0; j < N; j++) { const top = 0.05 + (j + 1) * rise; parts.push(boxAt(f, 0, p0 + (j + 0.5) * run, top / 2, 2 * CH_HALF - 0.02, top, run)); }
       const m = new THREE.Mesh(mergeGeos(parts), M.stone); m.castShadow = true; m.receiveShadow = true; o.add(m);
     } else zijDecor(o, v === 2 ? 7 : 8, baseY, cx, cz, col, hash(q, r, i), [0, 1, 2, 3, 4, 5].filter(k => (mask >> k) & 1), hoogte);
   }
