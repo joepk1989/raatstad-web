@@ -1,4 +1,4 @@
-// Wenteltrap: is het gat in de vloer erboven nu rondom afgezet (geen leuningvrije val)?
+// Wenteltrap: is het gat in de vloer erboven rondom afgezet (geen leuningvrije val), met een ruime overloop bij de uitstap?
 const { open, OUT } = require('./helper');
 (async () => { const { b, p } = await open({ width: 1000, height: 700 });
  p.on('pageerror', e => console.log('FOUT', e.message));
@@ -13,15 +13,15 @@ const { open, OUT } = require('./helper');
  await p.evaluate(() => { const S = window.__SC(), f = S.flyCam; f.x = 2; f.z = 2; f.y = 5.5; f.yaw = Math.PI * 0.85; f.pitch = -0.75; f.vx = f.vy = f.vz = 0; });
  await p.keyboard.press('Space'); await p.waitForTimeout(1200);
  await p.screenshot({ path: OUT + '/wentel_boven.png', timeout: 120000 });
- // botsing testen: op de bovenverdieping lopend, een cirkel rond het gat afgelopen op 2,3 m van het midden (net buiten de rand-balustrade)
- const r = await p.evaluate(() => { const S = window.__SC(); const out = [];
-   for (let deg = 0; deg < 360; deg += 10) { const a = deg * Math.PI / 180, x = Math.cos(a) * 2.3, z = Math.sin(a) * 2.3, feet = 3.02;
-     out.push([deg, S.blockedAt(x, z, feet)]); }
+ // Uit elke richting op de bovenverdieping naar het midden lopen: nergens in het gat vallen. Waar het gat is sta je tegen het
+ // hek; op de overloop (boven de eerste treden en de uitstap, sinds november 2026 een derde van de cirkel) loop je door tot de kern.
+ const r = await p.evaluate(() => { const S = window.__SC(), out = [];
+   for (let deg = 0; deg < 360; deg += 10) { const t = deg * Math.PI / 180; let f = 3.02, laagst = 3.02, hek = null;
+     for (let rr = 3.2; rr >= 0.7; rr -= 0.05) { const x = Math.cos(t) * rr, z = Math.sin(t) * rr, g = S.floorAt(x, z, f); if (S.blockedAt(x, z, g)) { hek = rr; break; } f = g; laagst = Math.min(laagst, g); }
+     out.push({ deg, hek, laagst: +laagst.toFixed(2) }); }
    return out; });
- console.log('rand op 2,3 m (zou overal muur/leuning moeten zijn, behalve bij de uitstap):', JSON.stringify(r));
- const val = await p.evaluate(() => { const S = window.__SC(); const out = [];
-   for (let deg = 0; deg < 360; deg += 15) { const a = deg * Math.PI / 180, x = Math.cos(a) * 1.5, z = Math.sin(a) * 1.5;
-     out.push([deg, S.floorAt(x, z, 3.02).toFixed(2)]); }
-   return out; });
- console.log('vloerhoogte op 1,5 m (zou bij een gat laag moeten zijn, niet 3,02):', JSON.stringify(val));
+ const gevallen = r.filter(x => x.laagst < 2.9), overloop = r.filter(x => x.hek === null).length, hekken = r.filter(x => x.hek !== null).length;
+ console.log((!gevallen.length ? 'goed ' : 'FOUT ') + 'nergens in het gat gevallen', JSON.stringify(gevallen));
+ console.log((overloop >= 6 && overloop <= 13 ? 'goed ' : 'FOUT ') + 'overloop van ongeveer een derde van de cirkel', overloop + ' van 36 richtingen tot het midden, ' + hekken + ' tegen het hek');
+ console.log(!gevallen.length && overloop >= 6 && overloop <= 13 ? 'GOED' : 'FOUT');
  await b.close(); })();
