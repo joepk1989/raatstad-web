@@ -1,5 +1,6 @@
 // Gedeelde hulp voor de visuele tests: start de gebouwde site (`node build.js --site`) in een headless Chromium,
 // met three.js r128 lokaal (de CDN is in de sandbox niet bereikbaar). Eenmalig: `cd test && npm i three@0.128.0 playwright`.
+// SITE=<map>: een andere gebouwde site dan `site/` (een kopie, zodat een lange test doorloopt terwijl je opnieuw bouwt).
 const path = require('path'), fs = require('fs');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '../..');
@@ -16,7 +17,7 @@ async function open(viewport, opts = {}) {
   await p.route('**/three.min.js', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(require.resolve('three/build/three.min.js', { paths: [path.join(ROOT, 'test')] })) }));
   await p.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
   p.setDefaultTimeout(120000);   // onder belasting (meer tests tegelijk) is 30 s soms te kort
-  await p.goto('file://' + path.join(ROOT, 'site/index.html'), { timeout: 300000 });   // met meer tests tegelijk kan laden lang duren
+  await p.goto('file://' + (process.env.SITE ? path.resolve(process.env.SITE, 'index.html') : path.join(ROOT, 'site/index.html')), { timeout: 300000 });   // met meer tests tegelijk kan laden lang duren
   await p.waitForFunction(() => window.__SC && document.querySelector('#welcomeGo'), null, { timeout: 120000 }); await p.waitForTimeout(300);   // wachten tot het spel klaar is (was vast 2,5 s)
   await p.evaluate(() => document.querySelector('#welcomeGo')?.click()); await p.waitForTimeout(300);
   await p.evaluate(leeg => window.__SC().doAct(leeg ? 'empty' : 'start'), !!leeg);   // het startstadje: rotonde met drie wegen (of leeg)
