@@ -21,7 +21,7 @@
     DIR6: [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
     floors: { paver: 'Klinkers', tile: 'Stoeptegels', wood: 'Houten vloer', parquet: 'Visgraat parket', carpet: 'Kantoor\u00ADvloer', concrete: 'Beton', polished: 'Gepolijst beton', stonetile: 'Natuur\u00ADsteen tegels', hexbeton: 'Beton zeshoek\u00ADtegels', hexgroot: 'Grote beton\u00ADzeshoeken', hexdonker: 'Antraciet zeshoeken', hexsteen: 'Natuur\u00ADsteen zeshoeken', hexraat: 'Raat\u00ADpatroon', hexgras: 'Gras\u00ADtegels zeshoek', hexkei: 'Oude keien', padoker: 'Bouwpad\u00ADtegels', pannen: 'Terracotta pannen', grass: 'Gras', water: 'Water', asphalt: 'Asfalt', roof: 'Dak\u00ADbedekking', glass: 'Glazen dak', zand: 'Zand' },
     walls: { brick: 'Baksteen', darkbrick: 'Donkere steen', plaster: 'Wit stucwerk', concrete: 'Schoon beton', panel: 'Gevel\u00ADpanelen', slats: 'Houten lamel\u00ADlen', corten: 'Corten\u00ADstaal', curtain: 'Glasgevel', glass: 'Glaswand', wood: 'Hout', stone: 'Natuur\u00ADsteen', breuksteen: 'Breuksteen', oker: 'Oker stucwerk', zalm: 'Zalm stucwerk', terra: 'Terracotta stucwerk', geel: 'Geel stucwerk', hedge: 'Haag', fence: 'Hek' },
-    openings: { '': 'Dicht', door: 'Deur', window: 'Raam', gate: 'Poort', open: 'Open' },
+    openings: { '': 'Dicht', door: 'Deur', window: 'Raam', luik: 'Raam met luiken', gate: 'Poort', open: 'Open' },   // luik: smal en hoog, groene luiken open ernaast (Italiaans, Joep: "mooiere passende ramen")
     objects: { tree: 'Boom', bush: 'Struik', bench: 'Bankje', lamp: 'Lantaarn', pillar: 'Zuil', table: 'Tafel', planter: 'Plantenbak', fountain: 'Fontein', bin: 'Prullenbak', bike: 'Fietsenrek', shelf: 'Winkelstelling', counter: 'Toonbank', sign: 'Lichtreclame',
       bed: 'Bed', sofa: 'Bank (binnen)', desk: 'Bureau', kitchen: 'Keukenblok', screen: 'Filmdoek', car: 'Auto', pump: 'Tankpomp', charger: 'Laadpaal', solar: 'Zonnepanelen', turbine: 'Windmolen', chimney: 'Schoorsteen', container: 'Container', goal: 'Doel', grave: 'Grafsteen', boat: 'Boot', shelter: 'Abri', slide: 'Glijbaan', swing: 'Schommel', sheep: 'Schaap' },
     cats: ['Wonen', 'Werken', 'Winkels', 'Horeca', 'Winkelcentrum', 'Openbaar', 'Sport', 'Vervoer', 'Voorzieningen', 'Groen', 'Pleinen', 'Paden', 'Verbindingen', 'Bouwdelen', 'Overig'],
@@ -151,7 +151,7 @@
     const MM = modernMats();
     const fl = Object.assign({ padoker: M.padOker, paver: M.paver, tile: M.walkTop, wood: M.floorWood, carpet: M.floorOffice, concrete: M.concrete, grass: M.grass, water: M.water, asphalt: M.asphalt, roof: M.roofFlat, glass: new THREE.MeshStandardMaterial({ color: '#a9d3ea', transparent: true, opacity: 0.45, roughness: 0.12, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }) }, MM.fl);
     const wl = Object.assign({ glass: M.pane, wood: M.stairWood, stone: M.stone, hedge: M.leaf[1], fence: M.rail }, MM.wl);
-    MV2M = { fl, wl, ceiling: M.ceiling, slab: M.concrete, frame: M.alu, trim: M.trim, roof: M.roofTile, step: M.stone, rampTop: M.paverPlain, trunk: M.trunk, leaf: M.leaf, bench: M.bench, lamp: M.lampOff, lampGlow: new THREE.MeshBasicMaterial({ color: '#ffe6a8' }), water: M.water, bin: M.tlBody, metal: M.alu };
+    MV2M = { luik: std({ color: '#3f6b4a', roughness: 0.75 }), vensterbank: std({ color: '#d9d1c2', roughness: 0.85 }), fl, wl, ceiling: M.ceiling, slab: M.concrete, frame: M.alu, trim: M.trim, roof: M.roofTile, step: M.stone, rampTop: M.paverPlain, trunk: M.trunk, leaf: M.leaf, bench: M.bench, lamp: M.lampOff, lampGlow: new THREE.MeshBasicMaterial({ color: '#ffe6a8' }), water: M.water, bin: M.tlBody, metal: M.alu };
     return MV2M;
   }
   window.__MV2M = () => mv2Mats();   // voor de tests (overlap.js: welke materialen vechten)
@@ -654,22 +654,33 @@
           wallBox(mat, a, b, y0, y0 + W.h - (far ? 0 : 0.05), T); if (!far) wallBox(Mt.trim, a, b, y0 + W.h - 0.05, y0 + W.h, T + 0.06);   /* de muur stopt waar de afdekrand begint: geen twee bovenvlakken op dezelfde hoogte */ addWall(a, b, y0, y0 + W.h); continue;
         }
         // waar muren elkaar raken (de buurmodule heeft hier ook een muur) heeft een raam geen zin (Joep): dicht
-        const o = gedeeld && W.o === 'window' ? '' : W.o || '', isGlass = W.m === 'glass';
+        const o = gedeeld && (W.o === 'window' || W.o === 'luik') ? '' : W.o || '', isGlass = W.m === 'glass';
         if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
           if (o === 'open' || o === 'gate') continue;
           farWalls.push({ a, b, mat, t: isGlass ? 0.06 : T, d });   // rechte stukken worden straks samengevoegd
+          if (o === 'luik' && !isGlass) { const g0 = (len - Math.min(0.75, len - 0.4)) / 2 / len; farWin(lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.75, y0 + 2.35, T / 2 + 0.015); }
           if (o === 'window' && !isGlass) { const ow2 = Math.max(0.6, len - 0.8), g0 = (len - ow2) / 2 / len; farWin(lerp(a, b, g0), lerp(a, b, 1 - g0), y0 + 0.9, y0 + 2.15, T / 2 + 0.015); }
           continue;
         }
         if (!o) { wallBox(mat, a, b, y0 + (isGlass ? 0.1 : 0), y0 + LH - (isGlass ? 0.1 : 0), isGlass ? 0.06 : T); if (isGlass) {   /* glas: de randen zitten in de metalen banden */ wallBox(Mt.frame, a, b, y0, y0 + 0.12, T); wallBox(Mt.frame, a, b, y0 + LH - 0.12, y0 + LH, T); } addWall(a, b, y0, y0 + LH); continue; }
         // opening: breedte en hoogte, posten links en rechts, latei erboven, bij een raam ook een borstwering
-        const ow = o === 'door' ? Math.min(1.2, len - 0.6) : o === 'window' ? Math.max(0.6, len - 0.8) : o === 'gate' ? Math.max(1.5, len - 0.5) : len - 0.3;
-        const oy0 = o === 'window' ? 0.9 : 0, oy1 = o === 'door' ? 2.2 : o === 'window' ? 2.15 : o === 'gate' ? 2.8 : LH - 0.3;
+        const ow = o === 'door' ? Math.min(1.2, len - 0.6) : o === 'window' ? Math.max(0.6, len - 0.8) : o === 'luik' ? Math.min(0.75, len - 0.4) : o === 'gate' ? Math.max(1.5, len - 0.5) : len - 0.3;
+        const oy0 = o === 'window' ? 0.9 : o === 'luik' ? 0.75 : 0, oy1 = o === 'door' ? 2.2 : o === 'window' ? 2.15 : o === 'luik' ? 2.35 : o === 'gate' ? 2.8 : LH - 0.3;
         const f0 = (len - ow) / 2 / len, f1 = 1 - f0, p0 = lerp(a, b, f0), p1 = lerp(a, b, f1);
         if (f0 > 0.01) { wallBox(mat, a, p0, y0, y0 + LH, T); wallBox(mat, p1, b, y0, y0 + LH, T); addWall(a, p0, y0, y0 + LH); addWall(p1, b, y0, y0 + LH); }
         if (oy1 < LH - 0.01) { wallBox(mat, p0, p1, y0 + oy1, y0 + LH, T); addWall(p0, p1, y0 + oy1, y0 + LH); }
         if (oy0 > 0.01) { wallBox(mat, p0, p1, y0, y0 + oy0, T); addWall(p0, p1, y0, y0 + oy0); }
         if (o === 'window') { const q0 = lerp(p0, p1, -0.01 / ow), q1 = lerp(p1, p0, -0.01 / ow); wallBox(Mt.frame, q0, q1, y0 + oy0 - 0.04, y0 + oy0 + 0.04, T + 0.1); wallBox(Mt.frame, q0, q1, y0 + oy1 - 0.04, y0 + oy1 + 0.04, T + 0.02);   /* dorpel en bovenregel 1 cm de muur in */ for (const p of [p0, p1]) { const o2 = p === p0 ? p1 : p0; wallBox(Mt.frame, lerp(p, o2, -0.01 / ow), lerp(p, o2, 0.04 / ow), y0 + oy0 + 0.04, y0 + oy1 - 0.04, T + 0.02); } wallBox(M.pane, lerp(p0, p1, 0.02 / ow), lerp(p1, p0, 0.02 / ow), y0 + oy0 + 0.02, y0 + oy1 - 0.02, 0.02); }   // kozijn 1 cm voor de muur uit; de randen van het glas zitten in het kozijn: nergens twee vlakken op elkaar
+        if (o === 'luik') {   // raam met luiken: kozijn en glas als een raam, een stenen vensterbank en twee open luiken plat tegen de buitenkant
+          const q0 = lerp(p0, p1, -0.01 / ow), q1 = lerp(p1, p0, -0.01 / ow); wallBox(Mt.frame, q0, q1, y0 + oy1 - 0.04, y0 + oy1 + 0.04, T + 0.02);
+          for (const p of [p0, p1]) { const o2 = p === p0 ? p1 : p0; wallBox(Mt.frame, lerp(p, o2, -0.01 / ow), lerp(p, o2, 0.04 / ow), y0 + oy0 + 0.04, y0 + oy1 - 0.04, T + 0.02); }
+          wallBox(M.pane, lerp(p0, p1, 0.02 / ow), lerp(p1, p0, 0.02 / ow), y0 + oy0 + 0.02, y0 + oy1 - 0.02, 0.02);
+          wallBox(Mt.vensterbank, lerp(p0, p1, -0.1 / ow), lerp(p1, p0, -0.1 / ow), y0 + oy0 - 0.07, y0 + oy0, T + 0.14);
+          const nlx = -(p1[1] - p0[1]) / ow, nlz = (p1[0] - p0[0]) / ow, mx = (p0[0] + p1[0]) / 2, mz = (p0[1] + p1[1]) / 2, sA = floorAtL(mx + nlx * 0.7, mz + nlz * 0.7), sB = floorAtL(mx - nlx * 0.7, mz - nlz * 0.7);
+          const kanten = sA && !sB ? [-1] : sB && !sA ? [1] : [-1, 1];   // buiten: waar geen vloer is (anders allebei)
+          for (const sg of kanten) { const d = sg * (T / 2 + 0.03), sh = P => [P[0] + nlx * d, P[1] + nlz * d];
+            wallBox(Mt.luik, sh(lerp(p0, p1, -0.42 / ow)), sh(lerp(p0, p1, -0.04 / ow)), y0 + oy0, y0 + oy1, 0.04); wallBox(Mt.luik, sh(lerp(p1, p0, -0.04 / ow)), sh(lerp(p1, p0, -0.42 / ow)), y0 + oy0, y0 + oy1, 0.04); }
+        }
         if (o === 'door') {   // deurblad (09b): alleen in een buitenmuur (vloer aan één kant), naar binnen draaiend; deuren tussen kamers krijgen geen blad
           const mx = (p0[0] + p1[0]) / 2, mz = (p0[1] + p1[1]) / 2, nlx = -(p1[1] - p0[1]) / ow, nlz = (p1[0] - p0[0]) / ow, sA = floorAtL(mx + nlx * 0.7, mz + nlz * 0.7), sB = floorAtL(mx - nlx * 0.7, mz - nlz * 0.7);
           if (sA !== sB) { const A = tfp(p0), B = tfp(p1), tl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, Mw = tfp([mx, mz]), Nw = tfp([mx + nlx * (sA ? 1 : -1), mz + nlz * (sA ? 1 : -1)]), nl = Math.hypot(Nw[0] - Mw[0], Nw[1] - Mw[1]) || 1;
