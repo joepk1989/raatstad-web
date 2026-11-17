@@ -13,6 +13,7 @@ async function open(viewport, opts = {}) {
   const ctx = await b.newContext({ viewport, ...ctxOpts });
   const p = await ctx.newPage();
   p.on('pageerror', e => console.log('FOUT', e.message));
+  if (process.env.WEGVOLUME) await p.addInitScript(() => { window.__wegVolume = true; });   // tijdelijk: de proef 'weg als volume' aan in bestaande tests
   await p.route(/^https?:/, r => r.abort());   // niets van buiten laden (zonder netwerk blijft de pagina anders hangen)
   await p.route('**/three.min.js', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(require.resolve('three/build/three.min.js', { paths: [path.join(ROOT, 'test')] })) }));
   await p.route(/fonts\.(googleapis|gstatic)/, r => r.abort());
