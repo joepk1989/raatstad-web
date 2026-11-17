@@ -146,13 +146,15 @@
         if (kamers.length < 2) continue;
         const kamer = new Map(); kamers.forEach((K, k) => K.forEach(T => kamer.set(T.id, k)));
         const grens = new Map();   // kamerpaar → ribben
-        for (const T of S.tris) for (const [U, p, q] of buren(T)) { const a = kamer.get(T.id), b = kamer.get(U.id); if (a === undefined || b === undefined || a >= b) continue; const key = ribVan(p, q); if (!key) continue; const pk = a + '-' + b; if (!grens.has(pk)) grens.set(pk, []); grens.get(pk).push({ key, p: vk(p), q: vk(q), dw: +key.split(',')[2], m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }); }
+        for (const T of S.tris) for (const [U, p, q] of buren(T)) { const a = kamer.get(T.id), b = kamer.get(U.id); if (a === undefined || b === undefined || a >= b) continue; const key = ribVan(p, q); if (!key) continue; const pk = a + '-' + b; if (!grens.has(pk)) grens.set(pk, []); grens.get(pk).push({ key, a: p, b: q, p: vk(p), q: vk(q), dw: +key.split(',')[2], m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }); }
         for (const L of grens.values()) { const c = L.reduce((s, r) => [s[0] + r.m[0] / L.length, s[1] + r.m[1] / L.length], [0, 0]); let mid = L[0], md = 1e9; for (const r of L) { const d = Math.hypot(r.m[0] - c[0], r.m[1] - c[1]); if (d < md) { md = d; mid = r; } }
           // twee ribben breed (2,25 m): één rib laat na de muurdikte en de breedte van de loper maar zo'n 0,3 m over
           let buur = null, bd = 1e9; for (const r of L) { if (r === mid || r.dw !== mid.dw || ![r.p, r.q].some(v => v === mid.p || v === mid.q)) continue; const d = Math.hypot(r.m[0] - c[0], r.m[1] - c[1]); if (d < bd) { bd = d; buur = r; } }
-          for (const r of L) S.kamers.push({ key: r.key, open: r === mid || r === buur }); }
+          for (const r of L) S.kamers.push({ key: r.key, a: r.a, b: r.b, open: r === mid || r === buur }); }
         S.nKamers = kamers.length;
       }
+      // een deur niet waar een binnenmuur tegen de gevel uitkomt (je loopt er dan meteen tegenaan)
+      const binnenMuur = (S, x, z) => (S.kamers || []).some(r => { if (r.open) return false; const dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], t = Math.max(0, Math.min(1, ((x - r.a[0]) * dx + (z - r.a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - r.a[0] - dx * t, z - r.a[1] - dz * t) < 0.7; });
       const lpVan = T => (stukVan.get(T.id) || { lagen: 0 }).lagen, maxL = Math.max(1, ...stukken.map(S => S.lagen));
       for (let li = 0; li <= maxL; li++) {
         const L = li === 0 ? L0 : (m.lv[li] || (m.lv[li] = mv2Level()));
@@ -185,13 +187,13 @@
             // om de drie ribben, verspringend per verdieping. Staat er een buurhuis tegenaan, dan is die muur gedeeld en maakt het
             // spel hem dicht (wallSkips, 08c: geen ramen waar muren elkaar raken)
             const h3 = ((i + 2 * j + li) % 3 + 3) % 3; o = h3 === 1 && !b.bezet ? 'luik' : ''; }   // i + 2j: langs elke richting van de rand (1,0), (0,1), (−1,1) verspringt het, dus om de drie ribben een raam
-          if (o === 'door' && S.trap.some(t => strook(t.a, t.d, t.c).binnen(mx, mz, 0.6))) o = '';   // geen deur tegen de trap aan
+          if (o === 'door' && (S.trap.some(t => strook(t.a, t.d, t.c).binnen(mx, mz, 0.6)) || binnenMuur(S, mx, mz))) o = '';   // geen deur tegen de trap of een binnenmuur aan
           L.w[i + ',' + j + ',' + dw] = { m: gevel, o };
         }
         for (const S of stukken) if (li < S.lagen) for (const r of S.kamers || []) if (!r.open && !L.w[r.key]) L.w[r.key] = { m: 'plaster', o: '' };   // doorgang: geen muur (een 'open' rib houdt paaltjes aan de uiteinden)   // binnenmuren en doorgangen tussen de kamers
         if (li === 0) for (const S of stukken) {   // elk huis minstens één deur aan de steeg (beloopbaar, Joep)
           const eigen = pad.filter(w => w.S === S); if (!eigen.length || eigen.some(w => L.w[w.key].o === 'door')) continue;
-          const vrij = eigen.filter(w => !S.trap.some(t => strook(t.a, t.d, t.c).binnen(w.mx, w.mz, 0.6))), lang = vrij.filter(w => w.lang), L2 = lang.length ? lang : vrij.length ? vrij : eigen;
+          const vrij = eigen.filter(w => !S.trap.some(t => strook(t.a, t.d, t.c).binnen(w.mx, w.mz, 0.6)) && !binnenMuur(S, w.mx, w.mz)), lang = vrij.filter(w => w.lang), L2 = lang.length ? lang : vrij.length ? vrij : eigen;
           L.w[L2[Math.floor(L2.length / 2)].key].o = 'door';
         }
       }
