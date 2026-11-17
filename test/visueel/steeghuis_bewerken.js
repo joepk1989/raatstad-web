@@ -46,7 +46,8 @@ const fs = require('fs');
   await p.evaluate(() => { const E = window.__MME; for (const L of E.m.lv) for (const k in L.w || {}) L.w[k].m = 'plaster'; E.dirty = true; document.getElementById('mm_bSave').click(); }); await p.waitForTimeout(800);
   await p.evaluate(() => document.getElementById('mm_bClose').click()); await p.waitForTimeout(1000);
   const r = await p.evaluate(([mid, pmid]) => { const C = window.__SC().getCells(), L = (C.inst || []).filter(I => I.mid === mid);
-    return { exemplaren: L.length, wit: L.filter(I => Object.values(I.m.lv[0].w || {}).length && Object.values(I.m.lv[0].w || {}).every(w => w.m === 'plaster')).length, park: (C.inst || []).filter(I => I.kv).length, parkWit: (C.inst || []).filter(I => I.kv && I.mid === pmid).map(I => I.m.bp.huis.stukken.some(s => s.soort !== 'huis') && Object.values(I.m.lv[0].w || {}).every(w => w.m === 'plaster')) }; }, [info.mid, info.pmid]);
+    return { exemplaren: L.length, wit: L.filter(I => Object.values(I.m.lv[0].w || {}).length && Object.values(I.m.lv[0].w || {}).every(w => w.m === 'plaster')).length, park: (C.inst || []).filter(I => I.kv).length, parkWit: (C.inst || []).filter(I => I.kv && I.mid === pmid).map(I => I.m.bp.huis.stukken.some(s => s.soort !== 'huis') && Object.values(I.m.lv[0].w || {}).every(w => w.m === 'plaster')),
+      parkInfo: (C.inst || []).filter(I => I.kv).map(I => ({ zelfde: I.mid === pmid, naam: I.m.name, soorten: I.m.bp.huis.stukken.map(s => s.soort).join('/'), muren: [...new Set(Object.values(I.m.lv[0].w || {}).map(w => w.m))].join('/'), kv: I.kv })) }; }, [info.mid, info.pmid]);
   zeg(r.exemplaren === info.n && r.wit === r.exemplaren, 'de huizen van die module hebben de nieuwe muren', Object.assign({ module: info.naam }, r));
   // het beeld: een gevel wordt wit stucwerk; de camera staat precies gelijk, dus het verschil zit in de huizen (mensen lopen ook)
   const anders = await p.evaluate(async ([a, b]) => { const laad = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = 'data:image/png;base64,' + src; });
@@ -54,7 +55,7 @@ const fs = require('fs');
     x.drawImage(A, 0, 0); const da = x.getImageData(0, 0, c.width, c.height).data; x.drawImage(B, 0, 0); const db = x.getImageData(0, 0, c.width, c.height).data; let n = 0;
     for (let i = 0; i < da.length; i += 4) if (Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]) > 60) n++; return n; }, [voorBuf.toString('base64'), naBuf.toString('base64')]);
   zeg(anders > 3000, 'en de stad is meteen opnieuw getekend (gevels veranderd)', { pixelsAnders: anders });
-  zeg(r.park === info.park && r.parkWit.length > 0 && r.parkWit.every(Boolean), 'een huis met een parkje houdt zijn parkje (en krijgt ook de witte muren)', { voor: info.park, na: r.park, parkWit: r.parkWit });
+  zeg(r.park === info.park && r.parkWit.length > 0 && r.parkWit.every(Boolean), 'een huis met een parkje houdt zijn parkje (en krijgt ook de witte muren)', { voor: info.park, na: r.park, parkWit: r.parkWit, parkInfo: r.parkInfo });
   console.log(uit.every(Boolean) && !errs.length ? 'GOED' : 'FOUT', 'pagina-fouten', JSON.stringify(errs.slice(0, 3)));
   await b.close();
 })();
