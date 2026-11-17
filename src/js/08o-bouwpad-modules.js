@@ -87,9 +87,20 @@
       // van een muur op die rasterlijn (Joep: "de trap tegen de buitenmuur strak")
       const WT = MV2.WALL_T / 2;
       const strook = (a, d, c = 0) => { const A = mv2P(a[0], a[1], ts), D = MV2.DIR6[d], B = mv2P(a[0] + D[0], a[1] + D[1], ts), dx = B[0] - A[0], dz = B[1] - A[1], l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l, nx = -uz, nz = ux;
-        return { A, ux, uz, nx, nz, binnen: (x, z, mar = 0) => { const al = (x - A[0]) * ux + (z - A[1]) * uz, lat = (x - A[0]) * nx + (z - A[1]) * nz; return al > -1.3 - mar && al < TL + 1.3 + mar && lat > c - 0.2 - mar && lat < c + TW + 0.2 + mar; } }; };
+        return { A, ux, uz, nx, nz, c, binnen: (x, z, mar = 0) => { const al = (x - A[0]) * ux + (z - A[1]) * uz, lat = (x - A[0]) * nx + (z - A[1]) * nz; return al > -1.3 - mar && al < TL + 1.3 + mar && lat > c - 0.2 - mar && lat < c + TW + 0.2 + mar; } }; };
       // past: de trap met 0,9 m vrij ervoor en erna helemaal in dit huis
       const past = (S, a, d, c = 0) => { const st = strook(a, d, c); for (let al = -0.9; al <= TL + 0.91; al += 0.3) for (let lat = c + 0.02; lat <= c + TW - 0.01; lat += (TW - 0.03) / 6) { const x = st.A[0] + st.ux * al + st.nx * lat, z = st.A[1] + st.uz * al + st.nz * lat; if (soortVan(x, z) !== 'huis' || stukOp(x, z) !== S) return false; } return true; };
+      // blijft de vloer van een deel heel als de trappen (met een looprand eromheen) eruit gaan? Twee trappen naast elkaar (heen
+      // en terug, drie verdiepingen) konden het huis op de 1e verdieping in tweeën delen: aan het verre eind zit het trapgat, aan
+      // de lange kant de muur (Joep: "alle steeg modules allemaal checken"; steeghuizen_alle.js)
+      const heelZonder = (S, stroken) => { const cen = T => [(T.v[0][0] + T.v[1][0] + T.v[2][0]) / 3, (T.v[0][1] + T.v[1][1] + T.v[2][1]) / 3];
+        const op = (st, x, z) => { const al = (x - st.A[0]) * st.ux + (z - st.A[1]) * st.uz, lat = (x - st.A[0]) * st.nx + (z - st.A[1]) * st.nz; return al > -0.1 && al < TL + 0.1 && lat > st.c - 0.3 && lat < st.c + TW + 0.3; };   // de trap zelf en 0,3 m opzij
+        const over = new Set(S.tris.filter(T => !stroken.some(st => op(st, ...cen(T)))).map(T => T.id)); if (!over.size) return false;
+        const comp = []; const gz = new Set();
+        for (const T0 of S.tris) { if (!over.has(T0.id) || gz.has(T0.id)) continue; let n = 0; const rij = [T0]; gz.add(T0.id);
+          while (rij.length) { const T = rij.pop(); n++; for (let e = 0; e < 3; e++) { const a = vk(T.v[e]), b = vk(T.v[(e + 1) % 3]); for (const U of randen.get(a < b ? a + '|' + b : b + '|' + a) || []) if (U !== T && over.has(U.id) && !gz.has(U.id)) { gz.add(U.id); rij.push(U); } } }
+          comp.push(n); }
+        return comp.filter(n => n >= 4).length <= 1; };
       for (const S of stukken) {
         // opts.kleinOp: punten (in de module) van kavels die je aanwees (klik op het gebied): die worden groen of plein, hoe groot ook
         // ([x, z, soort]: soort 'groen' of 'plein', anders opts.klein)
@@ -106,7 +117,7 @@
         let bS = -1, eS = -1;
         for (const a of punten.values()) for (let d = 0; d < 6; d++) for (const c of [WT, -WT, 0]) { const D = MV2.DIR6[d], a2 = [a[0] + TN * D[0], a[1] + TN * D[1]];
           if (!past(S, a, d, c)) continue;
-          if (lagen >= 3 && past(S, a2, (d + 3) % 6, -c)) { const sc = Math.max(tegen(a, d, c + TW + WT + 0.1), tegen(a, d, c - TW - WT - 0.1)); if (sc > bS) { bS = sc; best = { a, d, a2, c }; } }
+          if (lagen >= 3 && past(S, a2, (d + 3) % 6, -c) && heelZonder(S, [strook(a, d, c), strook(a2, (d + 3) % 6, -c)])) { const sc = Math.max(tegen(a, d, c + TW + WT + 0.1), tegen(a, d, c - TW - WT - 0.1)); if (sc > bS) { bS = sc; best = { a, d, a2, c }; } }
           const sc = Math.max(tegen(a, d, c + TW + WT + 0.1), tegen(a, d, c - WT - 0.1)); if (sc > eS) { eS = sc; een = { a, d, a2, c }; } }
         if (!een && best) een = best;
         // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein)
@@ -128,8 +139,11 @@
       const buren = T => { const o = []; for (let e = 0; e < 3; e++) { const a = vk(T.v[e]), b = vk(T.v[(e + 1) % 3]), k = a < b ? a + '|' + b : b + '|' + a; for (const U of randen.get(k) || []) if (U !== T) o.push([U, T.v[e], T.v[(e + 1) % 3]]); } return o; };
       const NORM = [0, 1, 2].map(d => { const D = MV2.DIR6[d], P = mv2P(D[0], D[1], ts), l = Math.hypot(P[0], P[1]); return [-P[1] / l, P[0] / l]; });   // loodrecht op de rasterlijnen
       for (const S of stukken) { S.kamers = []; if (S.klein || !S.lagen || opts.kamers === false || (typeof window !== 'undefined' && window.__geenKamers)) continue;
-        const trapId = new Set(S.tris.filter(T => S.trap.some(t => strook(t.a, t.d, t.c).binnen(...cenT(T), 0.3))).map(T => T.id));
+        const trapId = new Set(S.tris.filter(T => S.trap.some(t => strook(t.a, t.d, t.c).binnen(...cenT(T), 0.9))).map(T => T.id));   // de trap met ruim een meter eromheen: een binnenmuur vlak langs het trapgat liet geen doorgang over
         const heel = L => { if (!L.length) return false; const ids = new Set(L.map(T => T.id)), gz = new Set([L[0].id]), rij = [L[0]]; while (rij.length) { const T = rij.pop(); for (const [U] of buren(T)) if (ids.has(U.id) && !gz.has(U.id)) { gz.add(U.id); rij.push(U); } } return gz.size === L.length; };
+        // ook zonder de trappen zelf (en 0,3 m opzij) moet een kamer heel blijven: anders ligt er een hoekje achter de trap
+        const lijf = new Set(S.tris.filter(T => S.trap.some(t => { const st = strook(t.a, t.d, t.c), [x, z] = cenT(T), al = (x - st.A[0]) * st.ux + (z - st.A[1]) * st.uz, lat = (x - st.A[0]) * st.nx + (z - st.A[1]) * st.nz; return al > -0.1 && al < TL + 0.1 && lat > st.c - 0.3 && lat < st.c + TW + 0.3; })).map(T => T.id));
+        const heelLos = L => { const R2 = L.filter(T => !lijf.has(T.id)); return !R2.length || heel(R2); };
         let kamers = [S.tris];
         for (let ronde = 0; ronde < 8; ronde++) {
           kamers.sort((a, b) => b.length - a.length); const K = kamers[0]; if (K.length < KAMER * 1.6) break;
@@ -138,7 +152,7 @@
             for (let c = Math.ceil(lo / RIJ) * RIJ; c < hi; c += RIJ) { const A = K.filter((T, n) => proj[n] < c), B = K.filter((T, n) => proj[n] >= c);
               if (A.length < KAMER * 0.45 || B.length < KAMER * 0.45) continue;
               if (A.some(T => trapId.has(T.id)) && B.some(T => trapId.has(T.id))) continue;   // niet door de trap
-              if (!heel(A) || !heel(B)) continue;
+              if (!heel(A) || !heel(B) || !heelLos(A) || !heelLos(B)) continue;
               const idA = new Set(A.map(T => T.id)); let snede = 0; for (const T of A) for (const [U] of buren(T)) if (!idA.has(U.id) && B.includes(U)) snede++;
               const sc = Math.abs(A.length - B.length) + snede * 6; if (!best || sc < best.sc) best = { sc, A, B }; } }
           if (!best) break; kamers = [best.A, best.B, ...kamers.slice(1)];
@@ -211,7 +225,7 @@
           if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
         m.bp.dak = 1;
       }
-      m.bp.v = 11;
+      m.bp.v = 12;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
@@ -342,7 +356,7 @@
     if (typeof modules === 'undefined') return 0;
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
-    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 11))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur, v 6: strak tegen de muur, v 7: scherpe hoeken afgerond, v 8: ramen met luiken) */
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 12))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur, v 6: strak tegen de muur, v 7: scherpe hoeken afgerond, v 8: ramen met luiken, v 11: kamers, v 12: trappen en binnenmuren laten een doorgang vrij) */
       const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }
