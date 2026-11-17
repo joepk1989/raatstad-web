@@ -27,24 +27,28 @@ const scene = () => { const S = window.__SC(); S.selectTool('kies'); S.setCells(
     { t: 'weg', l: 0, r: 0, p: [w(12, 3), [w(12, 3)[0] + 0.1, w(12, 3)[1]]] },   // los vak
   ];
   S.rebuildAll(); };
-const meet = () => { const S = window.__SC(), T = window.THREE, terr = []; S.scene.traverse(m => { if (m.isMesh && m.userData.terr) terr.push(m); });
+const meet = (stap = 0.7) => { const S = window.__SC(), T = window.THREE, terr = []; S.scene.traverse(m => { if (m.isMesh && m.userData.terr) terr.push(m); });
   const rc = new T.Raycaster(), dn = new T.Vector3(0, -1, 0);
   const tH = (x, z) => { rc.set(new T.Vector3(x, 300, z), dn); const h = rc.intersectObjects(terr, false); return h.length ? h[0].point.y : null; };
   const uit = { door: 0, gat: 0, zonderWeg: 0, muurFout: 0, muren: 0, punten: 0, vb: [] }, vb = (s, x, z) => { if (uit.vb.length < 30) uit.vb.push(s + ' ' + x.toFixed(1) + ',' + z.toFixed(1)); };
   const punt = (x, z) => { uit.punten++; const inV = S.inVoet ? S.inVoet(x, z) : false, t = tH(x, z), g = S.terrainHeightAt(x, z), rd = S.roadTop(x, z, g);
     const om = d => [0, 1, 2, 3, 4, 5, 6, 7].map(i => S.roadTop(x + Math.cos(i * Math.PI / 4) * d, z + Math.sin(i * Math.PI / 4) * d, g));   // de botsvlakken houden op de rand een paar cm speling: rondom kijken
-    if (rd !== null && Math.abs(rd - g) < 2.5 && t !== null && t > rd + 0.01 && (inV || om(0.12).every(v => v !== null))) { uit.door++; vb('door', x, z); }
+    // het hoogste wegvlak hier (vanaf 2,4 m boven het terrein gezocht): ligt dat onder het getekende terrein, dan steekt het terrein erdoor
+    const rdT = t === null ? null : S.roadTop(x, z, t + 2.4);
+    if (rdT !== null && t > rdT + 0.01 && t - rdT < 2.5 && (inV || om(0.12).every(v => v !== null))) { uit.door++; vb('door', x, z); }
     if (inV && rd === null && om(0.45).every(v => v === null)) { uit.zonderWeg++; vb('zonderWeg', x, z); }   // (de rand van een pad is 30 cm stoeprand zonder botsvlak)
-    if (!inV && t === null && g > 0.06 && rd === null) { uit.gat++; vb('gat', x, z); } };
+    if (!inV && t === null && g > 0.06 && (rd === null || rd > g + 2) && !S.terrOcc(...S.worldToCell(x, z))) {   // onder een brugdek hoort het terrein er ook te liggen; een bebouwd vak heeft een sokkel
+      uit.gat++; vb('gat', x, z); } };
   // 1. langs elke keermuur: 15 cm ervoor en erachter
-  const M = (S.pathGroup().userData.muren) || [];
-  for (const [a, b] of M) { uit.muren++; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / l * 0.15, nz = (b[0] - a[0]) / l * 0.15;
-    if (l > 0.3 && S.inVoet(mx + nx, mz + nz) === S.inVoet(mx - nx, mz - nz)) { uit.muurFout++; vb('muur', mx, mz); }
+  const M = (S.pathGroup().userData.muren) || [], alle = []; for (const s of S.pathGroup().userData.voet || []) for (const K of s.polys) alle.push(K);
+  const inAlle = (x, z, h) => alle.some(K => x >= K.bb[0] && x <= K.bb[2] && z >= K.bb[1] && z <= K.bb[3] && K.H.every(h2 => h2[0] * x + h2[1] * z - h2[2] <= 0) && Math.abs(K.hf(x, z) - h) < 2.5);   // ook de stukken waar het terrein niet gespaard wordt (oprit van een wegdek)
+  for (const [a, b, wh] of M) { uit.muren++; const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / l * 0.15, nz = (b[0] - a[0]) / l * 0.15;
+    if (l > 0.3 && inAlle(mx + nx, mz + nz, wh) === inAlle(mx - nx, mz - nz, wh)) { uit.muurFout++; vb('muur', mx, mz); }
     punt(mx + nx, mz + nz); punt(mx - nx, mz - nz); }
   // 2. een raster van 0,7 m over alle vakken waar een weg ligt (en hun buren)
   const cel = new Set(); for (const k of S.cover()) { const [q, r] = k.split(',').map(Number); for (const [dq, dr] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]]) cel.add((q + dq) + ',' + (r + dr)); }
   let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const k of cel) { const [q, r] = k.split(',').map(Number), c = S.cellToWorld(q, r); x0 = Math.min(x0, c.x - 9); x1 = Math.max(x1, c.x + 9); z0 = Math.min(z0, c.z - 9); z1 = Math.max(z1, c.z + 9); }
-  for (let x = x0; x <= x1; x += 0.7) for (let z = z0; z <= z1; z += 0.7) { const [q, r] = S.worldToCell(x, z); if (cel.has(q + ',' + r)) punt(x + 0.013, z + 0.017); }
+  for (let x = x0; x <= x1; x += stap) for (let z = z0; z <= z1; z += stap) { const [q, r] = S.worldToCell(x, z); if (cel.has(q + ',' + r)) punt(x + 0.013, z + 0.017); }
   return uit; };
 module.exports = { scene, meet };
 if (require.main === module) (async () => {
