@@ -83,9 +83,15 @@
         if (lagen < 2) { S.lagen = 1; continue; }
         let best = null, een = null;   // best: twee trappen (drie verdiepingen); een: één trap (twee verdiepingen)
         const punten = new Map(); for (const T of S.tris) for (const p of T.v) { const fi = p[0] / (ts * SQ3 / 2), a = [Math.round(fi), Math.round(p[1] / ts - fi / 2)]; punten.set(a.join(','), a); }
-        for (const a of punten.values()) { for (let d = 0; d < 6 && !best; d++) { const D = MV2.DIR6[d], a2 = [a[0] + TN * D[0], a[1] + TN * D[1]];
-            if (!past(S, a, d)) continue; een = een || { a, d, a2 }; if (lagen >= 3 && past(S, a2, (d + 3) % 6)) best = { a, d, a2 }; }
-          if (best) break; }
+        // tegen de muur (Joep: "trappen niet in het midden maar aan de muurzijdes, anders verlies je teveel ruimte"): van alle
+        // plekken waar de trap past de plek waar een lange zijde het meest tegen de gevel ligt (net naast de trap is geen huis meer)
+        const tegen = (a, d, lat) => { const st = strook(a, d); let n = 0; for (let al = 0.3; al < TL; al += 0.6) { const x = st.A[0] + st.ux * al + st.nx * lat, z = st.A[1] + st.uz * al + st.nz * lat; if (soortVan(x, z) !== 'huis' || stukOp(x, z) !== S) n++; } return n; };
+        let bS = -1, eS = -1;
+        for (const a of punten.values()) for (let d = 0; d < 6; d++) { const D = MV2.DIR6[d], a2 = [a[0] + TN * D[0], a[1] + TN * D[1]];
+          if (!past(S, a, d)) continue;
+          if (lagen >= 3 && past(S, a2, (d + 3) % 6)) { const sc = Math.max(tegen(a, d, TW + 0.35), tegen(a, d, -TW - 0.35)); if (sc > bS) { bS = sc; best = { a, d, a2 }; } }   // twee trappen naast elkaar: een van de buitenzijden tegen de muur
+          else { const sc = Math.max(tegen(a, d, TW + 0.35), tegen(a, d, -0.35)); if (sc > eS) { eS = sc; een = { a, d, a2 }; } } }
+        if (!een && best) een = best;
         // te klein voor een trap: een huis wordt het niet (opts.klein: groen of plein)
         best = best || een; if (!best) { if (opts.klein && !opts.kleinOp) { S.lagen = 0; S.klein = true; S.soort = opts.klein; } else S.lagen = 1; continue; }
         if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6))) S.lagen = 2;
@@ -143,7 +149,7 @@
           if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
         m.bp.dak = 1;
       }
-      m.bp.v = 4;
+      m.bp.v = 5;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
@@ -273,7 +279,7 @@
     if (typeof modules === 'undefined') return 0;
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
-    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 4))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak) */
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 5))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur) */
       const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }

@@ -73,10 +73,25 @@
       // trap van verdieping li naar li + 1, met het gat erboven
       stairUp(li, x, z, d6, n, w = 1.2, kind = 'stair') { const S = { a: vAt(x, z), d: d6, n, w, k: kind }; lv(li).s.push(S); lv(li + 1); return B; },   // het trapgat erboven maakt mv2Build zelf (mv2StairHole: precies afgeknipt)
       // trappenhuis door alle verdiepingen: elke verdieping keert de trap om, zodat de trappen boven elkaar liggen
-      stairwell(floors, x, z, d6, n, w = 1.2, ctr = [0, 0]) {   // wenteltrap, één omwenteling per verdieping; de volgende begint waar de vorige eindigt
-        const dxc = ctr[0] - x, dzc = ctr[1] - z, dist = Math.hypot(dxc, dzc) || 1, pull = dist > 2.5 ? 1.4 : 0, cx = x + dxc / dist * pull, cz = z + dzc / dist * pull;
-        let best = 0, bd = -2; MV2.DIR6.forEach((D, i) => { const ex = D[0] * ts * SQ3 / 2, ez = D[0] * ts / 2 + D[1] * ts, l = Math.hypot(ex, ez) || 1, dd = (ex * dxc + ez * dzc) / (l * dist); if (dd > bd) { bd = dd; best = i; } });
-        for (let f = 0; f < floors - 1; f++) B.stairUp(f, cx, cz, best, 1, 1.5, 'spiral');
+      // Wenteltrap, één omwenteling per verdieping; de volgende begint waar de vorige eindigt. Tegen de muur (Joep: "trappen niet
+      // in het midden plaatsen maar aan de muurzijdes, anders verlies je teveel ruimte"; eerst 1,4 m naar het midden getrokken):
+      // de vlakke wand van het vak die het dichtst bij (x, z) ligt, en daar het rasterpunt dat er het dichtst tegenaan ligt waar
+      // de trap (zeshoek, apothema 1,8 m) nog binnen het vak past. De instap en de overloop kijken naar het midden van het vak.
+      stairwell(floors, x, z, d6, n, w = 1.2, ctr = [0, 0]) {
+        const hx = x - ctr[0], hz = z - ctr[1]; let f = FRAMES[0], bd = -1e9; for (const F of FRAMES) { const dd = hx * F.nx + hz * F.nz; if (dd > bd) { bd = dd; f = F; } }
+        // de echte muren van de module (ook een ronde toren binnen het vak): de trap raakt er geen en blijft aan de kant van het midden
+        const muren = []; for (const L of m.lv) for (const k in L.w || {}) { const [i, j, dw] = k.split(',').map(Number), D = MV2.DIRW[dw]; if (D) muren.push([mv2P(i, j, ts), mv2P(i + D[0], j + D[1], ts)]); }
+        const dSeg = (x, z, A, B2) => { const dx = B2[0] - A[0], dz = B2[1] - A[1], t = Math.max(0, Math.min(1, ((x - A[0]) * dx + (z - A[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - A[0] - dx * t, z - A[1] - dz * t); };
+        const kant = (P, Q, R2) => Math.sign((Q[0] - P[0]) * (R2[1] - P[1]) - (Q[1] - P[1]) * (R2[0] - P[0])), kruist = (P, Q, A, B2) => kant(P, Q, A) * kant(P, Q, B2) < 0 && kant(A, B2, P) * kant(A, B2, Q) < 0;
+        const Ap = 1.8, ruimte = INNER - MV2.WALL_T / 2 - Ap; let pi = null, bs = -1e9;   // tot vlak tegen de binnenkant van de muur (op een raster van 2,25 m: 3 rijen uit het midden)
+        for (let i = -12; i <= 12; i++) for (let j = -12; j <= 12; j++) { const p = mv2P(i, j, ts), px = p[0] - ctr[0], pz = p[1] - ctr[1];
+          if (FRAMES.some(F => px * F.nx + pz * F.nz > ruimte + 1e-6)) continue;
+          if (muren.some(([A, B2]) => dSeg(p[0], p[1], A, B2) < Ap + MV2.WALL_T / 2 - 0.01 || kruist([ctr[0] + 0.013, ctr[1] + 0.007], p, A, B2))) continue;   /* een haartje naast het midden: een lijn precies door een hoekpunt van een muur telt anders niet als kruisen */
+          const sc = (px * f.nx + pz * f.nz) * 10 - Math.abs((px - hx) * f.tx + (pz - hz) * f.tz); if (sc > bs) { bs = sc; pi = [i, j]; } }
+        if (!pi) pi = vAt(x, z);   // nergens ruimte: waar het gevraagd werd
+        const P = mv2P(pi[0], pi[1], ts), th = Math.atan2(ctr[1] - P[1], ctr[0] - P[0]);
+        let best = 0, bh = 1e9; MV2.DIR6.forEach((D, i) => { const a0 = Math.atan2(D[0] * ts / 2 + D[1] * ts, D[0] * ts * SQ3 / 2), d = Math.abs(((a0 + Math.PI / 6 - th) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); if (d < bh) { bh = d; best = i; } });   // de overloop (30° na het begin) naar het midden
+        for (let fl = 0; fl < floors - 1; fl++) B.stairUp(fl, P[0], P[1], best, 1, 1.5, 'spiral');
         return B;
       },
       roof(li, q, r, kind = 'hip') { lv(li).r[q + ',' + r] = kind; return B; },
@@ -436,6 +451,15 @@
         st.id = modules[i].id; st.lib = 17; modules[i] = st; n++;
       }
       if (n) saveMods(); localStorage.setItem('raatstad-lib17', '1'); if (n) libRefreshed = true;
+    }
+    // lib20: wenteltrappen tegen de muur in plaats van 1,4 m naar het midden (Joep: "trappen aan de muurzijdes, anders verlies je
+    // teveel ruimte"): elke standaardmodule met een wenteltrap vervangen, zelfde id (geplaatste exemplaren gaan mee); wat je zelf
+    // hebt aangepast (_sig) blijft staan
+    if (!localStorage.getItem('raatstad-lib20')) {
+      const base = n => (n || '').replace(/( · \d+[Lv])+$/, ''), nu = new Map(libStandard().map(m => [base(m.name), m])); let n = 0;
+      for (let i = 0; i < modules.length; i++) { const x = modules[i]; if (x.v !== 2 || x._sig || !x.lv.some(L => (L.s || []).some(S => S.k === 'spiral'))) continue;
+        const st = nu.get(base(x.name)); if (!st) continue; st.id = x.id; st.lib = 20; modules[i] = st; n++; }
+      if (n) saveMods(); localStorage.setItem('raatstad-lib20', '1'); if (n) libRefreshed = true;
     }
     // lib13: nieuwe indeling (Horeca, Sport, Vervoer); ook voor aangepaste modules met dezelfde naam
     if (!localStorage.getItem('raatstad-lib13')) {
