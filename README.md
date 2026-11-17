@@ -685,6 +685,10 @@ Mensen zetten hun voeten echt neer (`stepFeet`), met benen via inverse kinematic
 - **De vloer erboven blokkeert het zicht niet** (`buildGrp`, 08d): een dunne plaat (vloer, plafond) telt bij de verdieping waar zijn bovenkant ligt. Teken je op de begane grond, dan is de vloer van de 1e verdieping doorzichtig, net als de rest erboven. Test: `raatmaker_vloer.js`.
 
 ## Trappen in de Raatmaker
+**Alle trappen nagelopen** (Joep, november 2026: "bekijk alle raatmaker modules en check of de trappen goed staan, ook de opening boven de trap"; `test/visueel/trappen_alle.js`): elke module los in een lege stad, per trap midden op de trap beginnen en met de vloer- en botsingsfuncties van het spel alles opzoeken wat je lopend bereikt (stappen tot 0,4 m, niet vallen, niets in de weg, 1,85 m hoofdruimte). Goed als je onder én boven op de vloer komt; langs de looplijn van een rechte trap moet boven elke tree 1,9 m vrij zijn. Een wenteltrap recht boven een andere loopt door (toren). Tribunes en de oprit van het winkelcentrum vallen erbuiten. Uitkomst in `uit/trappen_alle.json`.
+- Gevonden en opgelost: boven vier rechte trappen (Trap · pad omhoog, Trappenhuis, Terras op palen, de oprit van de Parkeergarage) bleef een randje vloer met 1,71–1,89 m hoofdruimte. Het gat (`mv2StairHole`, 08c) begint nu bij elke driehoek met een hoekpunt voorbij 25 % van de lengte (eerst: het zwaartepunt voorbij 30 %); daar is nog ruim 2 m vrij.
+- Nog open: bovenin de Kerk · toren is naast de wenteltrap maar ~1 m² om te staan (de toren is smal).
+
 Trap (T) en Bordestrap (U) volgen het voorbeeld `trappen.dae`: 16 treden per verdieping (18,75 cm op, 42 cm aantrede bij 3 rasterzijden), één driehoekrij breed (1,95 m), zwevende treden, een driehoekig bordes (rechte trap) of een bordes over twee rijen met een schuine kant van 60° (bordestrap). Het gat in de vloer erboven komt vanzelf (`stairHoles` in `08c`). Zolang de maker open is, is het weer helder en 13:00. Maten en formules: `unity/OVERDRACHT.md` §22.
 
 ## Bergfort (uit het spel)
