@@ -17,9 +17,18 @@ const fs = require('fs');
   await tik(p, pt[0], pt[1], { shift: true }); await p.waitForTimeout(1500);
   // het kleine kavel bij 3,-1 een parkje (zoals kavel_klik.js)
   await p.evaluate(() => { const S = window.__SC(); const w = S.cellToWorld(2, 0); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = 2.2; S.orbit.phi = 0.75; S.orbit.dist = 45; S.applyOrbit(); });
-  await p.mouse.move(5, 300); await p.waitForTimeout(1000); await tik(p, 944, 527, { shift: true }); await p.waitForTimeout(1200);
+  await p.mouse.move(5, 300); await p.waitForTimeout(1000);
+  // een klein kavel zoeken (zoals kavel_klik.js) en een parkje maken
+  const M = await p.evaluate(() => { const S = window.__SC(), ts = 9 / 8, SQ3 = Math.sqrt(3); let best = null;
+    for (const I of S.getCells().inst || []) { const H = I.m && I.m.bp && I.m.bp.huis; if (!H || !H.stukken) continue; const tf = S.mv2Tf(I.rot, I.q, I.r);
+      H.stukken.forEach(St => { if (St.soort !== 'huis' || St.trappen || !St.t || St.t.length < 3) return; let sx = 0, sz = 0;
+        for (const id of St.t) { const [i, j, t] = id.split(',').map(Number), v = window.__mv2.mv2TriVerts(i, j, t, ts); sx += (v[0][0] + v[1][0] + v[2][0]) / 3; sz += (v[0][1] + v[1][1] + v[2][1]) / 3; }
+        const W = tf(sx / St.t.length, sz / St.t.length), v3 = new THREE.Vector3(W[0], (I.lv | 0) * 3 + 3.2, W[1]).project(S.camera), x = (v3.x + 1) / 2 * innerWidth, y = (1 - v3.y) / 2 * innerHeight;
+        if (x > 100 && x < innerWidth - 100 && y > 100 && y < innerHeight - 100 && v3.z < 1) { const d = Math.hypot(x - innerWidth / 2, y - innerHeight / 2); if (!best || d < best.d) best = { x, y, d }; } }); }
+    return best ? [Math.round(best.x), Math.round(best.y)] : [944, 527]; });
+  await tik(p, M[0], M[1], { shift: true }); await p.waitForTimeout(1200);
   // de module van het hoge huis op 2,0 bewerken (goed in beeld), daarna die van het huis met het parkje op 3,-1
-  const info = await p.evaluate(() => { const S = window.__SC(), I = (S.getCells().inst || []).find(I => I.q === 2 && I.r === 0 && I.m && I.m.bp && I.m.bp.huis), P = (S.getCells().inst || []).find(I => I.q === 3 && I.r === -1 && I.kv); return { mid: I.mid, pmid: P.mid, naam: I.m.name, n: (S.getCells().inst || []).filter(J => J.mid === I.mid).length, park: (S.getCells().inst || []).filter(J => J.kv).length }; });
+  const info = await p.evaluate(() => { const S = window.__SC(), I = (S.getCells().inst || []).find(I => I.q === 2 && I.r === 0 && I.m && I.m.bp && I.m.bp.huis), P = (S.getCells().inst || []).find(I => I.kv && I.kv.length); return { mid: I.mid, pmid: P.mid, naam: I.m.name, n: (S.getCells().inst || []).filter(J => J.mid === I.mid).length, park: (S.getCells().inst || []).filter(J => J.kv).length }; });
   await p.evaluate(() => { const S = window.__SC(); S.selectTool('kies'); const w = S.cellToWorld(2, 0); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = 2.2; S.orbit.phi = 0.75; S.orbit.dist = 45; S.applyOrbit(); }); await p.mouse.move(5, 300); await p.waitForTimeout(1500);
   await p.screenshot({ path: OUT + '/steeghuis_bewerken_voor.png' });
   const kleur = () => p.evaluate(mid => { const S = window.__SC(), uit = new Set(); S.scene.traverse(o => { if (o.isMesh && o.visible && o.material && o.material.color) uit.add(o.material.color.getHexString()); }); return uit.size; }, info.mid);
