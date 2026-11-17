@@ -39,7 +39,7 @@
   const loopdekVar = t => loopdekCijfers(t)[0] % LOOPDEK_VAR_NAMEN.length;
   // Ctrl+klik met het Bouwpad (12): op een plein de hofjes 0–5, op een recht stuk, bocht of eind deze ronde, op een helling
   // HELLING_INR (bewaard in cells.inr per vak en laag, opgeslagen als __v)
-  const ZIJ_RONDE = [0, 5, 6, 7, 8], HELLING_INR = ['Kaal', 'Treden', 'Wandlampen', 'Groene wanden'];
+  const ZIJ_RONDE = [0, 5, 6, 7, 8], HELLING_INR = ['Kaal', 'Treden', 'Wandlampen', 'Groene wanden', 'Parkje'], HELLING_PARK = 4;   // Parkje: alleen een rechte helling (bpModule park, 08o)
   const loopdekHofje = t => loopdekCijfers(t)[1] % LOOPDEK_HOFJE_NAMEN.length;
   const loopdekCode = (mat, hofje) => 'looppad' + (mat || hofje ? mat + '' + hofje : '');
   const LOOPDEK_VAR = [M.paver, M.loopBeton, M.loopHout, M.loopStaal];
@@ -701,9 +701,9 @@
     return { soort, armen, hoog };
   }
   function bpModuleBlok(o, t, q, r, i, baseY, cx, cz, col) {
-    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), O = window.__bpOntwerp || {}, key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '') + (O.park ? ':p' : '');
+    const { soort, armen, hoog } = bpStukModule(t, q, r, baseY), O = Object.assign({}, window.__bpOntwerp), park = O.park || (soort === 'helling' && hellingInrVan(q, r, i) === HELLING_PARK), key = soort + ':' + armen.join('') + ':' + hoog + (i > 0 ? ':op' : '') + (park ? ':p' : '');
     let B = bpBouwCache.get(key);
-    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key, park: O.park }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
+    if (!B) { const mod = bpModule(soort, armen, { hoog, naam: 'Bouwpad · ' + key, park }); B = mv2Build(mod, (x, z) => [x, z], [0, 0], { stacked: i > 0 }); bpBouwCache.set(key, B); }
     for (const ch of B.group.children) { const c = ch.clone(); c.traverse(m => { if (m.userData) delete m.userData.own; }); o.add(c); }
     for (const S of B.surfaces) col.surfaces.push(Object.assign({}, S, { cx: S.cx + cx, cz: S.cz + cz, base: (S.base || 0) + baseY, bottom: S.bottom + baseY }, S.top != null ? { top: S.top + baseY } : {}));
     for (const w of B.walls) col.walls.push(Object.assign({}, w, { ax: w.ax + cx, az: w.az + cz, bx: w.bx + cx, bz: w.bz + cz, y0: w.y0 + baseY, y1: w.y1 + baseY }));
@@ -841,7 +841,7 @@
     const m = new THREE.Mesh(g, M.stone); m.castShadow = true; m.receiveShadow = true; o.add(m);
   }
   function hellingInr(o, q, r, i, d, mask, baseY, cx, cz, col, midden, laag) {
-    const v = hellingInrVan(q, r, i); if (!v) return;
+    const v = hellingInrVan(q, r, i); if (!v || v === HELLING_PARK) return;   // het parkje zit in de module zelf (bpModuleBlok)
     const f = FRAMES[d], k3 = midden === 'bocht' ? laag : (d + 3) % 6, tr = p => Math.min(1.5, Math.max(0, (p - BT_L) / (BT_E - BT_L) * 1.5));
     const hoogte = midden === 'bocht' ? (k, p) => k === d ? 1.5 + tr(p) : k === k3 ? 1.5 - tr(p) : 1.5
       : midden ? (k, p) => k === d ? Math.min(3, Math.max(0, (p + RAMP_MID) / (2 * RAMP_MID) * 3)) : k === k3 ? Math.min(3, Math.max(0, (RAMP_MID - p) / (2 * RAMP_MID) * 3)) : 0

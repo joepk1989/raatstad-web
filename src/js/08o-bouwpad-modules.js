@@ -253,7 +253,8 @@
           const L1 = mv2Level(); m.lv.push(L1); const bomen = [[], []];
           for (const T of driehoeken()) { if (!(L0.v && L0.v[T.id])) continue; const cx = (T.v[0][0] + T.v[1][0] + T.v[2][0]) / 3, cz = (T.v[0][1] + T.v[1][1] + T.v[2][1]) / 3, p = cx * f.nx + cz * f.nz, u = cx * f.tx + cz * f.tz;
             if (p < 0) { delete L0.v[T.id]; if (L0.vk) delete L0.vk[T.id]; L0.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2) bomen[0].push([cx, cz, Math.abs(u)]); }
-            else { if (!(L0.vk && L0.vk[T.id])) L1.f[T.id] = 'grass'; if (Math.abs(u) > W + 2.2 && p > 1) bomen[1].push([cx, cz, Math.abs(u)]); } }
+            else { L1.f[T.id] = 'grass'; if (L0.vk && L0.vk[T.id]) (L1.fk || (L1.fk = {}))[T.id] = L0.vk[T.id];   // langs de helling afgeknipt, net als het blok eronder (geen witte zaagtandjes)
+              if (Math.abs(u) > W + 2.2 && p > 1) bomen[1].push([cx, cz, Math.abs(u)]); } }
           for (const li of [0, 1]) { const B = bomen[li].sort((a, b) => b[2] - a[2]); for (const sg of [1, -1]) { const c = B.find(([x, z]) => Math.sign(x * f.tx + z * f.tz) === sg); if (c) (li ? L1 : L0).o.push({ t: 'tree', x: c[0], z: c[1], rot: 0 }); } }
         }
       } else if (soort === 'hellingb' && opts.midden !== false && flauw(armen)) {
