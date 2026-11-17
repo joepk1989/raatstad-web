@@ -36,6 +36,7 @@ const fs = require('fs');
   const voorBuf = await pix();
   // openen in de Raatmaker, alle muren wit stucwerk, bewaren, terug naar de stad
   await p.evaluate(mid => { const mod = window.__mods.find(m => m.id === mid); window.__SC().openSchets(mod); }, info.mid); await p.waitForTimeout(1200);
+  await p.waitForFunction(() => window.__MME && window.__MME.m, null, { timeout: 30000 });   // onder belasting (reeks) is de Raatmaker soms nog niet open
   await p.evaluate(() => { const E = window.__MME; for (const L of E.m.lv) for (const k in L.w || {}) L.w[k].m = 'plaster'; E.dirty = true; document.getElementById('mm_bSave').click(); }); await p.waitForTimeout(800);
   await p.evaluate(() => document.getElementById('mm_bClose').click()); await p.waitForTimeout(800); await p.evaluate(() => window.dispatchEvent(new Event('resize'))); await p.waitForTimeout(400);
   await p.evaluate(() => { const S = window.__SC(); S.selectTool('kies'); const w = S.cellToWorld(2, 0); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = 2.2; S.orbit.phi = 0.75; S.orbit.dist = 45; S.applyOrbit(); }); await p.waitForTimeout(1500);
@@ -43,6 +44,7 @@ const fs = require('fs');
   await p.screenshot({ path: OUT + '/steeghuis_bewerken_na.png' });
   const naBuf = await pix();
   await p.evaluate(mid => { const mod = window.__mods.find(m => m.id === mid); window.__SC().openSchets(mod); }, info.pmid); await p.waitForTimeout(1200);
+  await p.waitForFunction(() => window.__MME && window.__MME.m, null, { timeout: 30000 });   // onder belasting (reeks) is de Raatmaker soms nog niet open
   await p.evaluate(() => { const E = window.__MME; for (const L of E.m.lv) for (const k in L.w || {}) L.w[k].m = 'plaster'; E.dirty = true; document.getElementById('mm_bSave').click(); }); await p.waitForTimeout(800);
   await p.evaluate(() => document.getElementById('mm_bClose').click()); await p.waitForTimeout(1000);
   const r = await p.evaluate(([mid, pmid]) => { const C = window.__SC().getCells(), L = (C.inst || []).filter(I => I.mid === mid);
