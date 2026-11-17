@@ -172,7 +172,7 @@
         return { a: lo, ux: ex / el, uz: ez / el, nx: -ez / el, nz: ex / el, len: el, w: 2, at: (al, lat) => [lo[0] + ex / el * al - ez / el * lat, lo[1] + ez / el * al + ex / el * lat], poly, plaat: G0 }; }   // omhulsel; in en uit via de laagste en hoogste rand
       if (S.k === 'hexramp') { const c = mv2CellXZ(S.q || 0, S.r || 0), f = FRAMES[(S.side || 0) % 6], ex = -f.nx, ez = -f.nz, lx = -ez, lz = ex, pt = (u, lat) => [c[0] + ex * u + lx * lat, c[1] + ez * u + lz * lat]; return { a: pt(-INNER, 0), ux: ex, uz: ez, nx: lx, nz: lz, len: 2 * INNER, w: 9, at: (al, lat) => pt(al - INNER, lat), poly: [pt(-INNER, -4.5), pt(0, -9), pt(INNER, -4.5), pt(INNER, 4.5), pt(0, 9), pt(-INNER, 4.5)] }; }
       if (S.k === 'spiral') { const rr = 1.9 / Math.cos(Math.PI / 6), poly = []; for (let i = 0; i < 6; i++) { const an = Math.atan2(uz, ux) + i * Math.PI / 3; poly.push([a[0] + Math.cos(an) * rr, a[1] + Math.sin(an) * rr]); } return { a, ux, uz, nx, nz, len: 1.75, w: 1.5, at, poly, spiral: true, sd: S.side || 1 }; }   // zeshoek om het midden
-      if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2, cut = 2 * w / SQ3; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)] }; }   // twee steken + schuin bordes
+      if (S.k === 'u') { const sd = S.side || 1, oA = -sd * w / 2, oB = sd * w + sd * w / 2; return { a, ux, uz, nx, nz, len, w, at, sd, poly: [at(0, oA), at(0, oB), at(len + w, oB), at(len + w, oA)] }; }   /* recht bordes, zo diep als een steek breed is (08c) */   // twee steken + schuin bordes
       if (S.k === 'stair' && !S.kop && !S.rij) return { a, ux, uz, nx, nz, len, w, at, poly: [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len + w * SQ3 / 2, 0), at(len, -w / 2)] };   // met driehoekig bordes
       return { a, ux, uz, nx, nz, len, w, at, poly: [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len, -w / 2)] };
     }
@@ -728,7 +728,7 @@
       const m = E.m, t = ts(), res = { bad: new Map(), marks: [] }, D2 = Math.PI / 180, flo = [];
       for (let li = 0; li < m.lv.length; li++) {
         const L = m.lv[li], holes = li > 0 ? (m.lv[li - 1].s || []).map(S => mv2StairHole(S, t)) : [], set = new Set();
-        for (const id in L.f) { if (L.f[id] === 'water') continue; const ijt = id.split(',').map(Number); if (!okTri(ijt)) continue; const v = mv2TriVerts(...ijt, t); if (holes.some(h => { const r = h(v); return r && !r.keep && !r.fill; })) continue;   /* een driehoek met bordes (fill) blijft beloopbaar */ set.add(id); }
+        for (const id in L.f) { if (L.f[id] === 'water') continue; const ijt = id.split(',').map(Number); if (!okTri(ijt)) continue; const v = mv2TriVerts(...ijt, t); if (holes.some(h => { const r = h(v); return r && !r.keep && !r.fill && !r.rect; })) continue;   /* een driehoek met bordes (fill) blijft beloopbaar */ set.add(id); }
         flo.push(set);
       }
       const fl = modMeta(m).fl, adj = new Map(), link = (a, b) => { if (!adj.has(a)) adj.set(a, []); if (!adj.has(b)) adj.set(b, []); adj.get(a).push(b); adj.get(b).push(a); };
@@ -1019,7 +1019,7 @@
         for (const c of coverTris(g.poly)) { triPath(c.v); ctx.fillStyle = `rgba(242,178,51,${(0.1 + 0.4 * c.fr).toFixed(2)})`; ctx.fill(); ctx.strokeStyle = 'rgba(242,178,51,0.95)'; ctx.lineWidth = 1.4; ctx.stroke(); if (c.fr > 0.5) nCov++; }
         stairDraw(S1, true);
         if (U) { const h = mv2StairHole(S1, t); ctx.strokeStyle = '#ff5a4d'; ctx.fillStyle = 'rgba(255,90,77,0.22)'; ctx.lineWidth = 1.6; ctx.setLineDash([5, 4]);
-          for (const id in U.f) { const [i, j, tt] = id.split(',').map(Number), v = mv2TriVerts(i, j, tt, t), hk = h(v); if (!hk) continue; nHole++; triPath(v, in3 ? yUp : undefined); ctx.stroke(); const kp = hk.keep || hk.fill; if (kp) { const pl = mv2ClipKeep(v, [-kp[0], -kp[1], -kp[2]]); if (pl.length >= 3) { triPath(pl, in3 ? yUp : undefined); ctx.fill(); } } else ctx.fill(); }   // fill: het stuk voorbij de bovenste tree is bordes, geen gat
+          for (const id in U.f) { const [i, j, tt] = id.split(',').map(Number), v = mv2TriVerts(i, j, tt, t), hk = h(v); if (!hk) continue; nHole++; triPath(v, in3 ? yUp : undefined); ctx.stroke(); if (hk.rect) { let pl = v; for (const hh of hk.rect) pl = mv2ClipKeep(pl, hh); if (pl.length >= 3) { triPath(pl, in3 ? yUp : undefined); ctx.fill(); } continue; } const kp = hk.keep || hk.fill; if (kp) { const pl = mv2ClipKeep(v, [-kp[0], -kp[1], -kp[2]]); if (pl.length >= 3) { triPath(pl, in3 ? yUp : undefined); ctx.fill(); } } else ctx.fill(); }   // fill: het stuk voorbij de bovenste tree is bordes, geen gat
           ctx.setLineDash([]); }
         ctx.restore();
         E.coverInfo = { bedekt: nCov, gat: nHole, boven: !!U };
