@@ -612,7 +612,8 @@
         const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue;
         const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts), len = Math.hypot(b[0] - a[0], b[1] - a[1]);
         if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); if (opts.skip.has(wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wm[0], Wm[1]))) continue; }   // dezelfde muur van de buurmodule staat er al
+        let gedeeld = false;
+        if (opts.skip) { const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), wk = wallKeyW((opts.skipH || 0) + ((opts.baseLv || 0) + li) * LH, Wm[0], Wm[1]); if (opts.skip.has(wk)) continue; gedeeld = !!(opts.skip.dicht && opts.skip.dicht.has(wk)); }   // dezelfde muur van de buurmodule staat er al
         const mat = Mt.wl[W.m] || Mt.wl.brick, T = MV2.WALL_T;
         // haag en hek: een deur, poort of open doorgang is een gat (vroeger bleef die dicht en kon je een omheind park niet in)
         if (W.m === 'hedge' || W.m === 'fence') {
@@ -631,7 +632,8 @@
         if (W.h && W.h < LH - 0.01) {   // halve wand of laag muurtje: een blok tot W.h, met een smalle afdekrand; geen opening
           wallBox(mat, a, b, y0, y0 + W.h - (far ? 0 : 0.05), T); if (!far) wallBox(Mt.trim, a, b, y0 + W.h - 0.05, y0 + W.h, T + 0.06);   /* de muur stopt waar de afdekrand begint: geen twee bovenvlakken op dezelfde hoogte */ addWall(a, b, y0, y0 + W.h); continue;
         }
-        const o = W.o || '', isGlass = W.m === 'glass';
+        // waar muren elkaar raken (de buurmodule heeft hier ook een muur) heeft een raam geen zin (Joep): dicht
+        const o = gedeeld && W.o === 'window' ? '' : W.o || '', isGlass = W.m === 'glass';
         if (far) {   // dicht: een raam wordt een donker vlak, een deur muur; een open doorgang of poort blijft open
           if (o === 'open' || o === 'gate') continue;
           farWalls.push({ a, b, mat, t: isGlass ? 0.06 : T, d });   // rechte stukken worden straks samengevoegd
@@ -1091,20 +1093,21 @@
   const wallKeyW = (y, x, z) => Math.round(y * 10) + '|' + Math.round(x * 5) + ',' + Math.round(z * 5);
   function wallSkips(live) {
     const best = new Map(), per = new Map(), PASS = new Set(['door', 'gate', 'open']);
-    const offer = (key, I, rank, idx) => { const b = best.get(key); if (!b || rank > b.rank || (rank === b.rank && idx < b.idx)) best.set(key, { I, rank, idx }); let L = per.get(I); if (!L) per.set(I, L = []); L.push(key); };
+    const muren = new Map();   // per muur: hoeveel modules hier een volle muur hebben (2 of meer: muren raken elkaar, geen raam)
+    const offer = (key, I, rank, idx, laag) => { if (!laag && key[0] !== 'p') muren.set(key, (muren.get(key) || 0) + 1); const b = best.get(key); if (!b || rank > b.rank || (rank === b.rank && idx < b.idx)) best.set(key, { I, rank, idx }); let L = per.get(I); if (!L) per.set(I, L = []); L.push(key); };
     let idx = 0;
     for (const I of live) {
       const m = I.m, ts = mv2Ts(m), tf = mv2Tf(I.rot, I.q, I.r), b0 = instLv(I), g0 = gH(I.q, I.r); idx++;
       m.lv.forEach((L, li) => {
         const ends = new Map();
         for (const id in L.w) { const W = L.w[id]; if (!W) continue; const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; const a = mv2P(i, j, ts), b = mv2P(i + D[0], j + D[1], ts); if (!mv2NearArea(m, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
-          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, (W.h && W.h < MV2.LV_H ? -3 : 0) + (PASS.has(o) ? 2 : o === 'window' ? 1 : 0), idx);   // een lage muur wijkt voor een hoge
+          const Wm = tf((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), o = W.o || ''; offer(wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wm[0], Wm[1]), I, (W.h && W.h < MV2.LV_H ? -3 : 0) + (PASS.has(o) ? 2 : 0), idx, W.h && W.h < MV2.LV_H);   // een lage muur wijkt voor een hoge
           for (const p of [[i, j], [i + D[0], j + D[1]]]) { const pk = p.join(','); ends.set(pk, (ends.get(pk) || 0) + 1); } }
         for (const [pk, n] of ends) { if (n < 2) continue; const [pi, pj] = pk.split(',').map(Number), c = mv2P(pi, pj, ts), Wc = tf(c[0], c[1]); offer('p' + wallKeyW(g0 + (b0 + li) * MV2.LV_H, Wc[0], Wc[1]), I, 0, idx); }
       });
     }
     const out = new Map();
-    for (const [I, keys] of per) { const sk = new Set(); for (const k of keys) if (best.get(k).I !== I) sk.add(k); out.set(I, sk); }
+    for (const [I, keys] of per) { const sk = new Set(); sk.dicht = new Set(); for (const k of keys) { if (best.get(k).I !== I) sk.add(k); else if ((muren.get(k) || 0) >= 2) sk.dicht.add(k); } out.set(I, sk); }
     return out;
   }
   function buildModNet(opts) { deckInvalidate();   // opts.later: de balustrades en het loopnetwerk net na deze klik (zie railsLater)
@@ -1120,7 +1123,7 @@
     for (const I of live) {
       // ook de module zelf telt mee (m._sig, nieuw bij elke keer bewaren in de Raatmaker): anders bleef een bewerkte module in de
       // stad zoals hij was (Joep: "de steeg raatmaker modules worden niet realtime aangepast")
-      const cov = instCover(I), skip = skips.get(I) || new Set(), sig = cov.sig + '#' + [...skip].sort().join(';') + '#' + (I.m._sig || 0);
+      const cov = instCover(I), skip = skips.get(I) || new Set(), sig = cov.sig + '#' + [...skip].sort().join(';') + '#' + (skip.dicht ? [...skip.dicht].sort().join(';') : '') + '#' + (I.m._sig || 0);   /* dicht: een gedeelde muur zonder raam */
       let e = modGroups.get(I);
       if (e && e.cand && e.sig === sig && e.off !== e.cand.map(c => offSpot(I, c[0], c[1], c[2]) ? 1 : 0).join('')) e.sig = '';   // er ligt nu een weg onder een boom of bankje (of juist niet meer)
       if (e && e.sig === sig) { /* ongewijzigd */ } else {
