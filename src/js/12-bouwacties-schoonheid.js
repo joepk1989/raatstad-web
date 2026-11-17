@@ -586,6 +586,11 @@
       { const h = curvedHits(raycaster, [ground, terrGroup, blocks, ...[...modGroups.values()].map(e => e.group)]); if (h.length && kavelKlik(h[0].point)) return; }
       // een groen of plein kavel ligt plat op padhoogte: door een boom of lantaarn heen kijken (de dichtstbijzijnde laag eerst)
       const ray = raycaster.ray; for (let lv = 12; lv >= 0; lv--) { const t = (lv * 3 + 0.02 - ray.origin.y) / ray.direction.y; if (t > 0 && kavelKlik(ray.at(t, new THREE.Vector3()), true)) return; } }   // Shift+klik op een kavel: huis → groen → plein
+    if (shift && !ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Shift+klik op een rechte helling: parkje aan of uit (Joep: "de helling is nog niet groen")
+      const [q, r] = res.place, st = stackOf(q, r), Lk = hudLayer(); let i = Math.min(st.length - 1, Lk !== null ? Lk : 99);
+      while (i >= 0 && baseOf(st[i]) !== 'helling') i--;
+      if (i >= 0 && !(cells.inst || []).some(I => I.q === q && I.r === r && (I.lv | 0) === i)) { const inr = cells.inr || (cells.inr = {}), k = q + ',' + r + ',' + i, park = (inr[k] | 0) !== HELLING_PARK;
+        if (park) inr[k] = HELLING_PARK; else delete inr[k]; rebuildAround(q, r); changed(); toast(park ? 'Helling: parkje (Shift+klik: weer kaal)' : 'Helling: kaal', 1600); updateGhost(); return; } }
     if (shift && tool === 'vbouw' && mode === 'build' && res.place) return kavelsVullen(res.place[0], res.place[1], ctrl);   // Shift+klik: huizen op alle kavels van dit netwerk (Ctrl+Shift: weer leeg)
     if (ctrl && tool === 'vbouw' && mode === 'build' && res.place) {   // Bouwpad: Ctrl+klik op een stuk pad wisselt de inrichting
       // plein (drie of meer armen): de hofjes 0–5; recht stuk, bocht of eind: kaal → bankje → plantenbakken → wandlampen →
@@ -597,7 +602,7 @@
         const plein = armen >= 3, zi = ZIJ_RONDE.indexOf(hofje), nh = plein ? (hofje >= 5 ? 0 : hofje + 1) : ZIJ_RONDE[(zi + 1) % ZIJ_RONDE.length];   // alleen op een plein zie je boom, bloemen of lantaarns
         st[i] = loopdekCode(mat, nh); rebuildAround(q, r); changed();
         toast((plein ? 'Plein: ' : (armen === 2 && (m & (m >> 3) & 7) ? 'Recht stuk: ' : armen === 1 ? 'Eind: ' : 'Bocht: ')) + (nh === 5 && !plein ? 'Bankje aan de kant' : LOOPDEK_HOFJE_NAMEN[nh]) + ' · Ctrl+klik voor de volgende', 1600); updateGhost(); return; }
-      if (i >= 0) { const inr = cells.inr || (cells.inr = {}), k = q + ',' + r + ',' + i, v = ((inr[k] | 0) + 1) % HELLING_INR.length;
+      if (i >= 0) { const inr = cells.inr || (cells.inr = {}), k = q + ',' + r + ',' + i; let v = ((inr[k] | 0) + 1) % HELLING_INR.length; if (v === HELLING_PARK && baseOf(st[i]) !== 'helling') v = 0;   // een parkje alleen op een rechte helling
         if (v) inr[k] = v; else delete inr[k]; rebuildAround(q, r); changed(); toast('Helling: ' + HELLING_INR[v] + ' · Ctrl+klik voor de volgende', 1600); updateGhost(); return; }
       return toast('Ctrl+klik op een stuk Bouwpad: plein, recht stuk, bocht of helling inrichten', 1600);
     }
