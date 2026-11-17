@@ -203,6 +203,18 @@
     const out = (m, d) => { if (!m) return [cx, cz, 0]; let ex = m[0] - cx, ez = m[1] - cz; const l = Math.hypot(ex, ez) || 1; return [m[0] + ex / l * d, m[1] + ez / l * d, m[2]]; };
     return { polys, at, lo: out(lo, 0.6), hi: out(hi, 0.6), c: [cx, cz] };
   }
+  // Een trapgat als rechthoek (rect: vier halve vlakken, binnen = n·p >= c). mv2MinRect geeft van een veelhoek de stukken die
+  // buiten de rechthoek liggen (blijven vloer, allemaal bol) en of er iets binnen ligt. Zo zijn de uiteinden van het gat recht
+  // en haaks op de trap, ook waar een driehoek over een hoek van de trap ligt (Joep: "trap einde moet altijd recht").
+  function mv2MinRect(P, rect) {
+    const opp = Q => { let a = 0; for (let i = 0; i < Q.length; i++) { const p = Q[i], q = Q[(i + 1) % Q.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; };
+    const delen = []; let rest = P;
+    for (const h of rect) { const uit = mv2ClipKeep(rest, [-h[0], -h[1], -h[2]]); if (uit.length >= 3 && opp(uit) > 0.005) delen.push(uit); rest = mv2ClipKeep(rest, h); if (rest.length < 3) { rest = []; break; } }
+    return { delen, binnen: rest.length >= 3 && opp(rest) > 0.005 };
+  }
+  const mv2InRect = (x, z, rect) => rect.every(h => x * h[0] + z * h[1] >= h[2] - 1e-6);
+  // wat er van een veelhoek (een driehoek of een afgeknipt stuk) overblijft naast het trapgat
+  const mv2GatRest = (P, hk) => !hk ? [P] : hk.rect ? mv2MinRect(P, hk.rect).delen : hk.keep ? [mv2ClipKeep(P, hk.keep)].filter(Q => Q.length >= 3) : [];
   function mv2StairHole(S, ts) {
     const D = MV2.DIR12[S.d] || MV2.DIR6[0], a = mv2P(S.a[0], S.a[1], ts), len = (S.n || 2) * ts, w = S.w || 2, dx = D[0] * ts * SQ3 / 2, dz = D[0] * ts / 2 + D[1] * ts, dl = Math.hypot(dx, dz) || 1, ux = dx / dl, uz = dz / dl, nx = -uz, nz = ux, off = S.off || 0;
     const loc = (x, z) => { const cx = x - a[0], cz = z - a[1]; return [cx * ux + cz * uz, cx * nx + cz * nz - off]; };
@@ -224,20 +236,9 @@
         // het driehoekje boven de laatste twee treden: alleen de helft boven de uitstaptree (330°–360°) blijft, anders stoot je je hoofd op tree 10
         const th = a0 + sd * Math.PI * 11 / 6, nx2 = Math.cos(th + sd * Math.PI / 2), nz2 = Math.sin(th + sd * Math.PI / 2); return { keep: [nx2, nz2, a[0] * nx2 + a[1] * nz2] }; };
     }
-    if (S.k === 'u') {
-      const sd = S.side || 1, c2 = sd * w, cut = 2 * w / SQ3, oA = -sd * w / 2, oB = c2 + sd * w / 2;
-      // schuine rand van het bordes: van (len + 0,25, oA) naar (len + 0,25 + cut, oB); houd wat erachter ligt
-      const P0 = [a[0] + ux * (len + 0.25) + nx * (oA + off), a[1] + uz * (len + 0.25) + nz * (oA + off)], P1 = [a[0] + ux * (len + 0.25 + cut) + nx * (oB + off), a[1] + uz * (len + 0.25 + cut) + nz * (oB + off)];
-      let ex = P1[0] - P0[0], ez = P1[1] - P0[1]; const el = Math.hypot(ex, ez) || 1; let qx = -ez / el, qz = ex / el; if (qx * ux + qz * uz < 0) { qx = -qx; qz = -qz; }
-      const beyond = [qx, qz, P0[0] * qx + P0[1] * qz], end = len + 0.25 + cut + 0.6;
-      const lo = Math.min(-w / 2, c2 - w / 2), hi = Math.max(w / 2, c2 + w / 2);
-      return v => { const [al, lat] = cen(v), lats = v.map(p => loc(p[0], p[1])[1]);
-        // een driehoek over de buitenrand van de twee steken: daar afknippen (geen zaagtand langs het gat)
-        // (ook als het midden van de driehoek net buiten de trap ligt maar een punt erin steekt: anders een tand vloer in het gat)
-        if (al > -0.7 && al < end && Math.max(...lats) > lo + 0.05 && Math.min(...lats) < hi - 0.05) { if (Math.max(...lats) > hi + 0.05 && lat > hi - 0.6) return { keep: keepLat(hi, 1) }; if (Math.min(...lats) < lo - 0.05 && lat < lo + 0.6) return { keep: keepLat(lo, -1) }; }
-        if (Math.abs(lat) < w / 2 + 0.05 && al > 0.3 * len && al < end) return { keep: beyond };
-        if (Math.abs(lat - c2) < w / 2 + 0.05 && al > -0.7 && al < end) return { keep: al < len / 2 ? keepAl(0, -1) : beyond };
-        return null; };
+    if (S.k === 'u') {   // bordestrap: het gat is de hele trap (twee steken en het bordes), een rechthoek met rechte randen
+      const sd = S.side || 1, c2 = sd * w, lo = Math.min(-w / 2, c2 - w / 2), hi = Math.max(w / 2, c2 + w / 2), rect = [keepAl(0, 1), keepAl(len + w, -1), keepLat(lo, 1), keepLat(hi, -1)];
+      return v => { const r = mv2MinRect(v, rect); if (!r.binnen) return null; return r.delen.length ? { rect } : { keep: null }; };
     }
     // rechte steek of helling: een driehoek hoort bij het gat als zijn zwaartepunt in de baan van de trap ligt, of (bij een trap die niet precies
     // op een rij driehoeken valt, zoals 2 m breed midden op een rasterlijn) als er een hoekpunt echt binnen de baan ligt; anders kreeg je een zigzag van gaatjes
@@ -255,11 +256,10 @@
     // langs de zijkant: een driehoek die over de rand van de trap steekt wordt daar afgeknipt (het stuk naast de trap blijft vloer),
     // zodat het gat recht langs de trap loopt en het hek er vlak naast staat (Joep: "de andere trappen ook bekeken?"; eerst
     // verdween de hele driehoek en zag je naast een trap die niet op het raster ligt een strook tot 1 m breed naar beneden)
-    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(Math.max(...v.map(p => loc(p[0], p[1])[0])) > 0.25 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null;
-      const lats = v.map(p => loc(p[0], p[1])[1]), inBand = Math.abs(lat) < w / 2 + 0.05 || lats.some(l => Math.abs(l) < w / 2 - 0.05); if (!inBand) return null;
-      if (Math.max(...lats) > w / 2 + 0.05 && lat > 0) return { keep: keepLat(w / 2, 1) };
-      if (Math.min(...lats) < -w / 2 - 0.05 && lat < 0) return { keep: keepLat(-w / 2, -1) };
-      return { keep: null, fill: keepAl(len, 1) }; };   // fill: het stuk voorbij de bovenste tree wordt bordes
+    // het gat is een rechthoek: zo breed als de trap, van 25 % van de lengte (daar is de hoofdruimte nog ruim 2 m) tot de bovenste
+    // tree; beide uiteinden haaks op de trap
+    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) { const rect = [keepAl(0.25 * len, 1), keepAl(len, -1), keepLat(-w / 2, 1), keepLat(w / 2, -1)];
+      return v => { const r = mv2MinRect(v, rect); if (!r.binnen) return null; return r.delen.length ? { rect } : { keep: null }; }; }
     return () => null;
   }
   // een driehoek afknippen op een halfvlak (x·nx + z·nz >= c): geeft de overgebleven veelhoek (0, 3 of 4 punten)
@@ -403,8 +403,8 @@
     for (const id in L.f) {
       const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
       const kn = mv2Knip(L, id, v); if (kn) { if (!hk) { for (const T of mv2Fan(kn)) out.push({ id, v: T, mat: L.f[id] }); for (const pl of mv2KnipRest(L, id, v)) for (const T of mv2Fan(pl)) out.push({ id, v: T, mat: L.f2[id] }); } continue; }
-      if (!hk) { out.push({ id, v, mat: L.f[id] }); continue; } if (!hk.keep && !hk.fill) continue;
-      const pl = mv2ClipKeep(v, hk.keep || hk.fill);   /* bij een rechte trap: het bordes voorbij de bovenste tree (in mv2Build in trapmateriaal) */ for (let k = 1; k + 1 < pl.length; k++) { const T = [pl[0], pl[k], pl[k + 1]], ar = Math.abs((T[1][0] - T[0][0]) * (T[2][1] - T[0][1]) - (T[2][0] - T[0][0]) * (T[1][1] - T[0][1])) / 2; if (ar > 0.02) out.push({ id, v: T, mat: L.f[id], part: true }); }   // geen platgedrukte driehoekjes (die lijken overal 'binnen')
+      if (!hk) { out.push({ id, v, mat: L.f[id] }); continue; } if (!hk.keep && !hk.fill && !hk.rect) continue;
+      for (const pl of hk.rect ? mv2GatRest(v, hk) : [mv2ClipKeep(v, hk.keep || hk.fill)])   /* bij een rechte trap: het bordes voorbij de bovenste tree (in mv2Build in trapmateriaal) */ for (let k = 1; k + 1 < pl.length; k++) { const T = [pl[0], pl[k], pl[k + 1]], ar = Math.abs((T[1][0] - T[0][0]) * (T[2][1] - T[0][1]) - (T[2][0] - T[0][0]) * (T[1][1] - T[0][1])) / 2; if (ar > 0.02) out.push({ id, v: T, mat: L.f[id], part: true }); }   // geen platgedrukte driehoekjes (die lijken overal 'binnen')
     }
     return out;
   }
@@ -444,7 +444,7 @@
           const mx = (a[0] + b[0]) / 2 - f.nx * 0.15, mz = (a[1] + b[1]) / 2 - f.nz * 0.15, id = triAt(mx, mz), key = id.join(',');
           let vloer = false;
           let fm = L && L.f[key]; if (fm && L.fk && L.fk[key]) { const kk = L.fk[key]; if (!(Array.isArray(kk[0]) ? kk : [kk]).every(h => mx * h[0] + mz * h[1] >= h[2] - 1e-6)) fm = (L.f2 && L.f2[key]) || null; }   // afgeknipt: aan de overkant geldt het tweede materiaal
-          if (fm && fm !== 'water' && !(li === 0 && GROEN.has(fm))) { const gat = (gaten[li] || []).some(h => { const g = h(mv2TriVerts(id[0], id[1], id[2], ts)); return g && (!g.keep || mx * g.keep[0] + mz * g.keep[1] < g.keep[2]); }); if (!gat) vloer = true; }
+          if (fm && fm !== 'water' && !(li === 0 && GROEN.has(fm))) { const gat = (gaten[li] || []).some(h => { const g = h(mv2TriVerts(id[0], id[1], id[2], ts)); return g && (g.rect ? mv2InRect(mx, mz, g.rect) : (!g.keep || mx * g.keep[0] + mz * g.keep[1] < g.keep[2])); }); if (!gat) vloer = true; }
           if (!vloer && Lo && Lo.v && Lo.v[key] && !(L && L.f[key]) && !(L && L.v && L.v[key])) vloer = true;   // bovenkant van massief op de verdieping eronder
           if (!vloer && li > 0) for (const G of platen[li - 1] || []) { const h = G.at(mx, mz); if (h && Math.abs(h.y - LH) < 0.15) vloer = true; }   // helling van eronder komt hier boven uit
           for (const G of (L ? platen[li] : []) || []) { const h = G.at(mx, mz); if (!h) continue; if (Math.abs(h.y) < 0.15) vloer = true; else if (h.y < LH - 0.15) schuin.push(s); }
@@ -542,6 +542,9 @@
         { let kn = mv2Knip(L, id, v);   // afgeknipte driehoek: alleen het stuk binnen de knip, met zijn eigen randen
           let gatK = null;   // ook een geknipte driehoek (en zijn overkant) wijkt voor het trapgat
           if (kn && holes.length) { let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
+            if (hk && hk.rect) { const top = lifted ? y0 + 0.02 : 0.05;   // rechthoekig gat: de stukken ernaast, ook van de overkant
+              for (const [P0, m2] of [[kn, mat], ...mv2KnipRest(L, id, v).map(pl => [pl, L.f2[id]])]) for (const pl of mv2GatRest(P0, hk)) for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
+              continue; }
             if (hk) { if (!hk.keep) continue; gatK = hk.keep; kn = mv2ClipKeep(kn, gatK); if (kn.length < 3) kn = [[0, 0], [0, 0]]; } }
           if (kn) { const top = lifted ? y0 + 0.02 : 0.05; for (const T of mv2Fan(kn)) { (byMat[mat] || (byMat[mat] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
             for (let n = 0; n < kn.length; n++) { const k = eid(kn[n], kn[(n + 1) % kn.length]); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); }
@@ -550,6 +553,7 @@
             continue; } }
         if (holes.length) {   // trapgat: de driehoek valt weg, maar het stuk naast de trap blijft liggen (tot de bovenste tree)
           let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
+          if (hk && hk.rect) { const top = y0 + 0.02; for (const pl of mv2GatRest(v, hk)) for (let n = 1; n < pl.length - 1; n++) { const tv = [pl[0], pl[n], pl[n + 1]]; if (Math.abs((tv[1][0] - tv[0][0]) * (tv[2][1] - tv[0][1]) - (tv[1][1] - tv[0][1]) * (tv[2][0] - tv[0][0])) < 1e-4) continue; (byMat[mat] || (byMat[mat] = [])).push(tv); pushWalk(tv[0], tv[1], tv[2], top, top, top); } continue; }
           if (hk) { if (hk.keep) { const pl = mv2ClipKeep(v, hk.keep); if (pl.length >= 3) { const top = y0 + 0.02; for (let n = 1; n < pl.length - 1; n++) { const tv = [pl[0], pl[n], pl[n + 1]]; if (Math.abs((tv[1][0] - tv[0][0]) * (tv[2][1] - tv[0][1]) - (tv[1][1] - tv[0][1]) * (tv[2][0] - tv[0][0])) < 1e-4) continue; (byMat[mat] || (byMat[mat] = [])).push(tv); pushWalk(tv[0], tv[1], tv[2], top, top, top); } } } continue; }
         }
         if (li === roofLi && mask) { const W = tf((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3), c = mask(W[0], W[1]); if (c === 2) continue; }   // 2: onder een vloer erboven, 1: op een bebouwd vak
@@ -781,26 +785,28 @@
           for (const [A, B] of [[pt(0, 9), pt(INNER, 4.5)], [pt(INNER, -4.5), pt(0, -9)], [pt(-INNER, 4.5), pt(0, 9)], [pt(0, -9), pt(-INNER, -4.5)]]) addWall(A, B, y0, top + 1, 0.08);   // zijranden: niet van de helling vallen
           continue;
         }
-        if (S.k === 'u') {   // bordestrap (naar trappen.dae): twee steken naast elkaar, elk één rij breed, met een bordes over beide rijen
-          // dat aan het eind schuin (60°) is afgesneden, zoals de rand van een zeshoek. Treden van 0,1875 m, 0,3 m dik, zwevend.
-          const sd = S.side || 1, h1 = rise / 2, NH = Math.max(2, Math.round(h1 / 0.1875)), run = len / NH, rs = h1 / NH, TH = 0.3, c2 = sd * w, yl = y0 + h1, yt = y0 + rise;
+        if (S.k === 'u') {
+          // Bordestrap (Joep: "bordes trap is totaal mislukt"): twee steken naast elkaar, elk één trap breed, en een recht bordes
+          // over beide steken (zo diep als een steek breed is). Dichte treden tot de vloer, rechte randen, het gat erboven is
+          // precies de rechthoek van de trap; bovenaan stap je recht de vloer op (overloop).
+          const sd = S.side || 1, h1 = rise / 2, NH = Math.max(2, Math.round(h1 / 0.1875)), run = len / NH, rs = h1 / NH, c2 = sd * w, yl = y0 + h1, yt = y0 + rise, BD = w;
           for (let s = 0; s < NH; s++) {
-            const t1 = y0 + (s + 1) * rs; wallBox(Mt.step, at(s * run, 0), at((s + 1) * run, 0), Math.max(y0, t1 - rs - TH), t1, w);
+            const t1 = y0 + (s + 1) * rs; wallBox(Mt.step, at(s * run, 0), at((s + 1) * run, 0), y0, t1, w);
             pushWalk(at(s * run, -w / 2), at((s + 1) * run, w / 2), at(s * run, w / 2), t1, t1, t1); pushWalk(at(s * run, -w / 2), at((s + 1) * run, -w / 2), at((s + 1) * run, w / 2), t1, t1, t1);
-            const t2 = yl + (s + 1) * rs, ua = len - s * run, ub = len - (s + 1) * run; wallBox(Mt.step, at(ua, c2), at(ub, c2), t2 - rs - TH, t2, w);
+            const t2 = yl + (s + 1) * rs, ua = len - s * run, ub = len - (s + 1) * run; wallBox(Mt.step, at(ua, c2), at(ub, c2), y0, t2, w);
             pushWalk(at(ua, c2 - w / 2), at(ub, c2 + w / 2), at(ua, c2 + w / 2), t2, t2, t2); pushWalk(at(ua, c2 - w / 2), at(ub, c2 - w / 2), at(ub, c2 + w / 2), t2, t2, t2);
           }
-          const oA = -sd * w / 2, oB = c2 + sd * w / 2, cut = 2 * w / SQ3, LP = [at(len, oA), at(len, oB), at(len + 0.25 + cut, oB), at(len + 0.25, oA)];
-          slabPoly(Mt.step, LP, yl - TH, yl); pushWalk(LP[0], LP[1], LP[2], yl, yl, yl); pushWalk(LP[0], LP[2], LP[3], yl, yl, yl);
+          const oA = -sd * w / 2, oB = c2 + sd * w / 2, LP = [at(len, oA), at(len, oB), at(len + BD, oB), at(len + BD, oA)];
+          slabPoly(Mt.step, LP, y0, yl); pushWalk(LP[0], LP[1], LP[2], yl, yl, yl); pushWalk(LP[0], LP[2], LP[3], yl, yl, yl);
           pushWalk(at(-1, c2 - w / 2), at(0, c2 + w / 2), at(-1, c2 + w / 2), yt, yt, yt); pushWalk(at(-1, c2 - w / 2), at(0, c2 - w / 2), at(0, c2 + w / 2), yt, yt, yt);   // overloop boven
-          // leuningen: buitenkant steek 1, tussen de steken, buitenkant steek 2, rond het bordes
-          const eA = oA + sd * 0.05, eB = oB - sd * 0.05, mid = sd * w / 2, LPi = [at(len + 0.2, eA), at(len + 0.2 + cut, eB)];
+          // leuningen: buitenkant steek 1, tussen de steken (op de hoge steek), buitenkant steek 2, rond het bordes (rechte hoeken)
+          const eA = oA + sd * 0.05, eB = oB - sd * 0.05, mid = sd * w / 2, E1 = at(len + BD - 0.05, eA), E2 = at(len + BD - 0.05, eB);
           railBar(Mt.metal, at(0, eA), y0 + 0.95, at(len, eA), yl + 0.95); railBar(Mt.metal, at(0, mid), yt + 0.95, at(len, mid), yl + 0.95); railBar(Mt.metal, at(0, eB), yt + 0.95, at(len, eB), yl + 0.95);
-          railBar(Mt.metal, at(len, eA), yl + 0.95, LPi[0], yl + 0.95); railBar(Mt.metal, LPi[0], yl + 0.95, LPi[1], yl + 0.95); railBar(Mt.metal, LPi[1], yl + 0.95, at(len, eB), yl + 0.95);
-          for (const f of [0, 0.5, 1]) { railPost(Mt.metal, at(f * len, eA), y0 + f * h1, y0 + f * h1 + 0.95); railPost(Mt.metal, at(f * len, eB), yl + (1 - f) * h1, yl + (1 - f) * h1 + 0.95); }
-          for (const p of LPi) railPost(Mt.metal, p, yl, yl + 0.95);
-          addWall(at(0, eA), at(len, eA), y0, yl + 0.95, 0.05); addWall(at(0, mid), at(len, mid), y0, yt + 0.9, 0.05); addWall(at(0, eB), at(len, eB), y0 + 0.3, yt + 0.95, 0.05);
-          addWall(at(len, eA), LPi[0], yl - 0.3, yl + 0.95, 0.05); addWall(LPi[0], LPi[1], yl - 0.3, yl + 0.95, 0.05); addWall(LPi[1], at(len, eB), yl - 0.3, yl + 0.95, 0.05);
+          railBar(Mt.metal, at(len, eA), yl + 0.95, E1, yl + 0.95); railBar(Mt.metal, E1, yl + 0.95, E2, yl + 0.95); railBar(Mt.metal, E2, yl + 0.95, at(len, eB), yl + 0.95);
+          for (const f of [0, 0.5, 1]) { railPost(Mt.metal, at(f * len, eA), y0 + f * h1, y0 + f * h1 + 0.95); railPost(Mt.metal, at(f * len, eB), yl + (1 - f) * h1, yl + (1 - f) * h1 + 0.95); railPost(Mt.metal, at(f * len, mid), yl + (1 - f) * h1, yl + (1 - f) * h1 + 0.95); }
+          for (const p of [E1, E2]) railPost(Mt.metal, p, yl, yl + 0.95);
+          addWall(at(0, eA), at(len, eA), y0, yl + 0.95, 0.05); addWall(at(0, mid), at(len, mid), y0, yt + 0.9, 0.05); addWall(at(0, eB), at(len, eB), y0, yt + 0.95, 0.05);
+          addWall(at(len, eA), E1, y0, yl + 0.95, 0.05); addWall(E1, E2, y0, yl + 0.95, 0.05); addWall(E2, at(len, eB), y0, yl + 0.95, 0.05);
         } else if (S.k === 'ramp') {
           const g = new THREE.BufferGeometry(), P = [at(0, -w / 2), at(0, w / 2), at(len, w / 2), at(len, -w / 2)].map(tfp), yb = y0 + 0.05, yt = y0 + rise;
           const pos = [P[0][0], yb, P[0][1], P[2][0], yt, P[2][1], P[1][0], yb, P[1][1], P[0][0], yb, P[0][1], P[3][0], yt, P[3][1], P[2][0], yt, P[2][1]];
