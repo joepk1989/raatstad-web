@@ -240,7 +240,9 @@
     if (S.k === 'stair' && S.rij) return v => { const c = cen(v); if (Math.abs(c[1]) > w / 2 - 0.05) return null; const al = v.map(p => loc(p[0], p[1])[0]), lo = Math.min(...al), hi = Math.max(...al);
       if (hi <= 0.05 || lo >= len - 0.05) return null; if (lo < -0.05) return { keep: keepAl(0, -1) }; if (hi > len + 0.05) return { keep: keepAl(len, 1) }; return { keep: null }; };
     if (S.k === 'stair' && S.kop) { const sd = Math.sign(off) || 1; return v => { const [al, lat] = cen(v), l = sd * (lat + off), ag = al - S.kop * l / SQ3; return l > 0.05 && l < w - 0.05 && ag > 0.3 * len && ag < len - 0.05 ? { keep: null } : null; }; }
-    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(al > 0.3 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null; const inBand = Math.abs(lat) < w / 2 + 0.05 || v.some(p => Math.abs(loc(p[0], p[1])[1]) < w / 2 - 0.05); return inBand ? { keep: null, fill: keepAl(len, 1) } : null; };   // fill: het stuk voorbij de bovenste tree wordt bordes
+    // het gat begint waar de hoofdruimte krap wordt: elke driehoek met een hoekpunt voorbij 25 % van de lengte (eerst het
+    // zwaartepunt voorbij 30 %; dan bleef er boven de trap een randje vloer met 1,7–1,9 m hoofdruimte, trappen_alle.js)
+    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(Math.max(...v.map(p => loc(p[0], p[1])[0])) > 0.25 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null; const inBand = Math.abs(lat) < w / 2 + 0.05 || v.some(p => Math.abs(loc(p[0], p[1])[1]) < w / 2 - 0.05); return inBand ? { keep: null, fill: keepAl(len, 1) } : null; };   // fill: het stuk voorbij de bovenste tree wordt bordes
     return () => null;
   }
   // een driehoek afknippen op een halfvlak (x·nx + z·nz >= c): geeft de overgebleven veelhoek (0, 3 of 4 punten)
