@@ -208,6 +208,7 @@
     const loc = (x, z) => { const cx = x - a[0], cz = z - a[1]; return [cx * ux + cz * uz, cx * nx + cz * nz - off]; };
     const cen = v => loc((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3);
     const keepAl = (al0, sign) => [ux * sign, uz * sign, sign * (a[0] * ux + a[1] * uz + al0)];   // houd al >= al0 (sign 1) of al <= al0 (sign −1)
+    const keepLat = (lat0, sign) => [nx * sign, nz * sign, sign * (a[0] * nx + a[1] * nz + off + lat0)];   // houd lat >= lat0 (sign 1) of lat <= lat0 (sign −1)
     if (S.k === 'plaat' && S.muur) return () => null;
     if (S.k === 'plaat' && S.dak) return () => null;   // een schuin dak (08o) maakt geen gat in een vloer erboven
     if (S.k === 'plaat') { const G0 = mv2Plaat(S), op = G0.hi && G0.lo && G0.hi[2] - G0.lo[2] > MV2.LV_H - 0.4; return v => { const h = G0.at((v[0][0] + v[1][0] + v[2][0]) / 3, (v[0][1] + v[1][1] + v[2][1]) / 3); return h && (op || MV2.LV_H - h.y < 2.0) ? { keep: null } : null; }; }   // een helling naar de verdieping erboven: open boven de hele helling, al vanaf het begin (anders stoot je je hoofd tegen de vloerrand); anders alleen waar je je hoofd zou stoten
@@ -229,7 +230,11 @@
       const P0 = [a[0] + ux * (len + 0.25) + nx * (oA + off), a[1] + uz * (len + 0.25) + nz * (oA + off)], P1 = [a[0] + ux * (len + 0.25 + cut) + nx * (oB + off), a[1] + uz * (len + 0.25 + cut) + nz * (oB + off)];
       let ex = P1[0] - P0[0], ez = P1[1] - P0[1]; const el = Math.hypot(ex, ez) || 1; let qx = -ez / el, qz = ex / el; if (qx * ux + qz * uz < 0) { qx = -qx; qz = -qz; }
       const beyond = [qx, qz, P0[0] * qx + P0[1] * qz], end = len + 0.25 + cut + 0.6;
-      return v => { const [al, lat] = cen(v);
+      const lo = Math.min(-w / 2, c2 - w / 2), hi = Math.max(w / 2, c2 + w / 2);
+      return v => { const [al, lat] = cen(v), lats = v.map(p => loc(p[0], p[1])[1]);
+        // een driehoek over de buitenrand van de twee steken: daar afknippen (geen zaagtand langs het gat)
+        // (ook als het midden van de driehoek net buiten de trap ligt maar een punt erin steekt: anders een tand vloer in het gat)
+        if (al > -0.7 && al < end && Math.max(...lats) > lo + 0.05 && Math.min(...lats) < hi - 0.05) { if (Math.max(...lats) > hi + 0.05 && lat > hi - 0.6) return { keep: keepLat(hi, 1) }; if (Math.min(...lats) < lo - 0.05 && lat < lo + 0.6) return { keep: keepLat(lo, -1) }; }
         if (Math.abs(lat) < w / 2 + 0.05 && al > 0.3 * len && al < end) return { keep: beyond };
         if (Math.abs(lat - c2) < w / 2 + 0.05 && al > -0.7 && al < end) return { keep: al < len / 2 ? keepAl(0, -1) : beyond };
         return null; };
@@ -247,7 +252,14 @@
     if (S.k === 'stair' && S.kop) { const sd = Math.sign(off) || 1; return v => { const [al, lat] = cen(v), l = sd * (lat + off), ag = al - S.kop * l / SQ3; return l > 0.05 && l < w - 0.05 && ag > 0.3 * len && ag < len - 0.05 ? { keep: null } : null; }; }
     // het gat begint waar de hoofdruimte krap wordt: elke driehoek met een hoekpunt voorbij 25 % van de lengte (eerst het
     // zwaartepunt voorbij 30 %; dan bleef er boven de trap een randje vloer met 1,7–1,9 m hoofdruimte, trappen_alle.js)
-    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(Math.max(...v.map(p => loc(p[0], p[1])[0])) > 0.25 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null; const inBand = Math.abs(lat) < w / 2 + 0.05 || v.some(p => Math.abs(loc(p[0], p[1])[1]) < w / 2 - 0.05); return inBand ? { keep: null, fill: keepAl(len, 1) } : null; };   // fill: het stuk voorbij de bovenste tree wordt bordes
+    // langs de zijkant: een driehoek die over de rand van de trap steekt wordt daar afgeknipt (het stuk naast de trap blijft vloer),
+    // zodat het gat recht langs de trap loopt en het hek er vlak naast staat (Joep: "de andere trappen ook bekeken?"; eerst
+    // verdween de hele driehoek en zag je naast een trap die niet op het raster ligt een strook tot 1 m breed naar beneden)
+    if (S.k === 'stair' || S.k === 'ramp' || S.k === 'esc' || !S.k) return v => { const [al, lat] = cen(v); if (!(Math.max(...v.map(p => loc(p[0], p[1])[0])) > 0.25 * len && al < len + 1.4)) return null; if (Math.min(...v.map(p => loc(p[0], p[1])[0])) > len - 0.05) return null;
+      const lats = v.map(p => loc(p[0], p[1])[1]), inBand = Math.abs(lat) < w / 2 + 0.05 || lats.some(l => Math.abs(l) < w / 2 - 0.05); if (!inBand) return null;
+      if (Math.max(...lats) > w / 2 + 0.05 && lat > 0) return { keep: keepLat(w / 2, 1) };
+      if (Math.min(...lats) < -w / 2 - 0.05 && lat < 0) return { keep: keepLat(-w / 2, -1) };
+      return { keep: null, fill: keepAl(len, 1) }; };   // fill: het stuk voorbij de bovenste tree wordt bordes
     return () => null;
   }
   // een driehoek afknippen op een halfvlak (x·nx + z·nz >= c): geeft de overgebleven veelhoek (0, 3 of 4 punten)
