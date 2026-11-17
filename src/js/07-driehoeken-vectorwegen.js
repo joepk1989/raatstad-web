@@ -649,7 +649,11 @@
       const a = pts[i], b = pts[i + 1];
       if (path && isDeck(path, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, hy((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))) { wallSeg(L, a, b, -1.3, PW_H); continue; }   // brugdek: alleen de rand van het dek (pijlers eronder, zie pathBuild)
       const ba = bot(a), bb = bot(b); if (ba === null || bb === null) continue;
-      const ta = top(a), tb = top(b); if (ta - ba < 0.35 && tb - bb < 0.35) continue;
+      const ta = top(a), tb = top(b);
+      if (window.__wegVolume) {   // keermuur (proef 'weg als volume', zie 07b): van onder de laagste van weg en maaiveld tot de hoogste; het terrein is niet aangepast
+        const a0 = Math.min(ta, ba) - 0.6, b0 = Math.min(tb, bb) - 0.6, a1 = Math.max(ta, ba + 0.07), b1 = Math.max(tb, bb + 0.07);
+        const base = L.pos.length / 3; L.pos.push(a[0], a0, a[1], a[0], a1, a[1], b[0], b0, b[1], b[0], b1, b[1]); L.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); continue; }
+      if (ta - ba < 0.35 && tb - bb < 0.35) continue;
       const base = L.pos.length / 3; L.pos.push(a[0], Math.min(ba, ta), a[1], a[0], ta, a[1], b[0], Math.min(bb, tb), b[1], b[0], tb, b[1]);
       L.idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
     }
@@ -1096,6 +1100,7 @@
       const def = PATH_DEF[e.t], hw = def.hw + def.walk;
       ctx(pathHF(e.src), gid++);
       // dijkje of viaduct: waar de weg hoger ligt dan het maaiveld, een wand van de stoeprand naar beneden
+      if (window.__wegVolume && pathProf(e.src).flat) for (const sg of [1, -1]) skirtInto(skirt, vecWalkPts(GR, e, 0, sg * hw), sg, e.src);   // ook een vlakke weg: een rand tot onder het maaiveld
       if (!pathProf(e.src).flat) {
         for (const sg of [1, -1]) skirtInto(skirt, vecWalkPts(GR, e, 0, sg * hw), sg, e.src);
         // dek op pijlers: onderkant van het dek en om de 12 m een zeshoekige pijler tot de grond (of het dak eronder)

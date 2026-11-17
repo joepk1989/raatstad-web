@@ -58,7 +58,12 @@
   }
   // 4: langs de wegen. Een weg die boven het veld ligt geeft een dijkje, eronder een ingraving; flank minstens 3 m
   // en zo flauw dat het niet steiler dan ~40° wordt.
+  // Weg als zelfstandig volume (proef, november 2026; Joep: "een grote web update"): het terrein blijft precies zoals je het
+  // boetseert (geen dijk of ingraving langs een weg), onder de weg en stoep wordt een strook uit het maaiveld geknipt, en de
+  // weg zelf krijgt langs beide randen een keermuur tot onder het terrein (skirtInto in 07). Aan met window.__wegVolume.
+  const wegVolume = () => typeof window !== 'undefined' && !!window.__wegVolume;
   function roadAdjust(x, z, v, segs = tRoadSegs) {
+    if (wegVolume()) return v;
     { const [q, r] = worldToCell(x, z); if (stackOf(q, r).length) return v; }   // een vak met blokken: geen dijkje of ingraving
     if (roofMap_ && roofMap_.size && deckAt(x, z, true, true) !== null) return v;   // onder een wegdek blijft het maaiveld liggen (08l)
     let wBest = 0, tBest = v, dBest = 1e9;
@@ -150,6 +155,7 @@
     return [[c.x, c.z, road(c.x, c.z, C.g, [[q, r]])], corner(i), corner(j)];
   }
   function lpHeight(x, z, roads) {
+    if (roads && wegVolume()) return korridorCap(x, z, lpHeight(x, z, false));   // weg als volume: het terrein blijft liggen, in de strook nooit boven de weg
     const [q, r] = worldToCell(x, z), C = lpCell(q, r);
     if (C.cut) return 0;
     if (C.occ && (!roads || C.g > 0.01 || stackOf(q, r).length)) return C.g;   // een vak met blokken: geen dijkje of ingraving van een weg ernaast (dat staakt anders door de vloer van het blok)
@@ -159,7 +165,7 @@
     return Math.max(0, A[2] * l1 + B[2] * l2 + D[2] * (1 - l1 - l2));
   }
   function lpMesh(c, ci, cj) {
-    const pos = [], col = [], cc = new THREE.Color(), x0 = ci * TSZ, z0 = cj * TSZ;
+    const pos = [], col = [], cc = new THREE.Color(), x0 = ci * TSZ, z0 = cj * TSZ, KOR = wegVolume() ? korridors(x0 - R, z0 - R, x0 + TSZ + R, z0 + TSZ + R) : null;
     const r0 = Math.floor(z0 / (1.5 * R)) - 1, r1 = Math.ceil((z0 + TSZ) / (1.5 * R)) + 1;
     for (let r = r0; r <= r1; r++) {
       const q0 = Math.floor(x0 / (R * SQ3) - r / 2) - 1, q1 = Math.ceil((x0 + TSZ) / (R * SQ3) - r / 2) + 1;
@@ -169,13 +175,21 @@
         for (let i = 0; i < 6; i++) {
           const a = (30 + 60 * i + 30) * Math.PI / 180, px = w.x + Math.cos(a), pz = w.z + Math.sin(a);
           const T0 = lpTri(q, r, px, pz, false), blok = stackOf(q, r).length > 0;   // onder blokken blijft het terrein zoals het is
+          if (KOR) {   // weg als volume: de driehoek zoals het terrein is, min de strook onder weg en stoep
+            const raak = KOR.filter(K => K.bb[0] < Math.max(T0[0][0], T0[1][0], T0[2][0]) && K.bb[2] > Math.min(T0[0][0], T0[1][0], T0[2][0]) && K.bb[1] < Math.max(T0[0][1], T0[1][1], T0[2][1]) && K.bb[3] > Math.min(T0[0][1], T0[1][1], T0[2][1]));
+            if (!raak.length || blok) { addTri(T0[0], T0[1], T0[2], q, r, i); continue; }
+            const [A0, B0, D0] = T0, det = (B0[1] - D0[1]) * (A0[0] - D0[0]) + (D0[0] - B0[0]) * (A0[1] - D0[1]);
+            const hoogte = p => { const l1 = ((B0[1] - D0[1]) * (p[0] - D0[0]) + (D0[0] - B0[0]) * (p[1] - D0[1])) / det, l2 = ((D0[1] - A0[1]) * (p[0] - D0[0]) + (A0[0] - D0[0]) * (p[1] - D0[1])) / det; return [p[0], p[1], A0[2] * l1 + B0[2] * l2 + D0[2] * (1 - l1 - l2)]; };
+            let stukken = [T0.map(p => [p[0], p[1]])]; for (const K of raak) { const nw = []; for (const Pp of stukken) nw.push(...zonderKorridor(Pp, K)); stukken = nw; if (!stukken.length) break; }
+            for (const Pp of stukken) for (let k = 1; k + 1 < Pp.length; k++) addTri(hoogte(Pp[0]), hoogte(Pp[k]), hoogte(Pp[k + 1]), q, r, i);
+            continue; }
           if (!blok && tField.cutTriangle(T0[0], T0[1], T0[2], (A, B, D) => addTri(A, B, D, q, r, i))) continue;   // langs een weg op een niveau: het veld snijdt de driehoek in vlakke stukjes
           const [A, B, D] = blok ? T0 : lpTri(q, r, px, pz, true); addTri(A, B, D, q, r, i);
         }
       }
     }
     function addTri(A, B, D, q, r, i) {
-          A = roadCap(A); B = roadCap(B); D = roadCap(D);   // nooit gras over een wegdek (een talud van een hoger stuk straat over een lager stuk)
+          if (!KOR) { A = roadCap(A); B = roadCap(B); D = roadCap(D); }   // nooit gras over een wegdek (een talud van een hoger stuk straat over een lager stuk)
           { const hm = Math.max(A[2], B[2], D[2]); if (hm < 0.03) return; }
           const ux = B[0] - A[0], uy = B[2] - A[2], uz = B[1] - A[1], vx = D[0] - A[0], vy = D[2] - A[2], vz = D[1] - A[1];
           const ny = uz * vx - ux * vz, nx = uy * vz - uz * vy, nz = ux * vy - uy * vx, up = Math.abs(ny) / Math.hypot(nx, ny, nz);
@@ -232,11 +246,11 @@
   function terrRoadsChanged() {   // na het (her)bouwen van de wegen: welke stukken veranderen mee?
     const old = tRoadSegs; tRoadSegs = []; lpClear();
     for (const p of cells.paths || []) {
-      if (p.t === 'rot' && p.p && p.p.length) { const P = pathProf(p), c = p.p[0], edge = ROT.Ro + 2.9; tRoadSegs.push([c[0], c[1], c[0] + 0.01, c[1], P.h[0], P.h[0], P.flat, edge + 18.5, edge]); continue; }   // rotonde: rond vlak
+      if (p.t === 'rot' && p.p && p.p.length) { const P = pathProf(p), c = p.p[0], edge = ROT.Ro + 2.9; tRoadSegs.push([c[0], c[1], c[0] + 0.01, c[1], P.h[0], P.h[0], P.flat, edge + 18.5, edge, false, edge - 0.6, true]); continue; }   // rotonde: rond vlak
       const def = PATH_DEF[p.t]; if (!def || !p.p || p.p.length < 2) continue;
       const P = pathProf(p), edge = def.hw + (p.t === 'pad' || p.t === 'steeg' ? 0.6 : def.walk) + 0.6;
       const hoog = Array.isArray(p.y) && p.y.some(v => v > 0.5);   // zelf opgehoogd (▲▼ / E): geen groene dijk eronder, maar een betonnen wand (skirtInto in 07) en vanaf 3 m een dek op pijlers
-      for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (hoog && (P.h[i] - terrainHeightAt(a[0], a[1]) > 0.05 || P.h[i + 1] - terrainHeightAt(b[0], b[1]) > 0.05)) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p)]); }   // brug over een weg: geen dijk eronder
+      for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (hoog && (P.h[i] - terrainHeightAt(a[0], a[1]) > 0.05 || P.h[i + 1] - terrainHeightAt(b[0], b[1]) > 0.05)) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p), def.hw + def.walk]); }   // brug over een weg: geen dijk eronder
     }
     tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z), -1);   // elke weg: de grond onder weg en stoep (plus 1,5 m) ligt op weghoogte, daarbuiten een talud naar het terrein; één bron van waarheid voor terrein en weg
     const touch = segs => { for (const s of segs) { const r = s[7] + 2; for (let i = Math.floor((Math.min(s[0], s[2]) - r) / TSZ); i <= Math.floor((Math.max(s[0], s[2]) + r) / TSZ); i++) for (let j = Math.floor((Math.min(s[1], s[3]) - r) / TSZ); j <= Math.floor((Math.max(s[1], s[3]) + r) / TSZ); j++) { const c = tChunks.get(i + ',' + j); if (c) { c.fin = null; c.dirty = true; } else if (!s[6]) tChunks.set(i + ',' + j, { dirty: true }); } } };
@@ -268,7 +282,8 @@
     if (lpOn()) { const ci = Math.floor(x / TSZ), cj = Math.floor(z / TSZ), c = tChunks.get(ci + ',' + cj); return c && c.mesh ? lpHeight(x, z, true) : 0; }
     const ci = Math.floor(x / TSZ), cj = Math.floor(z / TSZ), c = tChunks.get(ci + ',' + cj); if (!c || !c.fin) return 0;
     const fx = (x - ci * TSZ) / TST + 1, fz = (z - cj * TSZ) / TST + 1, i = Math.min(TN - 2, Math.max(0, Math.floor(fx))), j = Math.min(TN - 2, Math.max(0, Math.floor(fz))), u = fx - i, v = fz - j, F = c.fin;
-    return (F[j * TN + i] * (1 - u) + F[j * TN + i + 1] * u) * (1 - v) + (F[(j + 1) * TN + i] * (1 - u) + F[(j + 1) * TN + i + 1] * u) * v;
+    const g = (F[j * TN + i] * (1 - u) + F[j * TN + i + 1] * u) * (1 - v) + (F[(j + 1) * TN + i] * (1 - u) + F[(j + 1) * TN + i + 1] * u) * v;
+    return wegVolume() ? korridorCap(x, z, g) : g;   // in de uitgespaarde strook: nooit boven de weg (daar loop je op de weg)
   }
   // Materiaal: kleur per hoekpunt (grond → dieper groen omhoog, aarde op steile flanken) en hoogtelijnen tijdens het boetseren
   const terrU = { uContour: { value: 0 } };
@@ -285,12 +300,39 @@
       }`);
   };
   const TC0 = new THREE.Color(GROUND_COL), TC1 = new THREE.Color('#5f9447'), TC2 = new THREE.Color('#8b7b58'), TC3 = new THREE.Color('#9aa48a');
+  // De strook onder weg en stoep als bolle veelhoeken (halve vlakken [nx, nz, c]: binnen waar nx·x + nz·z ≤ c): per wegstuk een
+  // rechthoek tot de keermuur (s[10]), aan de einden even ver doorgetrokken (dekt de buitenhoek van een bocht), een rotonde als
+  // 16-hoek.
+  function korridors(x0, z0, x1, z1) {
+    const out = [];
+    for (const s2 of tRoadSegs) { const w = s2[10]; if (!w) continue;
+      if (Math.max(s2[0], s2[2]) + w < x0 || Math.min(s2[0], s2[2]) - w > x1 || Math.max(s2[1], s2[3]) + w < z0 || Math.min(s2[1], s2[3]) - w > z1) continue;
+      const bb = [Math.min(s2[0], s2[2]) - w, Math.min(s2[1], s2[3]) - w, Math.max(s2[0], s2[2]) + w, Math.max(s2[1], s2[3]) + w], h = (s2[4] + s2[5]) / 2;
+      if (s2[11]) { const H = []; for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, nx = Math.cos(a), nz = Math.sin(a); H.push([nx, nz, nx * s2[0] + nz * s2[1] + w]); } out.push({ H, bb, s: s2 }); continue; }
+      const dx = s2[2] - s2[0], dz = s2[3] - s2[1], l = Math.hypot(dx, dz) || 1e-9, ux = dx / l, uz = dz / l, nx = -uz, nz = ux;
+      out.push({ H: [[-ux, -uz, -(ux * s2[0] + uz * s2[1]) + w], [ux, uz, ux * s2[2] + uz * s2[3] + w], [nx, nz, nx * s2[0] + nz * s2[1] + w], [-nx, -nz, -(nx * s2[0] + nz * s2[1]) + w]], bb, s: s2 });
+    }
+    return out;
+  }
+  const knipH = (P, h, buiten) => { const out = [], f = p => (h[0] * p[0] + h[1] * p[1] - h[2]) * (buiten ? -1 : 1); for (let i = 0; i < P.length; i++) { const A = P[i], B = P[(i + 1) % P.length], fa = f(A), fb = f(B); if (fa <= 0) out.push(A); if ((fa <= 0) !== (fb <= 0)) { const t = fa / (fa - fb); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); } } return out; };
+  function zonderKorridor(P, K) {   // veelhoek P min de bolle veelhoek K: de stukken erbuiten (elk bol)
+    const uit = []; let rest = P;
+    for (const h of K.H) { const b = knipH(rest, h, true); if (b.length >= 3) uit.push(b); rest = knipH(rest, h, false); if (rest.length < 3) return uit; }
+    return uit;   // wat overblijft (rest) ligt in de strook: weg
+  }
+  function korridorCap(x, z, g) {
+    for (const s2 of tRoadSegs) { const w = s2[10]; if (!w) continue; if (x < Math.min(s2[0], s2[2]) - w || x > Math.max(s2[0], s2[2]) + w || z < Math.min(s2[1], s2[3]) - w || z > Math.max(s2[1], s2[3]) + w) continue;
+      const dx = s2[2] - s2[0], dz = s2[3] - s2[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - s2[0]) * dx + (z - s2[1]) * dz) / l2));
+      if (Math.hypot(s2[0] + dx * f - x, s2[1] + dz * f - z) <= w) g = Math.min(g, s2[4] + (s2[5] - s2[4]) * f - 0.05); }
+    return g;
+  }
   function chunkMesh(c, ci, cj) {
     if (c.mesh) { terrGroup.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh = null; }
     c.dirty = false;
     if (lpOn()) return lpMesh(c, ci, cj);
     const F = chunkFin(c, ci, cj); if (!F) return;
-    const n = TSZ / TST, N = n + 1, pos = new Float32Array(N * N * 3), nor = new Float32Array(N * N * 3), col = new Float32Array(N * N * 3), cc = new THREE.Color(), idx = [];
+    const n = TSZ / TST, N = n + 1, cc = new THREE.Color(), idx = [], extra = [], KOR = wegVolume() ? korridors(ci * TSZ, cj * TSZ, (ci + 1) * TSZ, (cj + 1) * TSZ) : [];
+    let pos = new Float32Array(N * N * 3), nor = new Float32Array(N * N * 3), col = new Float32Array(N * N * 3);
     const at = (i, j) => F[(j + 1) * TN + i + 1];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const o = (j * N + i) * 3, h = at(i, j), dx = (at(i + 1, j) - at(i - 1, j)) / (2 * TST), dz = (at(i, j + 1) - at(i, j - 1)) / (2 * TST), l = Math.hypot(dx, 1, dz);
@@ -308,7 +350,20 @@
       if (Math.max(ha, hb, hc, hd) < 0.03) continue;
       if (cutAt(ci * TSZ + (i + 0.5) * TST, cj * TSZ + (j + 0.5) * TST)) continue;
       if (onPlinth(i, j) && onPlinth(i + 1, j) && onPlinth(i, j + 1) && onPlinth(i + 1, j + 1)) continue;   // helemaal op de sokkel: die heeft zijn eigen bovenkant
+      if (KOR.length) { const x0 = ci * TSZ + i * TST, z0 = cj * TSZ + j * TST, raak = KOR.filter(K => K.bb[0] < x0 + TST && K.bb[2] > x0 && K.bb[1] < z0 + TST && K.bb[3] > z0);
+        if (raak.length) { for (const T of [[[x0, z0], [x0, z0 + TST], [x0 + TST, z0]], [[x0 + TST, z0], [x0, z0 + TST], [x0 + TST, z0 + TST]]]) {   // zelfde draairichting als het raster
+            let stukken = [T]; for (const K of raak) { const nw = []; for (const Pp of stukken) nw.push(...zonderKorridor(Pp, K)); stukken = nw; if (!stukken.length) break; }
+            for (const Pp of stukken) for (let k = 1; k + 1 < Pp.length; k++) for (const q of [Pp[0], Pp[k], Pp[k + 1]]) extra.push(q); }
+          continue; } }
       idx.push(a, c2, b, b, c2, d);
+    }
+    if (extra.length) {   // de geknipte stukjes: eigen hoekpunten, hoogte, normaal en kleur uit het raster (bilineair)
+      const B0 = pos.length / 3, P2 = new Float32Array(pos.length + extra.length * 3), N2 = new Float32Array(P2.length), C2 = new Float32Array(P2.length);
+      P2.set(pos); N2.set(nor); C2.set(col);
+      const bil = (A, x, z) => { const fx = (x - ci * TSZ) / TST, fz = (z - cj * TSZ) / TST, i0 = Math.max(0, Math.min(n - 1, Math.floor(fx))), j0 = Math.max(0, Math.min(n - 1, Math.floor(fz))), u = fx - i0, v = fz - j0, o = (r, k) => A[(r * N + k) * 3];
+        return [0, 1, 2].map(e => (A[(j0 * N + i0) * 3 + e] * (1 - u) + A[(j0 * N + i0 + 1) * 3 + e] * u) * (1 - v) + (A[((j0 + 1) * N + i0) * 3 + e] * (1 - u) + A[((j0 + 1) * N + i0 + 1) * 3 + e] * u) * v); };
+      extra.forEach((q, k) => { const o = (B0 + k) * 3, p = bil(pos, q[0], q[1]), nn = bil(nor, q[0], q[1]), cc2 = bil(col, q[0], q[1]); P2[o] = q[0]; P2[o + 1] = p[1]; P2[o + 2] = q[1]; N2[o] = nn[0]; N2[o + 1] = nn[1]; N2[o + 2] = nn[2]; C2[o] = cc2[0]; C2[o + 1] = cc2[1]; C2[o + 2] = cc2[2]; idx.push(B0 + k); });
+      pos = P2; nor = N2; col = C2;
     }
     if (!idx.length) return;
     const g = new THREE.BufferGeometry();
