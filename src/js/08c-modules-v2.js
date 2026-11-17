@@ -263,6 +263,7 @@
     return () => null;
   }
   // een driehoek afknippen op een halfvlak (x·nx + z·nz >= c): geeft de overgebleven veelhoek (0, 3 of 4 punten)
+  const mv2InPoly = (x, z, P) => { let s0 = 0; for (let q = 0; q < P.length; q++) { const A = P[q], B = P[(q + 1) % P.length], c = (B[0] - A[0]) * (z - A[1]) - (B[1] - A[1]) * (x - A[0]); if (Math.abs(c) < 1e-9) continue; const sg = Math.sign(c); if (s0 && sg !== s0) return false; s0 = sg; } return true; };   // binnen een bolle veelhoek (of op de rand)
   function mv2ClipKeep(v, k) {
     const [nx, nz, c] = k, out = [], f = p => p[0] * nx + p[1] * nz - c;
     for (let i = 0; i < v.length; i++) { const A = v[i], B = v[(i + 1) % v.length], fa = f(A), fb = f(B); if (fa >= 0) out.push(A); if ((fa >= 0) !== (fb >= 0)) { const s = fa / (fa - fb); out.push([A[0] + (B[0] - A[0]) * s, A[1] + (B[1] - A[1]) * s]); } }
@@ -280,7 +281,10 @@
   // materialen heeft met een rechte grens ertussen (een pad met strakke randen door het gras). Geeft de stukken van de
   // overkant als veelhoeken: buiten de eerste knijplijn, of binnen de eerste maar buiten de tweede, enzovoort.
   function mv2KnipRest(L, id, v) {
-    const k = L.fk && L.fk[id]; if (!k || !(L.f2 && L.f2[id])) return [];
+    // Elk stuk heeft .mat. Daarna de losse stukken L.fx[id] = [[knip, materiaal], …]: waar wanden elkaar in een driehoek kruisen
+    // (tot vier stukken; Joep: "randjes vullen vaker niet goed"), elk met zijn eigen knip.
+    const fx = []; for (const [K, m2] of (L.fx && L.fx[id]) || []) { let pl = v; for (const h of (Array.isArray(K[0]) ? K : [K])) { pl = mv2ClipKeep(pl, h); if (pl.length < 3) break; } if (pl.length >= 3) { pl.mat = m2; fx.push(pl); } }
+    const k = L.fk && L.fk[id]; if (!k || !(L.f2 && L.f2[id])) return fx;
     const H = Array.isArray(k[0]) ? k : [k], uit = []; let binnen = v;
     for (const h of H) { const buiten = mv2ClipKeep(binnen, [-h[0], -h[1], -h[2]]); if (buiten.length >= 3) uit.push(buiten); binnen = mv2ClipKeep(binnen, h); if (binnen.length < 3) break; }
     return uit;
@@ -345,7 +349,7 @@
       const monsters = []; for (let p = 0; p <= 8; p++) for (let q = 0; q + p <= 8; q++) { const r = 8 - p - q, b0 = (p + 0.5) / 9.5, b1 = (q + 0.5) / 9.5, b2 = (r + 0.5) / 9.5, s0 = b0 + b1 + b2; monsters.push([(v[0][0] * b0 + v[1][0] * b1 + v[2][0] * b2) / s0, (v[0][1] * b0 + v[1][1] * b1 + v[2][1] * b2) / s0]); }
       const pad = p => stukken.some(H => binnenH(H, p)) || (oud === mat && oudH && binnenH(oudH, p));
       const gedekt = monsters.filter(pad).length / monsters.length; if (gedekt < 0.02) continue;
-      if (gedekt > 0.98) { if (oud !== mat || oudK) n++; L.f[id] = mat; if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; continue; }
+      if (gedekt > 0.98) { if (oud !== mat || oudK) n++; L.f[id] = mat; if (L.fk) delete L.fk[id]; if (L.f2) delete L.f2[id]; if (L.fx) delete L.fx[id]; continue; }
       // de beste rechte knip: van één stuk de lijnen die door deze driehoek gaan (of de oude knip), zo dat er zo weinig mogelijk mis is
       const kand = stukken.map(H => H.filter(h => v.some(p => p[0] * h[0] + p[1] * h[1] < h[2] - 1e-9))).filter(K => K.length); if (oud === mat && oudH) kand.push(oudH);
       let best = null, bs = -1e9; for (const K of kand) { let sc = 0; for (const p of monsters) if (binnenH(K, p)) sc += pad(p) ? 1 : -1; else sc -= pad(p) ? 1 : 0; if (sc > bs || (sc === bs && K.length < best.length)) { bs = sc; best = K; } }
@@ -402,7 +406,7 @@
     const L = m.lv[li], holes = li > 0 ? ((m.lv[li - 1] || {}).s || []).map(S => mv2StairHole(S, ts)) : [], out = [];
     for (const id in L.f) {
       const [i, j, t] = id.split(',').map(Number), v = mv2TriVerts(i, j, t, ts); let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
-      const kn = mv2Knip(L, id, v); if (kn) { if (!hk) { for (const T of mv2Fan(kn)) out.push({ id, v: T, mat: L.f[id] }); for (const pl of mv2KnipRest(L, id, v)) for (const T of mv2Fan(pl)) out.push({ id, v: T, mat: L.f2[id] }); } continue; }
+      const kn = mv2Knip(L, id, v); if (kn) { if (!hk) { for (const T of mv2Fan(kn)) out.push({ id, v: T, mat: L.f[id] }); for (const pl of mv2KnipRest(L, id, v)) for (const T of mv2Fan(pl)) out.push({ id, v: T, mat: pl.mat }); } continue; }
       if (!hk) { out.push({ id, v, mat: L.f[id] }); continue; } if (!hk.keep && !hk.fill && !hk.rect) continue;
       for (const pl of hk.rect ? mv2GatRest(v, hk) : [mv2ClipKeep(v, hk.keep || hk.fill)])   /* bij een rechte trap: het bordes voorbij de bovenste tree (in mv2Build in trapmateriaal) */ for (let k = 1; k + 1 < pl.length; k++) { const T = [pl[0], pl[k], pl[k + 1]], ar = Math.abs((T[1][0] - T[0][0]) * (T[2][1] - T[0][1]) - (T[2][0] - T[0][0]) * (T[1][1] - T[0][1])) / 2; if (ar > 0.02) out.push({ id, v: T, mat: L.f[id], part: true }); }   // geen platgedrukte driehoekjes (die lijken overal 'binnen')
     }
@@ -443,7 +447,7 @@
           const a = [p0[0] + (p1[0] - p0[0]) * s / N, p0[1] + (p1[1] - p0[1]) * s / N], b = [p0[0] + (p1[0] - p0[0]) * (s + 1) / N, p0[1] + (p1[1] - p0[1]) * (s + 1) / N];
           const mx = (a[0] + b[0]) / 2 - f.nx * 0.15, mz = (a[1] + b[1]) / 2 - f.nz * 0.15, id = triAt(mx, mz), key = id.join(',');
           let vloer = false;
-          let fm = L && L.f[key]; if (fm && L.fk && L.fk[key]) { const kk = L.fk[key]; if (!(Array.isArray(kk[0]) ? kk : [kk]).every(h => mx * h[0] + mz * h[1] >= h[2] - 1e-6)) fm = (L.f2 && L.f2[key]) || null; }   // afgeknipt: aan de overkant geldt het tweede materiaal
+          let fm = L && L.f[key]; if (fm && L.fk && L.fk[key]) { const kk = L.fk[key]; if (!(Array.isArray(kk[0]) ? kk : [kk]).every(h => mx * h[0] + mz * h[1] >= h[2] - 1e-6)) { fm = null; for (const pl of mv2KnipRest(L, key, mv2TriVerts(...key.split(',').map(Number), ts))) if (mv2InPoly(mx, mz, pl)) { fm = pl.mat; break; } } }   // afgeknipt: aan de overkant geldt het tweede materiaal
           if (fm && fm !== 'water' && !(li === 0 && GROEN.has(fm))) { const gat = (gaten[li] || []).some(h => { const g = h(mv2TriVerts(id[0], id[1], id[2], ts)); return g && (g.rect ? mv2InRect(mx, mz, g.rect) : (!g.keep || mx * g.keep[0] + mz * g.keep[1] < g.keep[2])); }); if (!gat) vloer = true; }
           if (!vloer && Lo && Lo.v && Lo.v[key] && !(L && L.f[key]) && !(L && L.v && L.v[key])) vloer = true;   // bovenkant van massief op de verdieping eronder
           if (!vloer && li > 0) for (const G of platen[li - 1] || []) { const h = G.at(mx, mz); if (h && Math.abs(h.y - LH) < 0.15) vloer = true; }   // helling van eronder komt hier boven uit
@@ -543,12 +547,12 @@
           let gatK = null;   // ook een geknipte driehoek (en zijn overkant) wijkt voor het trapgat
           if (kn && holes.length) { let hk = null; for (const h of holes) { hk = h(v); if (hk) break; }
             if (hk && hk.rect) { const top = lifted ? y0 + 0.02 : 0.05;   // rechthoekig gat: de stukken ernaast, ook van de overkant
-              for (const [P0, m2] of [[kn, mat], ...mv2KnipRest(L, id, v).map(pl => [pl, L.f2[id]])]) for (const pl of mv2GatRest(P0, hk)) for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
+              for (const [P0, m2] of [[kn, mat], ...mv2KnipRest(L, id, v).map(pl => [pl, pl.mat])]) for (const pl of mv2GatRest(P0, hk)) for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
               continue; }
             if (hk) { if (!hk.keep) continue; gatK = hk.keep; kn = mv2ClipKeep(kn, gatK); if (kn.length < 3) kn = [[0, 0], [0, 0]]; } }
           if (kn) { const top = lifted ? y0 + 0.02 : 0.05; for (const T of mv2Fan(kn)) { (byMat[mat] || (byMat[mat] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }
             for (let n = 0; n < kn.length; n++) { const k = eid(kn[n], kn[(n + 1) % kn.length]); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); }
-            for (const pl0 of mv2KnipRest(L, id, v)) { const pl = gatK ? mv2ClipKeep(pl0, gatK) : pl0; if (pl.length < 3) continue; const m2 = L.f2[id]; for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }   // de overkant: tweede materiaal
+            for (const pl0 of mv2KnipRest(L, id, v)) { const pl = gatK ? mv2ClipKeep(pl0, gatK) : pl0; if (pl.length < 3) continue; const m2 = pl0.mat; for (const T of mv2Fan(pl)) { (byMat[m2] || (byMat[m2] = [])).push(T); pushWalk(T[0], T[1], T[2], top, top, top); }   // de overkant: tweede materiaal
               for (let n = 0; n < pl.length; n++) { const k = eid(pl[n], pl[(n + 1) % pl.length]); edgeCnt.set(k, (edgeCnt.get(k) || 0) + 1); } }
             continue; } }
         if (holes.length) {   // trapgat: de driehoek valt weg, maar het stuk naast de trap blijft liggen (tot de bovenste tree)
@@ -1329,9 +1333,9 @@
     const m = JSON.parse(JSON.stringify(m0)); mv2Fix(m);
     const mp = (i, j) => [i, -i - j], WMAP = { 0: 2, 1: 1, 2: 0, 4: 5, 5: 4 }, D6 = [5, 4, 3, 2, 1, 0];
     for (const L of m.lv) {
-      const f = {}, fk = {}, f2 = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; f[nid] = L.f[id]; if (L.f2 && L.f2[id]) f2[nid] = L.f2[id];
+      const f = {}, fk = {}, f2 = {}, fx = {}; for (const id in L.f) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; f[nid] = L.f[id]; if (L.f2 && L.f2[id]) f2[nid] = L.f2[id]; if (L.fx && L.fx[id]) { const mk = h => [h[0], -h[1], h[2]]; fx[nid] = L.fx[id].map(([K, m2]) => [Array.isArray(K[0]) ? K.map(mk) : mk(K), m2]); }
         if (L.fk && L.fk[id]) { const k = L.fk[id], mk = h => [h[0], -h[1], h[2]]; fk[nid] = Array.isArray(k[0]) ? k.map(mk) : mk(k); } }   // knip spiegelt mee (z → −z)
-      L.f = f; if (L.fk) L.fk = fk; if (L.f2) L.f2 = f2;
+      L.f = f; if (L.fk) L.fk = fk; if (L.f2) L.f2 = f2; if (L.fx) L.fx = fx;
       if (L.v) { const v = {}, vk = {}; for (const id in L.v) { const [i, j, t] = id.split(',').map(Number), nid = i + ',' + (t ? -i - j - 2 : -i - j - 1) + ',' + t; v[nid] = L.v[id]; if (L.vk && L.vk[id]) { const k = L.vk[id], mk = h => [h[0], -h[1], h[2]]; vk[nid] = Array.isArray(k[0]) ? k.map(mk) : mk(k); } } L.v = v; if (L.vk) L.vk = vk; }   // massief spiegelt als de vloer
       const w = {}; for (const id in L.w) { const [i, j, d] = id.split(',').map(Number), D = MV2.DIRW[d]; if (!D) continue; if (d === 3) { const [a, b] = mp(i, j); w[a + ',' + b + ',3'] = L.w[id]; } else { const [a, b] = mp(i + D[0], j + D[1]); w[a + ',' + b + ',' + WMAP[d]] = L.w[id]; } } L.w = w;
       for (const S of L.s) {
