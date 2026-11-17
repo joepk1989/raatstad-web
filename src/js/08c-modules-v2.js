@@ -717,9 +717,10 @@
           mk(top, uvT, mat); mk(side, uvS, Mt.wl.breuksteen || Mt.step);
           continue;
         }
-        // Ap: op het raster 2 rijen driehoeken (1,95 m), zodat de buitenrand van de treden precies de rand van het gat is
+        // Ap: op het raster van 1,125 m 2 rijen driehoeken (1,95 m), zodat de buitenrand van de treden precies de rand van het gat is;
+        // anders 1,8 m (past tegen de muur op 3 rijen uit het midden van een vak, 08e stairwell)
         if (S.k === 'spiral') {   // zeshoekige wenteltrap: 12 trapezium-treden om een zeshoekige kern, één omwenteling per verdieping
-          const sd = S.side || 1, a0 = Math.atan2(uz, ux), NS = 12, Ap = Math.abs(ts - 1.125) < 0.01 ? ts * SQ3 : 1.9, Ac = 0.32, hs = rise / NS, th = k => a0 + sd * k * Math.PI / 6, TH = 0.26;
+          const sd = S.side || 1, a0 = Math.atan2(uz, ux), NS = 12, Ap = Math.abs(ts - 1.125) < 0.01 ? ts * SQ3 : 1.8, Ac = 0.32, hs = rise / NS, th = k => a0 + sd * k * Math.PI / 6, TH = 0.26;
           const rad = (t, Aa) => { let d = (((t - a0 - Math.PI / 6) % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3); if (d > Math.PI / 6) d -= Math.PI / 3; return Aa / Math.cos(d); };   // zeshoek: Aa is de apothema; hoekpunten op de rasterlijnen (a0 + 60°·n), zijmiddens daartussen, net als de zes driehoeken om het rasterpunt
           const Pt = (t, Aa) => { const r = rad(t, Aa); return [a[0] + Math.cos(t) * r, a[1] + Math.sin(t) * r]; };
           const posTop = [], posSide = [];
