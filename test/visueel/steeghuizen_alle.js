@@ -9,6 +9,7 @@ const { open, OUT } = require('./helper');
 const fs = require('fs'), { execSync } = require('child_process');
 (async () => {
   const { b, p } = await open({ width: 700, height: 700 }, { leeg: true });
+  await p.addStyleTag({ content: '#hud, .hud, #toolbar, #dock, .dock, #modeBar, #layerBar, #toast { visibility: hidden !important; }' }).catch(() => {});
   const errs = []; p.on('pageerror', e => errs.push(e.message)); let fout = 0;
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) { } const k = document.getElementById('keysClose'); if (k) k.click(); window.__SC().selectTool('kies'); });
   const namen = await p.evaluate(() => window.__mods.filter(m => m.bp && m.bp.huis && /^Steeghuis/.test(m.name)).map(m => m.name));
@@ -45,8 +46,8 @@ const fs = require('fs'), { execSync } = require('child_process');
     console.log((ok ? 'goed ' : 'FOUT ') + naamKort.padEnd(36), r.delen.map(d => d.kamers + 'k/' + d.lagen + 'L').join(' ').padEnd(26), 'deuren ' + r.deuren.length, ok ? '' : JSON.stringify({ slechtLopen, dicht: dicht.map(d => d.k), zonderDeur }));
     // beelden: van boven, begane grond en 1e verdieping, en schuin
     for (const [soort, lv, phi, th] of [['bg', 0, 0.02, 0], ['1e', 1, 0.02, 0], ['3d', null, 0.9, 0.7]]) {
-      await p.evaluate(([lv, phi, th]) => { const S = window.__SC(), w = S.cellToWorld(0, 0); S.laag(lv); S.orbit.target.set(w.x, lv === null ? 3 : lv * 3, w.z); S.orbit.theta = th; S.orbit.phi = phi; S.orbit.dist = lv === null ? 30 : 22; S.applyOrbit(); }, [lv, phi, th]);
-      await p.waitForTimeout(350); const f = OUT + '/sha_' + soort + '_' + beelden[soort].length + '.png'; await p.screenshot({ path: f, clip: { x: 100, y: 100, width: 500, height: 500 } }); beelden[soort].push([f, naamKort]); }
+      await p.evaluate(([lv, phi, th]) => { const S = window.__SC(), w = S.cellToWorld(0, 0); S.laag(lv); S.orbit.target.set(w.x, lv === null ? 3 : lv * 3, w.z); S.orbit.theta = th; S.orbit.phi = phi; S.orbit.dist = lv === null ? 44 : 34; S.applyOrbit(); }, [lv, phi, th]);
+      await p.waitForTimeout(350); const f = OUT + '/sha_' + soort + '_' + beelden[soort].length + '.png'; await p.screenshot({ path: f, clip: { x: 90, y: 90, width: 520, height: 470 } }); beelden[soort].push([f, naamKort]); }
   }
   fs.writeFileSync(OUT + '/steeghuizen_alle.json', JSON.stringify({ uit, beelden }, null, 1));
   console.log(fout ? 'FOUT in ' + fout + ' van ' + namen.length + ' Steeghuizen' : 'ALLE ' + namen.length + ' STEEGHUIZEN GOED', 'pagina-fouten', JSON.stringify(errs.slice(0, 3)));
