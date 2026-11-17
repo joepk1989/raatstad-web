@@ -214,6 +214,11 @@
     if (S.k === 'spiral') {
       const dx0 = D[0] * ts * SQ3 / 2, dz0 = D[0] * ts / 2 + D[1] * ts, a0 = Math.atan2(dz0, dx0), sd = S.side || 1;
       return v => { const cx = (v[0][0] + v[1][0] + v[2][0]) / 3 - a[0], cz = (v[0][1] + v[1][1] + v[2][1]) / 3 - a[1]; if (Math.hypot(cx, cz) > 2.15) return null; const ph = ((sd * (Math.atan2(cz, cx) - a0)) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        // de vloer erboven loopt door boven de eerste drie treden (0°–90°: daaronder nog ruim 2 m hoofdruimte) en boven de
+        // uitstaptree (330°–360°): samen een overloop van 120° waar je bovenaan op uitstapt (Joep: "de laatste treden komen niet
+        // goed uit"; eerst bleef alleen 330°–360° heel, een smalle punt tussen twee gaten)
+        if (ph < Math.PI / 3) return null;
+        if (ph < Math.PI * 2 / 3) { const t9 = a0 + sd * Math.PI / 2, nx9 = Math.cos(t9 - sd * Math.PI / 2), nz9 = Math.sin(t9 - sd * Math.PI / 2); return { keep: [nx9, nz9, a[0] * nx9 + a[1] * nz9] }; }
         if (ph < Math.PI * 5 / 3) return { keep: null };
         // het driehoekje boven de laatste twee treden: alleen de helft boven de uitstaptree (330°–360°) blijft, anders stoot je je hoofd op tree 10
         const th = a0 + sd * Math.PI * 11 / 6, nx2 = Math.cos(th + sd * Math.PI / 2), nz2 = Math.sin(th + sd * Math.PI / 2); return { keep: [nx2, nz2, a[0] * nx2 + a[1] * nz2] }; };
@@ -696,8 +701,9 @@
           mk(top, uvT, mat); mk(side, uvS, Mt.wl.breuksteen || Mt.step);
           continue;
         }
+        // Ap: op het raster 2 rijen driehoeken (1,95 m), zodat de buitenrand van de treden precies de rand van het gat is
         if (S.k === 'spiral') {   // zeshoekige wenteltrap: 12 trapezium-treden om een zeshoekige kern, één omwenteling per verdieping
-          const sd = S.side || 1, a0 = Math.atan2(uz, ux), NS = 12, Ap = 1.9, Ac = 0.32, hs = rise / NS, th = k => a0 + sd * k * Math.PI / 6, TH = 0.26;
+          const sd = S.side || 1, a0 = Math.atan2(uz, ux), NS = 12, Ap = Math.abs(ts - 1.125) < 0.01 ? ts * SQ3 : 1.9, Ac = 0.32, hs = rise / NS, th = k => a0 + sd * k * Math.PI / 6, TH = 0.26;
           const rad = (t, Aa) => { let d = (((t - a0 - Math.PI / 6) % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3); if (d > Math.PI / 6) d -= Math.PI / 3; return Aa / Math.cos(d); };   // zeshoek: Aa is de apothema; hoekpunten op de rasterlijnen (a0 + 60°·n), zijmiddens daartussen, net als de zes driehoeken om het rasterpunt
           const Pt = (t, Aa) => { const r = rad(t, Aa); return [a[0] + Math.cos(t) * r, a[1] + Math.sin(t) * r]; };
           const posTop = [], posSide = [];
@@ -727,9 +733,10 @@
           // balustrade rond het gat in de vloer erboven, op vloerhoogte: het stuk muur per tree (hierboven, addWall) loopt schuin
           // mee omhoog en blokkeert het gat alleen vlak bij de uitstap op de goede hoogte — verderop (30°–210°) ligt die veel
           // te laag voor de bovenverdieping en kon je er zo in lopen. Deze rand (addWall, dus ook echt tegenhouden) staat vast
-          // op vloerhoogte en dekt dezelfde boog als het gat (0°–330°); het laatste stuk (330°–360°) is waar de vloer heel blijft.
+          // op vloerhoogte en dekt dezelfde boog als het gat (90°–330°); boven tree 0–2 en de uitstap (330°–90°) blijft de vloer heel.
           { const topY = y0 + rise;
-            for (let kk = 0; kk <= NS - 3; kk++) { const A = Pt(th(kk), Ap), B = Pt(th(kk + 1), Ap); const p2 = tfp(A), g = new THREE.CylinderGeometry(0.03, 0.03, 0.95, 6); g.translate(p2[0], topY + 0.475, p2[1]); put(Mt.metal, g); bar(A, topY + 0.95, B, topY + 0.95); addWall(A, B, topY, topY + 0.95, 0.05); }
+            // het gat loopt van 90° tot 330° (boven tree 0–2 en boven de uitstap ligt vloer: de overloop)
+            for (let kk = 3; kk <= NS - 3; kk++) { const A = Pt(th(kk), Ap), B = Pt(th(kk + 1), Ap); const p2 = tfp(A), g = new THREE.CylinderGeometry(0.03, 0.03, 0.95, 6); g.translate(p2[0], topY + 0.475, p2[1]); put(Mt.metal, g); bar(A, topY + 0.95, B, topY + 0.95); addWall(A, B, topY, topY + 0.95, 0.05); }
             for (let kk = NS - 2; kk <= NS - 1; kk++) { const A = Pt(th(kk), Ap), p2 = tfp(A), g = new THREE.CylinderGeometry(0.03, 0.03, 0.95, 6); g.translate(p2[0], topY + 0.475, p2[1]); put(Mt.metal, g); }   // laatste twee treden: hier blijft de vloer heel, dat is de uitstap
           }
           continue;
