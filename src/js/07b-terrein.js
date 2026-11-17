@@ -59,9 +59,9 @@
   // 4: langs de wegen. Een weg die boven het veld ligt geeft een dijkje, eronder een ingraving; flank minstens 3 m
   // en zo flauw dat het niet steiler dan ~40° wordt.
   // Weg als zelfstandig volume (proef, november 2026; Joep: "een grote web update"): het terrein blijft precies zoals je het
-  // boetseert (geen dijk of ingraving langs een weg), onder de weg en stoep wordt een strook uit het maaiveld geknipt, en de
-  // weg zelf krijgt langs beide randen een keermuur tot onder het terrein (skirtInto in 07). Aan met window.__wegVolume.
-  const wegVolume = () => typeof window !== 'undefined' && !!window.__wegVolume;
+  // boetseert (geen dijk of ingraving langs een weg), onder de weg en stoep wordt de voetafdruk van de weg uit het maaiveld
+  // gespaard, en de weg krijgt langs zijn omtrek een keermuur tot onder het terrein (voetafdruk en voetMuren in 07).
+  // Aan met window.__wegVolume.
   function roadAdjust(x, z, v, segs = tRoadSegs) {
     if (wegVolume()) return v;
     { const [q, r] = worldToCell(x, z); if (stackOf(q, r).length) return v; }   // een vak met blokken: geen dijkje of ingraving
@@ -246,15 +246,17 @@
   function terrRoadsChanged() {   // na het (her)bouwen van de wegen: welke stukken veranderen mee?
     const old = tRoadSegs; tRoadSegs = []; lpClear();
     for (const p of cells.paths || []) {
-      if (p.t === 'rot' && p.p && p.p.length) { const P = pathProf(p), c = p.p[0], edge = ROT.Ro + 2.9; tRoadSegs.push([c[0], c[1], c[0] + 0.01, c[1], P.h[0], P.h[0], P.flat, edge + 18.5, edge, false, edge - 0.6, true]); continue; }   // rotonde: rond vlak
+      if (p.t === 'rot' && p.p && p.p.length) { const P = pathProf(p), c = p.p[0], edge = ROT.Ro + 2.9; tRoadSegs.push([c[0], c[1], c[0] + 0.01, c[1], P.h[0], P.h[0], P.flat, edge + 18.5, edge]); continue; }   // rotonde: rond vlak
       const def = PATH_DEF[p.t]; if (!def || !p.p || p.p.length < 2) continue;
       const P = pathProf(p), edge = def.hw + (p.t === 'pad' || p.t === 'steeg' ? 0.6 : def.walk) + 0.6;
       const hoog = Array.isArray(p.y) && p.y.some(v => v > 0.5);   // zelf opgehoogd (▲▼ / E): geen groene dijk eronder, maar een betonnen wand (skirtInto in 07) en vanaf 3 m een dek op pijlers
-      for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (hoog && (P.h[i] - terrainHeightAt(a[0], a[1]) > 0.05 || P.h[i + 1] - terrainHeightAt(b[0], b[1]) > 0.05)) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p), def.hw + def.walk]); }   // brug over een weg: geen dijk eronder
+      for (let i = 0; i < P.pts.length - 1; i++) { const a = P.pts[i], b = P.pts[i + 1]; if ((p.abs || p.dak) && P.h[i] > 0.5 && P.h[i + 1] > 0.5) continue; if (P.dk && (P.dk[i] || P.dk[i + 1])) continue; if (hoog && (P.h[i] - terrainHeightAt(a[0], a[1]) > 0.05 || P.h[i + 1] - terrainHeightAt(b[0], b[1]) > 0.05)) continue; if (!P.flat && roadSpan(p, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (P.h[i] + P.h[i + 1]) / 2, 8)) continue; tRoadSegs.push([a[0], a[1], b[0], b[1], P.h[i], P.h[i + 1], P.flat, edge + 18.5, edge, pathLifted(p)]); }   // brug over een weg: geen dijk eronder
     }
     tField.fromRoadSegs(fieldSegs(tRoadSegs), (x, z) => terrainHeightAt(x, z), -1);   // elke weg: de grond onder weg en stoep (plus 1,5 m) ligt op weghoogte, daarbuiten een talud naar het terrein; één bron van waarheid voor terrein en weg
     const touch = segs => { for (const s of segs) { const r = s[7] + 2; for (let i = Math.floor((Math.min(s[0], s[2]) - r) / TSZ); i <= Math.floor((Math.max(s[0], s[2]) + r) / TSZ); i++) for (let j = Math.floor((Math.min(s[1], s[3]) - r) / TSZ); j <= Math.floor((Math.max(s[1], s[3]) + r) / TSZ); j++) { const c = tChunks.get(i + ',' + j); if (c) { c.fin = null; c.dirty = true; } else if (!s[6]) tChunks.set(i + ',' + j, { dirty: true }); } } };
     touch(old); touch(tRoadSegs);
+    if (wegVolume()) for (const L of [wegVoetOud, wegVoet]) for (const K of L) for (let i = Math.floor(K.bb[0] / TSZ); i <= Math.floor(K.bb[2] / TSZ); i++) for (let j = Math.floor(K.bb[1] / TSZ); j <= Math.floor(K.bb[3] / TSZ); j++) { const c = tChunks.get(i + ',' + j); if (c) c.dirty = true; }   // de voetafdruk van de wegen (07) is veranderd: de uitsparing opnieuw
+    voetB = null;
     terrFlush();
   }
   function chunkOf(ci, cj) {
@@ -300,30 +302,25 @@
       }`);
   };
   const TC0 = new THREE.Color(GROUND_COL), TC1 = new THREE.Color('#5f9447'), TC2 = new THREE.Color('#8b7b58'), TC3 = new THREE.Color('#9aa48a');
-  // De strook onder weg en stoep als bolle veelhoeken (halve vlakken [nx, nz, c]: binnen waar nx·x + nz·z ≤ c): per wegstuk een
-  // rechthoek tot de keermuur (s[10]), aan de einden even ver doorgetrokken (dekt de buitenhoek van een bocht), een rotonde als
-  // 16-hoek.
-  function korridors(x0, z0, x1, z1) {
-    const out = [];
-    for (const s2 of tRoadSegs) { const w = s2[10]; if (!w) continue;
-      if (Math.max(s2[0], s2[2]) + w < x0 || Math.min(s2[0], s2[2]) - w > x1 || Math.max(s2[1], s2[3]) + w < z0 || Math.min(s2[1], s2[3]) - w > z1) continue;
-      const bb = [Math.min(s2[0], s2[2]) - w, Math.min(s2[1], s2[3]) - w, Math.max(s2[0], s2[2]) + w, Math.max(s2[1], s2[3]) + w], h = (s2[4] + s2[5]) / 2;
-      if (s2[11]) { const H = []; for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, nx = Math.cos(a), nz = Math.sin(a); H.push([nx, nz, nx * s2[0] + nz * s2[1] + w]); } out.push({ H, bb, s: s2 }); continue; }
-      const dx = s2[2] - s2[0], dz = s2[3] - s2[1], l = Math.hypot(dx, dz) || 1e-9, ux = dx / l, uz = dz / l, nx = -uz, nz = ux;
-      out.push({ H: [[-ux, -uz, -(ux * s2[0] + uz * s2[1]) + w], [ux, uz, ux * s2[2] + uz * s2[3] + w], [nx, nz, nx * s2[0] + nz * s2[1] + w], [-nx, -nz, -(nx * s2[0] + nz * s2[1]) + w]], bb, s: s2 });
-    }
-    return out;
-  }
+  // De uitsparing onder weg en stoep: de voetafdruk van de wegen (wegVoet uit 07: bolle veelhoeken { P, H, bb, hf } die precies
+  // de buitenrand van de stoep volgen, ook om een ronde stoephoek, een kop of een rotonde). Het maaiveld wordt daar niet getekend.
+  const korridors = (x0, z0, x1, z1) => wegVoet.filter(K => K.bb[2] > x0 && K.bb[0] < x1 && K.bb[3] > z0 && K.bb[1] < z1);
   const knipH = (P, h, buiten) => { const out = [], f = p => (h[0] * p[0] + h[1] * p[1] - h[2]) * (buiten ? -1 : 1); for (let i = 0; i < P.length; i++) { const A = P[i], B = P[(i + 1) % P.length], fa = f(A), fb = f(B); if (fa <= 0) out.push(A); if ((fa <= 0) !== (fb <= 0)) { const t = fa / (fa - fb); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); } } return out; };
-  function zonderKorridor(P, K) {   // veelhoek P min de bolle veelhoek K: de stukken erbuiten (elk bol)
+  function zonderKorridor(P, K) {   // veelhoek P (bol) min de bolle veelhoek K: de stukken erbuiten (elk bol)
+    for (const h of K.H) { let bin = false; for (const p of P) if (h[0] * p[0] + h[1] * p[1] - h[2] < -1e-7) { bin = true; break; } if (!bin) return [P]; }   // P ligt helemaal buiten één rand van K: niets te knippen
+    let ar = 0; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; ar += a[0] * b[1] - b[0] * a[1]; } const sg = Math.sign(ar); if (!sg) return [];
+    for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], dx = b[0] - a[0], dz = b[1] - a[1]; if (dx * dx + dz * dz < 1e-12) continue;
+      let bin = false; for (const k of K.P) if (((k[0] - a[0]) * dz - (k[1] - a[1]) * dx) * sg < -1e-7) { bin = true; break; } if (!bin) return [P]; }   // of K helemaal buiten één rand van P
     const uit = []; let rest = P;
     for (const h of K.H) { const b = knipH(rest, h, true); if (b.length >= 3) uit.push(b); rest = knipH(rest, h, false); if (rest.length < 3) return uit; }
-    return uit;   // wat overblijft (rest) ligt in de strook: weg
+    return uit;   // wat overblijft (rest) ligt in de voetafdruk: weg
   }
+  // In de voetafdruk komt de grond nooit boven de weg uit (daar loop je op de weg). Emmers van 16 m.
+  let voetB = null;
   function korridorCap(x, z, g) {
-    for (const s2 of tRoadSegs) { const w = s2[10]; if (!w) continue; if (x < Math.min(s2[0], s2[2]) - w || x > Math.max(s2[0], s2[2]) + w || z < Math.min(s2[1], s2[3]) - w || z > Math.max(s2[1], s2[3]) + w) continue;
-      const dx = s2[2] - s2[0], dz = s2[3] - s2[1], l2 = dx * dx + dz * dz || 1e-9, f = Math.max(0, Math.min(1, ((x - s2[0]) * dx + (z - s2[1]) * dz) / l2));
-      if (Math.hypot(s2[0] + dx * f - x, s2[1] + dz * f - z) <= w) g = Math.min(g, s2[4] + (s2[5] - s2[4]) * f - 0.05); }
+    if (!voetB) { voetB = new Map(); for (const K of wegVoet) for (let i = Math.floor(K.bb[0] / 16); i <= Math.floor(K.bb[2] / 16); i++) for (let j = Math.floor(K.bb[1] / 16); j <= Math.floor(K.bb[3] / 16); j++) { const k = i * 8192 + j; let L = voetB.get(k); if (!L) voetB.set(k, L = []); L.push(K); } }
+    const L = voetB.get(Math.floor(x / 16) * 8192 + Math.floor(z / 16)); if (!L) return g;
+    for (const K of L) { if (x < K.bb[0] || x > K.bb[2] || z < K.bb[1] || z > K.bb[3] || !voetIn(K, x, z)) continue; g = Math.min(g, K.hf(x, z) - 0.05); }
     return g;
   }
   function chunkMesh(c, ci, cj) {

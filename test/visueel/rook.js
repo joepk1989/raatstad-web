@@ -11,7 +11,7 @@ const path = require('path');
   p.on('pageerror', e => { fouten.push(stap + ': ' + e.message); console.log('!!', stap, eerste ? e.stack : e.message);
     if (eerste && process.env.STOP) p.evaluate(() => ({ t: window.__tekenfout, stad: window.__SC().serialize(window.__SC().getCells()) })).then(r => { console.log('TEKENFOUT', JSON.stringify(r.t, null, 1)); require('fs').writeFileSync(path.join(OUT, 'rook-stad-bij-fout.json'), r.stad); process.exit(1); }, () => process.exit(1));
     eerste = false; });
-  p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|net::|Failed to load resource/.test(m.text())) fouten.push(stap + ' (console): ' + m.text().slice(0, 200)); });
+  p.on('console', m => { if (m.type() === 'error' && !/ERR_FAILED|net::|Failed to load resource|Fetch API cannot load file:/.test(m.text())) fouten.push(stap + ' (console): ' + m.text().slice(0, 200)); });
   // bij een fout tijdens het tekenen: zoek de boosdoener (een vorm zonder materiaal) en bewaar de stack
   await p.evaluate(() => {
     const S = window.__SC(), R = S.renderer, echt = R.render.bind(R);
