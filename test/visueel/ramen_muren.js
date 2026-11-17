@@ -22,14 +22,14 @@ const { open, OUT } = require('./helper');
     const ramen = Object.values(L.w).length, rand = Object.keys(L.w).filter(k => true).length;
     const w = S.cellToWorld(0.5, 0); S.selectTool('kies'); S.orbit.target.set(w.x, 1.5, w.z); S.orbit.theta = 1.2; S.orbit.phi = 0.5; S.orbit.dist = 30; S.applyOrbit(); S.laag(0);
     // Steeghuis: ramen alleen aan de steeg
-    const sh = window.__bpMod.huis('pad', [0, 3], { lagen: 2 }); let randRaam = 0, steegRaam = 0;
-    for (const Lv of sh.lv) for (const k in Lv.w || {}) { const W = Lv.w[k]; if (W.o !== 'window') continue; const [i, j, d] = k.split(',').map(Number), D = M.DIRW[d], A = S.mv2P(i, j, ts), B = S.mv2P(i + D[0], j + D[1], ts), mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2;
-      if (FR.some(([nx, nz]) => Math.abs(mx * nx + mz * nz - IN) < 0.1)) randRaam++; else steegRaam++; }
-    return { muren: ramen, alleen, samen, randRaam, steegRaam }; });
+    const sh = window.__bpMod.huis('pad', [0, 3], { lagen: 2 }), tsh = S.mv2Ts(sh); let randRaam = 0, steegRaam = 0, randLuik = 0;
+    for (const Lv of sh.lv) for (const k in Lv.w || {}) { const W = Lv.w[k]; if (W.o !== 'window' && W.o !== 'luik') continue; const [i, j, d] = k.split(',').map(Number), D = M.DIRW[d], A = S.mv2P(i, j, tsh), B = S.mv2P(i + D[0], j + D[1], tsh), mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2;
+      if (FR.some(([nx, nz]) => Math.abs(mx * nx + mz * nz - IN) < 0.1)) { if (W.o === 'luik') randLuik++; else randRaam++; } else steegRaam++; }
+    return { muren: ramen, alleen, samen, randRaam, steegRaam, randLuik }; });
   zeg(r.alleen[0].dicht === 0 && r.alleen[0].weg === 0, 'één huisje alleen: alle ramen blijven', r.alleen);
   const gedeeld = r.samen.reduce((s, x) => s + x.weg, 0), dicht = r.samen.reduce((s, x) => s + x.dicht, 0);
   zeg(gedeeld >= 4 && dicht === gedeeld, 'twee huisjes naast elkaar: de gedeelde muur één keer en dicht', { muren: r.muren, samen: r.samen });
-  zeg(r.randRaam === 0 && r.steegRaam > 0, 'Steeghuis: geen ramen op de rand van het vak, wel aan de steeg', { randRaam: r.randRaam, steegRaam: r.steegRaam });
+  zeg(r.randRaam === 0 && r.steegRaam > 0 && r.randLuik > 0, 'Steeghuis: op de rand ramen met luiken (geen gewone ramen), aan de steeg ook ramen', { randRaam: r.randRaam, randLuik: r.randLuik, steegRaam: r.steegRaam });
   await p.mouse.move(5, 300); await p.waitForTimeout(1500); await p.screenshot({ path: OUT + '/ramen_muren.png' });
   console.log(uit.every(Boolean) && !errs.length ? 'GOED' : 'FOUT', 'pagina-fouten', JSON.stringify(errs.slice(0, 3)));
   await b.close();

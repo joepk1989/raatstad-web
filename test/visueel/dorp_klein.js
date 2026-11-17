@@ -53,11 +53,35 @@ const fs = require('fs');
       uit.push({ van: route[0].join(','), sprong, weg }); }
     return uit; });
   zeg(loop.every(l => !l.sprong && !l.weg), 'over elke steeg lopen: geen sprong, niets in de weg', loop);
+  // kamers (Joep: "de indeling van de huizen met kamers"): in elk huis vanaf de steeg lopend (deur, doorgangen, trappen) op elke
+  // verdieping bijna overal komen. Per vak een raster van 0,2 m; beginnen op de steeg (de vloer die bij geen huisdeel hoort),
+  // stappen tot 0,45 m omhoog, niet tegen een muur; tellen alleen binnen de huisdelen (hun driehoeken) per verdieping.
+  const kamers = await p.evaluate(() => { const S = window.__SC(), uit = [], G = 0.2, IN = 9 * Math.sqrt(3) / 2 - 0.3, FR = [0, 1, 2, 3, 4, 5].map(k => [Math.cos(-k * Math.PI / 3), Math.sin(-k * Math.PI / 3)]);
+    const inTri = (x, z, T) => { const d = (a, b) => (b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0]), u = d(T[0], T[1]), v = d(T[1], T[2]), w = d(T[2], T[0]); return (u >= 0 && v >= 0 && w >= 0) || (u <= 0 && v <= 0 && w <= 0); };
+    for (const I of (S.getCells().inst || []).filter(I => I.m && I.m.bp && I.m.bp.huis)) { const o = S.cellToWorld(I.q, I.r), N = Math.ceil(IN / G), tf = S.mv2Tf(I.rot || 0, I.q, I.r), ts = S.mv2Ts(I.m);
+      const delen = I.m.bp.huis.stukken.map(s => ({ lagen: s.lagen, tris: s.t.map(id => { const [i, j, t] = id.split(',').map(Number), A = S.mv2P(i, j, ts), B = S.mv2P(i + 1, j, ts), C = S.mv2P(i, j + 1, ts), D = S.mv2P(i + 1, j + 1, ts); return (t ? [B, D, C] : [A, B, C]).map(q => tf(q[0], q[1])); }) }));
+      const deelVan = (x, z) => delen.findIndex(d => d.tris.some(T => inTri(x, z, T)));
+      const binnen = (i, j) => FR.every(([nx, nz]) => i * G * nx + j * G * nz <= IN), kk = (i, j, y) => i + ',' + j + ',' + Math.round(y * 4);
+      const gezien = new Set(), rij = [], bereikt = new Map();
+      for (let i = -N; i <= N; i++) for (let j = -N; j <= N; j++) { if (!binnen(i, j)) continue; const x = o.x + i * G, z = o.z + j * G, g = S.floorAt(x, z, 0.5); if (Math.abs(g) < 0.6 && deelVan(x, z) < 0 && !S.blockedAt(x, z, g)) { gezien.add(kk(i, j, g)); rij.push([i, j, g]); } }
+      while (rij.length) { const [i, j, y] = rij.pop(); const lv = Math.round(y / 3), x0 = o.x + i * G, z0 = o.z + j * G; const d0 = deelVan(x0, z0); if (Math.abs(y - lv * 3) < 0.15 && d0 >= 0 && delen[d0].lagen > lv) bereikt.set(lv, (bereikt.get(lv) || 0) + 1);
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const ii = i + di, jj = j + dj; if (!binnen(ii, jj)) continue; const x = o.x + ii * G, z = o.z + jj * G, g = S.floorAt(x, z, y + 0.45);
+          if (g < y - 0.45) continue; const k = kk(ii, jj, g); if (gezien.has(k)) continue; gezien.add(k); if (S.blockedAt(x, z, g)) continue; rij.push([ii, jj, g]); } }
+      const lagen = Math.max(...delen.map(d => d.lagen));
+      for (let lv = 0; lv < lagen; lv++) { let tot = 0; for (let i = -N; i <= N; i++) for (let j = -N; j <= N; j++) { if (!binnen(i, j)) continue; const x = o.x + i * G, z = o.z + j * G; const d = deelVan(x, z); if (d < 0 || delen[d].lagen <= lv) continue; const g = S.floorAt(x, z, lv * 3 + 0.5); if (Math.abs(g - lv * 3) < 0.15 && !S.blockedAt(x, z, g)) tot++; }
+        uit.push({ huis: I.q + ',' + I.r, laag: lv, deel: +((bereikt.get(lv) || 0) / Math.max(1, tot)).toFixed(2), kamers: I.m.bp.huis.stukken.map(s => s.kamers).join('/') }); } }
+    return uit; });
+  const slecht = kamers.filter(k => k.deel < 0.85);
+  zeg(!slecht.length && kamers.some(k => +k.kamers.split('/')[0] > 1 || k.kamers.includes('/')), 'kamers: in elk huis op elke verdieping overal komen (vanaf de steeg)', { slecht, voorbeeld: kamers.slice(0, 4) });
   // bewaren
   const tekst = await p.evaluate(() => { const S = window.__SC(); return S.serialize(S.getCells()); });
   fs.writeFileSync(OUT + '/dorp_klein.json', tekst);
   // beelden
   await p.evaluate(() => { const S = window.__SC(); S.selectTool('kies'); S.laag(null); const cv = S.renderer.domElement; for (const el of document.body.querySelectorAll('*')) if (el !== cv && !el.contains(cv)) el.style.setProperty('visibility', 'hidden', 'important'); });
+  // de indeling van boven: doorsnede op de begane grond en op de 1e verdieping
+  for (const [naam, lv] of [['kamers_bg', 0], ['kamers_1e', 1]]) { await p.evaluate(([lv]) => { const S = window.__SC(), w = S.cellToWorld(0, 0); S.laag(lv); S.orbit.target.set(w.x, lv * 3, w.z); S.orbit.theta = 0; S.orbit.phi = 0.02; S.orbit.dist = 52; S.applyOrbit(); }, [lv]);
+    await p.mouse.move(5, 5); await p.waitForTimeout(1600); await p.screenshot({ path: OUT + '/dorp_klein_' + naam + '.png' }); }
+  await p.evaluate(() => window.__SC().laag(null));
   for (const [naam, th, ph, d, c] of [['overzicht', 0.5, 0.95, 85, [-0.5, 0]], ['dichtbij', 2.4, 1.05, 42, [0, 0]], ['aansluiting', 4.2, 1.15, 40, [-2, 0]], ['boven', 0, 0.02, 80, [-0.5, 0]]]) {
     await p.evaluate(([th, ph, d, c]) => { const S = window.__SC(), w = S.cellToWorld(...c); S.orbit.target.set(w.x, 2, w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [th, ph, d, c]);
     await p.mouse.move(5, 5); await p.waitForTimeout(1500); await p.screenshot({ path: OUT + '/dorp_klein_' + naam + '.png' }); }

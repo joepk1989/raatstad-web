@@ -116,6 +116,45 @@
         if (best === een && lagen >= 3 && !(een && past(S, een.a2, (een.d + 3) % 6, -een.c))) S.lagen = 2;
         for (let li = 0; li < S.lagen - 1; li++) S.trap.push(li % 2 ? { a: best.a2, d: (best.d + 3) % 6, c: -best.c } : { a: best.a, d: best.d, c: best.c });
       }
+      // ---- kamers (Joep: "de indeling van de huizen met kamers"): elk huis wordt met rechte sneden langs rasterlijnen verdeeld in
+      // kamers van ongeveer 15–30 m². Een snede volgt een lijn van het driehoekraster (richting 30°, 90° of 150°), dus de binnenmuur
+      // is recht en ligt precies op de ribben. Een snede gaat nooit door de trap (met de ruimte ervoor en erna: de hal of overloop)
+      // en beide kamers blijven aaneengesloten; steeds de grootste kamer, met de snede die het eerlijkst deelt bij een korte muur.
+      // Binnenmuren in wit stucwerk; tussen elke twee buurkamers één doorgang van twee ribben (2,25 m) midden in hun grens.
+      // Op elke verdieping dezelfde indeling (de trappen liggen boven elkaar).
+      const KAMER = 42, cenT = T => [(T.v[0][0] + T.v[1][0] + T.v[2][0]) / 3, (T.v[0][1] + T.v[1][1] + T.v[2][1]) / 3];
+      const ribVan = (p, q) => { const ij = P => { const fi = P[0] / (ts * SQ3 / 2); return [Math.round(fi), Math.round(P[1] / ts - fi / 2)]; }, A = ij(p), B = ij(q);
+        for (let dw = 0; dw < 3; dw++) { const D = MV2.DIRW[dw]; if (B[0] - A[0] === D[0] && B[1] - A[1] === D[1]) return A[0] + ',' + A[1] + ',' + dw; if (A[0] - B[0] === D[0] && A[1] - B[1] === D[1]) return B[0] + ',' + B[1] + ',' + dw; } return null; };
+      const buren = T => { const o = []; for (let e = 0; e < 3; e++) { const a = vk(T.v[e]), b = vk(T.v[(e + 1) % 3]), k = a < b ? a + '|' + b : b + '|' + a; for (const U of randen.get(k) || []) if (U !== T) o.push([U, T.v[e], T.v[(e + 1) % 3]]); } return o; };
+      const NORM = [0, 1, 2].map(d => { const D = MV2.DIR6[d], P = mv2P(D[0], D[1], ts), l = Math.hypot(P[0], P[1]); return [-P[1] / l, P[0] / l]; });   // loodrecht op de rasterlijnen
+      for (const S of stukken) { S.kamers = []; if (S.klein || !S.lagen || opts.kamers === false || (typeof window !== 'undefined' && window.__geenKamers)) continue;
+        const trapId = new Set(S.tris.filter(T => S.trap.some(t => strook(t.a, t.d, t.c).binnen(...cenT(T), 0.3))).map(T => T.id));
+        const heel = L => { if (!L.length) return false; const ids = new Set(L.map(T => T.id)), gz = new Set([L[0].id]), rij = [L[0]]; while (rij.length) { const T = rij.pop(); for (const [U] of buren(T)) if (ids.has(U.id) && !gz.has(U.id)) { gz.add(U.id); rij.push(U); } } return gz.size === L.length; };
+        let kamers = [S.tris];
+        for (let ronde = 0; ronde < 8; ronde++) {
+          kamers.sort((a, b) => b.length - a.length); const K = kamers[0]; if (K.length < KAMER * 1.6) break;
+          let best = null;
+          for (const [nx, nz] of NORM) { const proj = K.map(T => { const c = cenT(T); return c[0] * nx + c[1] * nz; }), lo = Math.min(...proj), hi = Math.max(...proj);
+            for (let c = Math.ceil(lo / RIJ) * RIJ; c < hi; c += RIJ) { const A = K.filter((T, n) => proj[n] < c), B = K.filter((T, n) => proj[n] >= c);
+              if (A.length < KAMER * 0.45 || B.length < KAMER * 0.45) continue;
+              if (A.some(T => trapId.has(T.id)) && B.some(T => trapId.has(T.id))) continue;   // niet door de trap
+              if (!heel(A) || !heel(B)) continue;
+              const idA = new Set(A.map(T => T.id)); let snede = 0; for (const T of A) for (const [U] of buren(T)) if (!idA.has(U.id) && B.includes(U)) snede++;
+              const sc = Math.abs(A.length - B.length) + snede * 6; if (!best || sc < best.sc) best = { sc, A, B }; } }
+          if (!best) break; kamers = [best.A, best.B, ...kamers.slice(1)];
+        }
+        if (kamers.length < 2) continue;
+        const kamer = new Map(); kamers.forEach((K, k) => K.forEach(T => kamer.set(T.id, k)));
+        const grens = new Map();   // kamerpaar → ribben
+        for (const T of S.tris) for (const [U, p, q] of buren(T)) { const a = kamer.get(T.id), b = kamer.get(U.id); if (a === undefined || b === undefined || a >= b) continue; const key = ribVan(p, q); if (!key) continue; const pk = a + '-' + b; if (!grens.has(pk)) grens.set(pk, []); grens.get(pk).push({ key, a: p, b: q, p: vk(p), q: vk(q), dw: +key.split(',')[2], m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] }); }
+        for (const L of grens.values()) { const c = L.reduce((s, r) => [s[0] + r.m[0] / L.length, s[1] + r.m[1] / L.length], [0, 0]); let mid = L[0], md = 1e9; for (const r of L) { const d = Math.hypot(r.m[0] - c[0], r.m[1] - c[1]); if (d < md) { md = d; mid = r; } }
+          // twee ribben breed (2,25 m): één rib laat na de muurdikte en de breedte van de loper maar zo'n 0,3 m over
+          let buur = null, bd = 1e9; for (const r of L) { if (r === mid || r.dw !== mid.dw || ![r.p, r.q].some(v => v === mid.p || v === mid.q)) continue; const d = Math.hypot(r.m[0] - c[0], r.m[1] - c[1]); if (d < bd) { bd = d; buur = r; } }
+          for (const r of L) S.kamers.push({ key: r.key, a: r.a, b: r.b, open: r === mid || r === buur }); }
+        S.nKamers = kamers.length;
+      }
+      // een deur niet waar een binnenmuur tegen de gevel uitkomt (je loopt er dan meteen tegenaan)
+      const binnenMuur = (S, x, z) => (S.kamers || []).some(r => { if (r.open) return false; const dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], t = Math.max(0, Math.min(1, ((x - r.a[0]) * dx + (z - r.a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - r.a[0] - dx * t, z - r.a[1] - dz * t) < 0.7; });
       const lpVan = T => (stukVan.get(T.id) || { lagen: 0 }).lagen, maxL = Math.max(1, ...stukken.map(S => S.lagen));
       for (let li = 0; li <= maxL; li++) {
         const L = li === 0 ? L0 : (m.lv[li] || (m.lv[li] = mv2Level()));
@@ -141,16 +180,20 @@
           // Italiaans (Joep: "veel minder ramen"): veel dichte muur, een raam ongeveer om de 4 stukken, verspringend per verdieping;
           // op de begane grond hier en daar een deur, verder dicht
           const h = ((i * 7 + j * 13 + li * 5) % 11 + 11) % 11;
-          if (kant === 'huis|pad') { o = li === 0 ? (h === 0 && dw >= 3 ? 'door' : '') : (h % 4 === 1 ? 'window' : ''); if (li === 0) pad.push({ key: i + ',' + j + ',' + dw, S, mx, mz, lang: dw >= 3 }); }   // een deur alleen in een lang stuk (1,95 m); in een kort stuk (1,125 m) was de doorgang te smal
+          if (kant === 'huis|pad') { o = li === 0 ? (h === 0 && dw >= 3 ? 'door' : '') : (h % 4 === 1 ? (dw >= 3 ? 'luik' : 'window') : ''); if (li === 0) pad.push({ key: i + ',' + j + ',' + dw, S, mx, mz, lang: dw >= 3 }); }   // een deur alleen in een lang stuk (1,95 m); in een kort stuk (1,125 m) was de doorgang te smal
           else { const k = FRAMES.reduce((bk, f, kk) => (mx * f.nx + mz * f.nz > mx * FRAMES[bk].nx + mz * FRAMES[bk].nz ? kk : bk), 0), b = buur(k, li) || {};
             if (k >= 3 && b.huis) continue;   // de buurman zet deze muur al (geen twee muren op elkaar)
-            o = ''; }   // op de rand van het vak staat meestal een buurhuis of het blok van de steeg ernaast: geen ramen (Joep: "waar muren elkaar raken hebben ramen geen zin")
-          if (o === 'door' && S.trap.some(t => strook(t.a, t.d, t.c).binnen(mx, mz, 0.6))) o = '';   // geen deur tegen de trap aan
+            // op de rand van het vak: ramen met luiken (Joep: "de buitenkanten mogen wel mooiere passende ramen krijgen"), ongeveer
+            // om de drie ribben, verspringend per verdieping. Staat er een buurhuis tegenaan, dan is die muur gedeeld en maakt het
+            // spel hem dicht (wallSkips, 08c: geen ramen waar muren elkaar raken)
+            const h3 = ((i + 2 * j + li) % 3 + 3) % 3; o = h3 === 1 && !b.bezet ? 'luik' : ''; }   // i + 2j: langs elke richting van de rand (1,0), (0,1), (−1,1) verspringt het, dus om de drie ribben een raam
+          if (o === 'door' && (S.trap.some(t => strook(t.a, t.d, t.c).binnen(mx, mz, 0.6)) || binnenMuur(S, mx, mz))) o = '';   // geen deur tegen de trap of een binnenmuur aan
           L.w[i + ',' + j + ',' + dw] = { m: gevel, o };
         }
+        for (const S of stukken) if (li < S.lagen) for (const r of S.kamers || []) if (!r.open && !L.w[r.key]) L.w[r.key] = { m: 'plaster', o: '' };   // doorgang: geen muur (een 'open' rib houdt paaltjes aan de uiteinden)   // binnenmuren en doorgangen tussen de kamers
         if (li === 0) for (const S of stukken) {   // elk huis minstens één deur aan de steeg (beloopbaar, Joep)
           const eigen = pad.filter(w => w.S === S); if (!eigen.length || eigen.some(w => L.w[w.key].o === 'door')) continue;
-          const vrij = eigen.filter(w => !S.trap.some(t => strook(t.a, t.d, t.c).binnen(w.mx, w.mz, 0.6))), lang = vrij.filter(w => w.lang), L2 = lang.length ? lang : vrij.length ? vrij : eigen;
+          const vrij = eigen.filter(w => !S.trap.some(t => strook(t.a, t.d, t.c).binnen(w.mx, w.mz, 0.6)) && !binnenMuur(S, w.mx, w.mz)), lang = vrij.filter(w => w.lang), L2 = lang.length ? lang : vrij.length ? vrij : eigen;
           L.w[L2[Math.floor(L2.length / 2)].key].o = 'door';
         }
       }
@@ -168,13 +211,13 @@
           if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
         m.bp.dak = 1;
       }
-      m.bp.v = 7;
+      m.bp.v = 11;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
         const A = S.tris.reduce((s, T) => s + opp(T.v), 0), cx = g.v.reduce((s, p) => s + p[0], 0) / 3, cz = g.v.reduce((s, p) => s + p[1], 0) / 3;
         if (S.soort === 'plein') { L0.o.push({ t: A > 12 ? 'lamp' : 'bench', x: cx, z: cz, rot: 0 }); } else L0.o.push({ t: A > 12 ? 'tree' : 'bush', x: cx, z: cz, rot: 0 }); }
       // per kavel (stuk): de driehoeken (om een klik op een kavel te vinden, kavelKlik in 12) en wat het is: huis, groen of plein
-      m.bp.huis.stukken = stukken.map(S => ({ lagen: S.lagen, trappen: S.trap.length, soort: S.klein ? S.soort : 'huis', t: S.tris.map(T => T.id) }));
+      m.bp.huis.stukken = stukken.map(S => ({ lagen: S.lagen, trappen: S.trap.length, kamers: S.nKamers || 1, soort: S.klein ? S.soort : 'huis', t: S.tris.map(T => T.id) }));
       return mv2Fix(m);
     }
     const obstakels = armen => { const o = armen.map(k => ({ uit: buiten(k, armen), in: binnen(k, armen) })); if (armen.length >= 3) o.push({ uit: pleinBuiten(), in: pleinBinnen() }); o.push(...hoeken(armen)); return o; };
@@ -298,7 +341,7 @@
     if (typeof modules === 'undefined') return 0;
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
-    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 7))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur, v 6: strak tegen de muur, v 7: scherpe hoeken afgerond) */
+    for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 11))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur, v 6: strak tegen de muur, v 7: scherpe hoeken afgerond, v 8: ramen met luiken) */
       const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }
