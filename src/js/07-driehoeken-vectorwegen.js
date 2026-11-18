@@ -258,10 +258,11 @@
     if (live && snels.length) {
       const L = S[S.length - 1];
       for (const sp of snels) {
-        const sq = smoothPts(sp.p), half = PATH_DEF.snel.hw + 3;
+        const sq = smoothPts(sp.p), half = PATH_DEF.snel.hw + 3, SQ = [0]; for (let j = 1; j < sq.length; j++) SQ.push(SQ[j - 1] + Math.hypot(sq[j][0] - sq[j - 1][0], sq[j][1] - sq[j - 1][1]));
         for (let i = 0; i < pts.length - 1; i++) for (let j = 0; j < sq.length - 1; j++) {
           const x = segX(pts[i], pts[i + 1], sq[j], sq[j + 1]); if (!x) continue;
           const s0 = S[i] + (S[i + 1] - S[i]) * x[0]; if (s0 < 8 || s0 > L - 8) continue;
+          { const t = SQ[j] + (SQ[j + 1] - SQ[j]) * x[1]; if (t < 12 || t > SQ[SQ.length - 1] - 12) continue; }   // de snelweg eindigt hier op deze weg: een aansluiting, geen viaduct
           const cx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * x[0], cz = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * x[0], top = terrainHeightAt(cx, cz) + 7;
           const d1 = pts[i + 1][0] - pts[i][0], d2 = pts[i + 1][1] - pts[i][1], e1 = sq[j + 1][0] - sq[j][0], e2 = sq[j + 1][1] - sq[j][1];
           const sinA = Math.abs(d1 * e2 - d2 * e1) / ((Math.hypot(d1, d2) * Math.hypot(e1, e2)) || 1), plat = half / Math.max(0.35, sinA);   // schuin erover: langere overspanning
