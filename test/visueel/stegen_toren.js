@@ -63,8 +63,8 @@ async function route(kies) {
   await kijk('stegen_toren_boven', 0, 120, 0.05, 0);
   // zelf lopen: de ingangshelling op, van de grond naar ring 4 (3 m)
   await p.evaluate(() => document.getElementById('modeBtn').click()); await p.waitForTimeout(500);
-  const v = R.vakken; await p.evaluate(([a, e]) => { const S = window.__SC(), A = S.cellToWorld(...a), E = S.cellToWorld(...e); S.player.x = E.x; S.player.z = E.z; /* in het midden van het hellingvak, waar de helling begint (de testbrowser loopt traag) */ S.player.y = 0.1; S.player.yaw = Math.atan2(A.x - E.x, A.z - E.z); S.player.pitch = -0.05; }, [v[0], v[1]]);
-  await p.waitForTimeout(250); await loopAfstand(p, (26000) * 0.0008);   // oude looptijd (ms) → meters await p.waitForTimeout(300);
+  const v = R.vakken; await p.evaluate(([a, e]) => { const S = window.__SC(), A = S.cellToWorld(...a), E = S.cellToWorld(...e); S.player.x = A.x; S.player.z = A.z; /* op het grondvak voor de helling (de helling begint pas halverwege zijn vak; in het midden ligt hij al op 1,5 m) */ S.player.y = 0.1; S.player.yaw = Math.atan2(A.x - E.x, A.z - E.z); S.player.pitch = -0.05; }, [v[0], v[1]]);
+  await p.waitForTimeout(250); await loopAfstand(p, 24);   // van het midden van het grondvak tot boven op ring 4 is ongeveer 19 m   // oude looptijd (ms) → meters await p.waitForTimeout(300);
   const pl = await p.evaluate(() => { const S = window.__SC(), P = S.player; return { vak: S.worldToCell(P.x, P.z).join(), y: +P.y.toFixed(2) }; });
   await p.screenshot({ path: OUT + '/stegen_toren_lopen.png' });
   zeg(pl.y > 2.9, 'zelf lopen: de ingangshelling op, tot op 3 m', pl);
