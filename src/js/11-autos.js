@@ -233,10 +233,26 @@
       const spring = (val, vel, target, k, d) => { vel += (k * (target - val) - d * vel) * dt; return [val + vel * dt, vel]; };
       const n = Math.max(1, Math.ceil(dt / 0.01)), sub = dt / n, keepDt = dt;
       dt = sub;
+      // Vrije val: de weg duwt de auto omhoog, maar trekt hem niet omlaag. Valt de weg sneller weg dan de zwaartekracht hem
+      // meeneemt (een drempel, een top, het eind van een oprit), dan vliegt hij: alleen zwaartekracht, de neus draait langzaam
+      // mee, en bij de landing een bons in de vering (en een klap).
+      const vIn = c.vy;
       for (let i = 0; i < n; i++) {
+        if (c.sy > yT + 0.03 || (c.air && c.vy > 0)) {   // los van de weg
+          c.vy -= 9.81 * dt; c.sy += c.vy * dt; c.vp *= 0.995; c.pitch += c.vp * dt; c.air = (c.air || 0) + dt;
+          if (c.sy <= yT) { const hit = -c.vy; c.sy = yT; c.vy = c.air > 0.15 ? hit * 0.25 : 0;
+            if (c.air > 0.15 && hit > 2 && (c.lastBump || 0) < performance.now() - 300) { c.lastBump = performance.now(); sound.impact(Math.min(0.8, hit * 0.08), c.x, c.sy, c.z, false); }
+            c.vp = 0; c.air = 0; }
+          continue;
+        }
+        c.air = 0;
+        const yPrev = c.sy;
         [c.sy, c.vy] = spring(c.sy, c.vy, yT, 220, 16);
+        if (c.sy < yT - 0.4) c.sy = yT - 0.4;   // nooit door de weg heen
         [c.pitch, c.vp] = spring(c.pitch, c.vp, pT, 160, 12);
         [c.roll, c.vr] = spring(c.roll, c.vr, rT, 160, 12);
+        // de veer trekt hem omlaag met meer dan de zwaartekracht: dan laat de weg los en vliegt hij met zijn eigen snelheid verder
+        if (c.vy < -0.5 && (c.sy - yPrev) / dt < vIn - 9.81 * dt * (i + 1) - 0.3 && c.v > 6) { c.sy = yPrev; c.vy = Math.max(vIn - 9.81 * dt * (i + 1), c.vy); c.sy += c.vy * dt; c.air = dt; }
       }
       dt = keepDt;
     }
