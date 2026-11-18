@@ -255,6 +255,7 @@
         if (c.vy < -0.5 && (c.sy - yPrev) / dt < vIn - 9.81 * dt * (i + 1) - 0.3 && c.v > 6) { c.sy = yPrev; c.vy = Math.max(vIn - 9.81 * dt * (i + 1), c.vy); c.sy += c.vy * dt; c.air = dt; }
       }
       dt = keepDt;
+      if (c.air > 0 && !c.crash && !c.fly && !c.towed && c.path) rbLaunch(c);   // van de weg los: vanaf nu vrije physics
     }
     // ---------- Takelwagen ----------
     // Een wrak (of een auto die telkens opnieuw botst) wordt opgeruimd: een gele takelwagen met knipperlicht rijdt langs de weg
@@ -451,7 +452,8 @@
       const all = tows.length ? list.concat(tows) : list, cnt = {}, bcnt = {}; for (const t of LP_TYPES) { cnt[t] = 0; bcnt[t] = [0, 0, 0]; }
       all.forEach((c, i) => {
         // model wijst langs +x; eerst kantelen (rollen, stampen), dan draaien, dan op de vering zetten
-        M.makeRotationY(-c.h).multiply(Q.makeRotationZ(c.pitch || 0)).multiply(Q.makeRotationX(c.roll || 0)).setPosition(c.x, c.sy ?? ASPH_H, c.z);
+        if (c.rb) M.makeRotationFromQuaternion(c.rb.q).setPosition(c.x, c.sy, c.z);   // vrij lichaam (vrije physics): precies zijn draaiing
+        else M.makeRotationY(-c.h).multiply(Q.makeRotationZ(c.pitch || 0)).multiply(Q.makeRotationX(c.roll || 0)).setPosition(c.x, c.sy ?? ASPH_H, c.z);
         const ty = LPM[c.type] ? c.type : LP_TYPES[0], ti = cnt[ty]++, L = LPM[ty];
         L.body.setMatrixAt(ti, M); col.set(c.paint); L.body.setColorAt(ti, col);
         for (const k of ['glass', 'trim', 'lamp']) if (L[k]) L[k].setMatrixAt(ti, M);
@@ -565,15 +567,113 @@
       const l = Math.hypot(dx, dz) || 1; c.fly = { vx: dx / l * 7, vz: dz / l * 7, vy: up || 7, y: 0, t: 0, wr: 5 + Math.random() * 3, wp: (Math.random() - 0.5) * 2 }; c.crash = null; c.v = 0; c.held = false; c.ghost = 0; c.stuck = 0;
       c.fly.g0 = c.sy ?? ASPH_H;
     }
-    function flyStep(c, dt) {
-      const F = c.fly; F.t += dt; F.vy -= 9.81 * dt; F.y += F.vy * dt; c.x += F.vx * dt; c.z += F.vz * dt;
-      c.roll = (c.roll || 0) + F.wr * dt; c.pitch = (c.pitch || 0) + F.wp * dt; c.sy = F.g0 + F.y + 0.6;
-      if (F.y <= 0 && F.vy < 0) {   // landing: een klap, daarna op zijn kop of op zijn wielen blijven liggen en opnieuw beginnen
-        sound.impact(1, c.x, 0.6, c.z, false); sound.carHit(0.8, c.x, 0.7, c.z, true); hurt(c, 30);
-        c.fly = null; c.roll = Math.round((c.roll || 0) / Math.PI) * Math.PI; c.pitch = 0; c.sy = F.g0 + (Math.abs(Math.cos(c.roll)) < 0.5 ? 0.5 : Math.abs(Math.round(c.roll / Math.PI)) % 2 ? 0.9 : 0);
-        c.crash = { t: 9, still: 0 }; c.cvx = F.vx * 0.3; c.cvz = F.vz * 0.3; c.w = 0;
-        if (typeof people !== 'undefined') for (const a of people.agents) if ((a.state === 'walk' || a.state === 'pause') && Math.hypot(a.x - c.x, a.z - c.z) < 3.5) { people.hit(a, F.vx * 0.5, F.vz * 0.5); gore(c, a, F.vx, F.vz, 8); }
+    // ---------- Vrije physics: een auto die loskomt is een vrij lichaam (ragdoll) ----------
+    // Zodra een auto van de weg loskomt (een drempel, een schans, uit de bocht gevlogen, weggeslingerd door de Hulk) wordt
+    // hij een star lichaam: plaats en snelheid van het zwaartepunt, een draaiing (quaternion) en een draaisnelheid, met een
+    // traagheid als een doos van 4,7 × 1,45 × 1,85 m en 1200 kg. Twaalf contactpunten (vier wielen, vier hoeken onder de
+    // carrosserie, vier hoeken van het dak) botsen met het wegdek of het terrein eronder: per punt een stoot langs de normaal
+    // (met een beetje terugvering) en wrijving (wielen rollen vooruit en grijpen opzij, de carrosserie schuurt). Zo kantelt,
+    // stuitert, rolt en tolt hij vanzelf. Landt hij rechtop op de weg, dan rijdt hij verder; ligt hij stil, dan is het een
+    // ongeluk (crashStep: terug naar de rijbaan), op zijn kop of zij blijft hij een tijd liggen.
+    const RB = { m: 1200, com: 0.55, g: 9.81, h: 1 / 240 };
+    RB.I = [RB.m / 12 * (1.45 ** 2 + 1.85 ** 2), RB.m / 12 * (4.7 ** 2 + 1.85 ** 2), RB.m / 12 * (4.7 ** 2 + 1.45 ** 2)];   // om de lengte-, hoogte- en dwarsas
+    const RB_PTS = [[WB, 0, TRACK, 1], [WB, 0, -TRACK, 1], [-WB, 0, TRACK, 1], [-WB, 0, -TRACK, 1],
+      [2.3, 0.4, 0.92, 0], [2.3, 0.4, -0.92, 0], [-2.3, 0.4, 0.92, 0], [-2.3, 0.4, -0.92, 0],
+      [1.1, 1.45, 0.8, 0], [1.1, 1.45, -0.8, 0], [-1.3, 1.45, 0.8, 0], [-1.3, 1.45, -0.8, 0]].map(([x, y, z, wiel]) => ({ x, y: y - RB.com, z, wiel }));
+    const rbM = new THREE.Matrix4(), rbQ = new THREE.Quaternion(), rbQ2 = new THREE.Quaternion();
+    function rbGround(x, z, y) {   // het wegdek of terrein onder dit punt (een weg tot 60 cm boven het punt telt mee: daar zit hij in)
+      const g = terrGround(x, z), t = roadTop(x, z, y);
+      return t !== null && t < y + 0.6 ? Math.max(t, g) : g;
+    }
+    function rbInit(c, v, w) {   // v: snelheid in de wereld, w: draaisnelheid in de wereld
+      M.makeRotationY(-c.h).multiply(Q.makeRotationZ(c.pitch || 0)).multiply(Q.makeRotationX(c.roll || 0));
+      const q = new THREE.Quaternion().setFromRotationMatrix(M), up = new THREE.Vector3(0, RB.com, 0).applyQuaternion(q);
+      c.rb = { p: [c.x + up.x, (c.sy ?? ASPH_H) + up.y, c.z + up.z], v: v.slice(), w: w.slice(), q, t: 0, still: 0, contact: 0, hit: 0 };
+    }
+    // in de lucht (van de weg af gesprongen): een vrij lichaam met de snelheid van de auto en zijn stampen
+    function rbLaunch(c) {
+      const ch = Math.cos(c.h), sh = Math.sin(c.h);
+      c.fly = { rb: true, t: 0, jump: true }; rbInit(c, [ch * c.v, c.vy || 0, sh * c.v], [-sh * (c.vp || 0), 0, ch * (c.vp || 0)]);
+      c.rb.s0 = c.s; c.rb.sx = c.x; c.rb.sz = c.z; c.air = 0;
+    }
+    function rbStep(c, dt) {
+      const B = c.rb, n = Math.min(40, Math.max(1, Math.ceil(dt / RB.h))), h = dt / n, R = new THREE.Matrix3(), e = new THREE.Matrix4();
+      let maxHit = 0, wielen = 0, raak = 0;
+      for (let it = 0; it < n; it++) {
+        B.v[1] -= RB.g * h;
+        e.makeRotationFromQuaternion(B.q); R.setFromMatrix4(e); const r = R.elements;   // kolommen: lokale x, y, z in de wereld
+        // de omgekeerde traagheid in de wereld: R · diag(1/I) · Rᵀ
+        const Iw = (vx, vy, vz) => { const lx = r[0] * vx + r[1] * vy + r[2] * vz, ly = r[3] * vx + r[4] * vy + r[5] * vz, lz = r[6] * vx + r[7] * vy + r[8] * vz, ax = lx / RB.I[0], ay = ly / RB.I[1], az = lz / RB.I[2]; return [r[0] * ax + r[3] * ay + r[6] * az, r[1] * ax + r[4] * ay + r[7] * az, r[2] * ax + r[5] * ay + r[8] * az]; };
+        wielen = 0; raak = 0;
+        for (const P of RB_PTS) {
+          const rx = r[0] * P.x + r[3] * P.y + r[6] * P.z, ry = r[1] * P.x + r[4] * P.y + r[7] * P.z, rz = r[2] * P.x + r[5] * P.y + r[8] * P.z;
+          const px = B.p[0] + rx, py = B.p[1] + ry, pz = B.p[2] + rz, gy = rbGround(px, pz, py), d = gy - py;
+          if (d < 0) continue;
+          raak++; if (P.wiel) wielen++;
+          // snelheid van het punt: v + w × r
+          let vx = B.v[0] + B.w[1] * rz - B.w[2] * ry, vy = B.v[1] + B.w[2] * rx - B.w[0] * rz, vz = B.v[2] + B.w[0] * ry - B.w[1] * rx;
+          // normaal (omhoog): stoot zodat het punt niet verder zakt, plus een duwtje uit de grond (Baumgarte)
+          const rnx = -rz, rnz = rx;   // r × (0,1,0)
+          const In = Iw(rnx, 0, rnz), K = 1 / RB.m + (In[2] * rx - In[0] * rz);   // n · ((I⁻¹(r×n)) × r)
+          const bias = Math.min(4, 0.25 * d / h), jn = Math.max(0, (-(vy < -2 ? 1.25 : 1) * vy + bias) / K);
+          if (jn <= 0) continue;
+          if (-vy > maxHit) maxHit = -vy;
+          const apply = (jx, jy, jz) => { B.v[0] += jx / RB.m; B.v[1] += jy / RB.m; B.v[2] += jz / RB.m; const tx = ry * jz - rz * jy, ty = rz * jx - rx * jz, tz = rx * jy - ry * jx, dw = Iw(tx, ty, tz); B.w[0] += dw[0]; B.w[1] += dw[1]; B.w[2] += dw[2]; };
+          apply(0, jn, 0);
+          // wrijving: wielen rollen in hun eigen richting (weinig weerstand) en grijpen opzij; de carrosserie schuurt
+          vx = B.v[0] + B.w[1] * rz - B.w[2] * ry; vz = B.v[2] + B.w[0] * ry - B.w[1] * rx;
+          const dirs = P.wiel ? (() => { const fx = r[0], fz = r[2], fl = Math.hypot(fx, fz) || 1; return [[fx / fl, fz / fl, 0.03], [-fz / fl, fx / fl, 0.9]]; })() : [[1, 0, 0.55], [0, 1, 0.55]];
+          for (const [tx, tz, mu] of dirs) {
+            const vt = vx * tx + vz * tz; if (Math.abs(vt) < 1e-5) continue;
+            const ct = [ry * tz, rz * tx - rx * tz, -ry * tx], It = Iw(...ct), Kt = 1 / RB.m + ((It[1] * rz - It[2] * ry) * tx + (It[0] * ry - It[1] * rx) * tz);
+            let jt = -vt / Kt; const lim = mu * jn; jt = Math.max(-lim, Math.min(lim, jt));
+            apply(jt * tx, 0, jt * tz);
+            vx = B.v[0] + B.w[1] * rz - B.w[2] * ry; vz = B.v[2] + B.w[0] * ry - B.w[1] * rx;
+          }
+        }
+        // verder: plaats en draaiing
+        B.p[0] += B.v[0] * h; B.p[1] += B.v[1] * h; B.p[2] += B.v[2] * h;
+        rbQ2.set(B.w[0] * h / 2, B.w[1] * h / 2, B.w[2] * h / 2, 0).multiply(B.q); B.q.x += rbQ2.x; B.q.y += rbQ2.y; B.q.z += rbQ2.z; B.q.w += rbQ2.w; B.q.normalize();
+        const dmp = raak ? 0.9995 : 0.99995; B.w[0] *= dmp; B.w[1] *= dmp; B.w[2] *= dmp;
       }
+      B.t += dt; c.fly.t = B.t; B.raak = raak; B.wielen = wielen;
+      if (maxHit > 2.5 && (c.lastBump || 0) < performance.now() - 250) { c.lastBump = performance.now(); sound.impact(Math.min(1, maxHit / 9), B.p[0], B.p[1], B.p[2], false); if (maxHit > 6) { sound.carHit(Math.min(1, maxHit / 12), B.p[0], B.p[1], B.p[2], true); hurt(c, (maxHit - 5) * 6); } }
+      if (B.p[1] < -50) { c.fly = null; c.rb = null; spawn(c); return; }   // van de wereld gevallen
+      rbSync(c);
+      // de stand van de auto (voor het rijden en voor het tekenen)
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(B.q), sp = Math.hypot(B.v[0], B.v[1], B.v[2]), ws = Math.hypot(B.w[0], B.w[1], B.w[2]);
+      // spoor langs de weg bijhouden (rechtdoor gevlogen): zo landt hij verder op dezelfde weg
+      if (c.fly.jump && c.path) { const ch = Math.cos(c.h), sh = Math.sin(c.h); B.s0 += (B.v[0] * ch + B.v[2] * sh) * dt; }
+      // 1. rechtop geland, alle wielen op de weg en niet aan het tollen: gewoon verder rijden
+      if (B.t > 0.1 && wielen >= 3 && up.y > 0.94 && ws < 1.5 && Math.abs(B.v[1]) < 2.5) {
+        const fwd = new THREE.Vector3(1, 0, 0).applyQuaternion(B.q), fl = Math.hypot(fwd.x, fwd.z) || 1, vf = (B.v[0] * fwd.x + B.v[2] * fwd.z) / fl;
+        const naRijden = c.fly.jump && c.path && B.s0 <= c.path.len + 0.5 && (() => { const [px, pz] = posOn(c, Math.min(c.path.len, B.s0)); return Math.hypot(px - c.x, pz - c.z) < 2.2; })();
+        c.fly = null; c.rb = null; c.vy = 0; c.vp = 0; c.vr = 0; c.air = 0;
+        if (naRijden) { c.s = Math.min(c.path.len, B.s0); c.v = Math.max(0, vf); c.ease = 0.6; }
+        else { c.crash = { t: 0, still: 0 }; c.cvx = B.v[0]; c.cvz = B.v[2]; c.w = B.w[1] * -1; c.slide = 1; }
+        return;
+      }
+      // 2. stil: op zijn wielen een ongeluk (terug naar de rijbaan), op zijn kop of zij een wrak dat even blijft liggen
+      B.still = sp < 0.35 && ws < 0.4 && raak ? B.still + dt : 0;
+      if (B.still > 1.2 || B.t > 25) {
+        if (up.y > 0.7 || B.t > 25 || B.still > 9) { c.fly = null; c.rb = null; c.roll = 0; c.pitch = 0; c.crash = { t: up.y > 0.7 ? 0 : 9, still: 0 }; c.cvx = 0; c.cvz = 0; c.w = 0; }
+      }
+    }
+    function rbSync(c) {   // de rij-toestand (x, z, h, pitch, roll, sy) uit het vrije lichaam: voor alles wat de auto verder leest
+      const B = c.rb, fwd = new THREE.Vector3(1, 0, 0).applyQuaternion(B.q), side = new THREE.Vector3(0, 0, 1).applyQuaternion(B.q), up = new THREE.Vector3(0, RB.com, 0).applyQuaternion(B.q);
+      c.x = B.p[0] - up.x; c.z = B.p[2] - up.z; c.sy = B.p[1] - up.y;
+      c.h = Math.atan2(fwd.z, fwd.x); c.pitch = Math.asin(Math.max(-1, Math.min(1, fwd.y))); c.roll = -Math.asin(Math.max(-1, Math.min(1, side.y)));
+      c.v = Math.hypot(B.v[0], B.v[2]);
+    }
+    function flyStep(c, dt) {
+      if (!c.rb) {   // weggeslingerd of uit de bocht: de snelheid en het tollen van die worp, dan vrij
+        const F = c.fly, ch = Math.cos(c.h), sh = Math.sin(c.h);
+        rbInit(c, [F.vx || 0, F.vy || 0, F.vz || 0], [ch * (F.wr || 0) - sh * (F.wp || 0), (Math.random() - 0.5) * 2, sh * (F.wr || 0) + ch * (F.wp || 0)]);
+        c.fly = { rb: true, t: 0 };
+        if (typeof people !== 'undefined') c.rb.mensen = true;
+      }
+      rbStep(c, dt);
+      if (c.rb && c.rb.mensen && typeof people !== 'undefined') for (const a of people.agents) if ((a.state === 'walk' || a.state === 'pause') && Math.hypot(a.x - c.x, a.z - c.z) < 2.4 && Math.abs((a.y || 0) - c.sy) < 2) { const B = c.rb; people.hit(a, B.v[0] * 0.5, B.v[2] * 0.5); gore(c, a, B.v[0], B.v[2], 8); }
     }
     function crashStep(c, dt, peds, lying) {
       const C = c.crash; C.t += dt;
