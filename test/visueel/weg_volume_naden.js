@@ -5,7 +5,7 @@
 //  - gat: plekken net buiten de voetafdruk waar terrein hoort te liggen maar niets getekend is (moet 0 zijn);
 //  - zonderWeg: plekken in de voetafdruk (het terrein is daar gespaard) waar geen weg of stoep ligt (moet 0 zijn);
 //  - muurFout: stukken keermuur die niet op de rand van de voetafdruk staan (dwars over de weg, of los in het gras).
-// Beelden: weg_volume_naden_<terrein>_<plek>.png. STAND=oud meet de oude werking (ter vergelijking, alleen als de schakelaar er nog is).
+// Beelden: weg_volume_naden_<terrein>_<plek>.png.
 const { open, OUT } = require('./helper');
 const scene = () => { const S = window.__SC(); S.selectTool('kies'); S.setCells({});
   const C = S.getCells(), hd = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2; C.terr = {};
@@ -31,7 +31,7 @@ const meet = (stap = 0.7) => { const S = window.__SC(), T = window.THREE, terr =
   const rc = new T.Raycaster(), dn = new T.Vector3(0, -1, 0);
   const tH = (x, z) => { rc.set(new T.Vector3(x, 300, z), dn); const h = rc.intersectObjects(terr, false); return h.length ? h[0].point.y : null; };
   const uit = { door: 0, gat: 0, zonderWeg: 0, muurFout: 0, muren: 0, punten: 0, vb: [] }, vb = (s, x, z) => { if (uit.vb.length < 30) uit.vb.push(s + ' ' + x.toFixed(1) + ',' + z.toFixed(1)); };
-  const punt = (x, z) => { uit.punten++; const inV = S.inVoet ? S.inVoet(x, z) : false, t = tH(x, z), g = S.terrainHeightAt(x, z), rd = S.roadTop(x, z, g);
+  const punt = (x, z) => { uit.punten++; const inV = S.inVoet(x, z), t = tH(x, z), g = S.terrainHeightAt(x, z), rd = S.roadTop(x, z, g);
     const om = d => [0, 1, 2, 3, 4, 5, 6, 7].map(i => S.roadTop(x + Math.cos(i * Math.PI / 4) * d, z + Math.sin(i * Math.PI / 4) * d, g));   // de botsvlakken houden op de rand een paar cm speling: rondom kijken
     // het hoogste wegvlak hier (vanaf 2,4 m boven het terrein gezocht): ligt dat onder het getekende terrein, dan steekt het terrein erdoor
     const rdT = t === null ? null : S.roadTop(x, z, t + 2.4);
@@ -54,18 +54,17 @@ module.exports = { scene, meet };
 if (require.main === module) (async () => {
   const { b, p } = await open({ width: 1100, height: 750 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  const oud = process.env.STAND === 'oud'; let fout = 0;
+  let fout = 0;
   await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) { } const k = document.getElementById('keysClose'); if (k) k.click(); });
-  await p.evaluate(v => { window.__wegVolume = v; }, !oud);
   const plekken = [['overzicht', 0, 0, 0.5, 0.75, 330], ['kruising', 0, 0, 0.9, 1.0, 60], ['T', 5, 0, 2.2, 1.0, 55], ['kop', 5, 5, 0.4, 1.05, 45], ['kopwest', -10, 0, 4.0, 1.1, 45], ['bocht', 0, 8, 3.6, 1.0, 55], ['brd', -3, -4, 1.2, 0.95, 70], ['rotonde', 9, -8, 0.8, 0.9, 80], ['rotondelaag', 9, -8, 2.6, 1.25, 55], ['snelweg', -6, 12, 0.3, 1.1, 70], ['snelwegeind', 4, 12, 5.2, 1.1, 50], ['klink', -8, 7, 2.0, 1.0, 50], ['pad', -1, -3, 1.0, 1.0, 45], ['losvak', 12, 3, 0.5, 1.0, 35], ['boven', 0, 0, 0, 0.05, 420]];
   for (const terrein of ['laag', 'normaal']) {
     await p.evaluate(t => { const S = window.__SC(); if (S.terrQuality) S.terrQuality(t); }, terrein);
     await p.evaluate(scene); await p.waitForTimeout(2500);
     const m = await p.evaluate(meet); console.log(terrein, JSON.stringify(m));
-    if (!oud && (m.door || m.gat || m.zonderWeg || m.muurFout || !m.muren)) fout++;
+    if ((m.door || m.gat || m.zonderWeg || m.muurFout || !m.muren)) fout++;
     for (const [naam, q, r, th, ph, d] of plekken) {
       await p.evaluate(([q, r, th, ph, d]) => { const S = window.__SC(), w = S.cellToWorld(q, r); S.orbit.target.set(w.x, S.terrainHeightAt(w.x, w.z), w.z); S.orbit.theta = th; S.orbit.phi = ph; S.orbit.dist = d; S.applyOrbit(); }, [q, r, th, ph, d]);
-      await p.mouse.move(5, 300); await p.waitForTimeout(700); await p.screenshot({ path: OUT + '/weg_volume_naden_' + (oud ? 'oud_' : '') + terrein + '_' + naam + '.png' }); }
+      await p.mouse.move(5, 300); await p.waitForTimeout(700); await p.screenshot({ path: OUT + '/weg_volume_naden_' + terrein + '_' + naam + '.png' }); }
   }
   console.log('pagina-fouten', JSON.stringify(errs.slice(0, 3)));
   console.log(fout || errs.length ? 'FOUT' : 'goed');

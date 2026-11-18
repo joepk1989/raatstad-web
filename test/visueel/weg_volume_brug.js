@@ -7,7 +7,7 @@ const { open, OUT } = require('./helper'), { meet } = require('./weg_volume_nade
 (async () => {
   const { b, p } = await open({ width: 1100, height: 750 }, { leeg: true });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) { } const k = document.getElementById('keysClose'); if (k) k.click(); window.__wegVolume = true; });
+  await p.evaluate(() => { try { localStorage.setItem('raatstad-keys-seen', '1'); } catch (e) { } const k = document.getElementById('keysClose'); if (k) k.click(); });
   const info = await p.evaluate(() => { const S = window.__SC(); S.selectTool('kies'); S.setCells({});
     const C = S.getCells(), hd = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2; C.terr = {};
     for (let q = -17; q <= 17; q++) for (let r = -17; r <= 17; r++) { if (hd(q, r) > 17) continue; const h = 6 + 3 * Math.sin(q * 0.5 + 0.4) + 2.5 * Math.cos(r * 0.55 - q * 0.2) + 1.5 * Math.sin((q + r) * 0.8); C.terr[q + ',' + r] = Math.max(0.5, Math.round(h * 2) / 2); }
