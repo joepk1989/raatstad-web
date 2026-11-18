@@ -1,3 +1,6 @@
+  // LET OP (november 2026): de webversie gebruikt dit veld niet meer. Wegen zijn een zelfstandig volume met keermuren en het
+  // terrein blijft liggen (zie 07b en de voetafdruk in 07). Het bestand blijft voor de Unity-versie (docs/terreinveld.md) en
+  // zijn eigen test (test/terreinveld.js).
   // ---------- Terreinveld: de grond langs wegen op een niveau (overgezet uit Unity, PlanetCity.GroundField) ----------
   // Een weg of pad dat hoger of lager ligt dan het terrein schrijft zijn hoogte in het maaiveld, zoals in Cities: Skylines 2:
   //  - onder de weg plus een marge (hw) ligt de grond op weghoogte (5 cm eronder: geen streepje gras op het wegdek);

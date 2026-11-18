@@ -50,12 +50,12 @@
     underChk.tex = t; underChk.U.uUnderTex.value = t;
     // de pixels liggen op de rasterpunten: het gebied loopt van het eerste tot een halve pixel voorbij het laatste punt
     underChk.U.uUnderB.value.set(x0 - sx / 2, z0 - sz / 2, sx * nx, sz * nz); underChk.U.uUnderN.value.set(nx, nz);
-    underChk.ver = terrVer; underChk.segs = tRoadSegs;
+    underChk.ver = terrVer; underChk.segs = wegVoet;
   }
   function underTick() {   // nieuwe materialen (een gebouw, een weg) krijgen de controle ook; het terrein veranderd: nieuwe hoogtetextuur
     if (!underChk.on) return;
     scene.traverse(o => { if (!o.isMesh) return; const L = Array.isArray(o.material) ? o.material : [o.material]; for (const m of L) underPatch(m, o.userData.terr === true || m === terrMat); });
-    if (underChk.ver !== terrVer || underChk.segs !== tRoadSegs) underTexBuild();
+    if (underChk.ver !== terrVer || underChk.segs !== wegVoet) underTexBuild();
   }
   function underSet(on) {
     underChk.on = !!on; underChk.U.uUnderOn.value = on ? 1 : 0;
