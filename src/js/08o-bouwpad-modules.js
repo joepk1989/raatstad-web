@@ -59,8 +59,14 @@
     // en ramen aan het pad, daarboven verdiepingen met ramen, bovenop een plat dak (een laag met alleen een vloer).
     // opts: lagen (verdiepingen), gevel (muur), vloer, buur(k, laag) → { huis, bezet } (het buurvak in richting k).
     function huis(soort, armen, opts = {}) {
-      const m = maak(soort, armen, opts), lagen = opts.lagen || 2, gevel = opts.gevel || 'brick', vloer = opts.vloer || 'wood', buur = opts.buur || (() => ({}));
-      m.name = opts.naam || ('Huizen · ' + armen.join('')); m.cat = 'Wonen'; m.bp.huis = { lagen, gevel };
+      // functie (Joep: "je moet kunnen kiezen wat je gaat bouwen: wonen, werken of commercieel"): dezelfde kavels en trappen,
+      // een ander gebouw. Wonen: Italiaans (pannendak, luiken, kamers). Werken: kantoor (strak, veel ramen, kantoorvloer, plat
+      // dak, bureaus). Commercieel: winkel (glazen pui naar de steeg op de begane grond, één open winkelvloer met stellingen en
+      // een toonbank, plat dak; erboven ramen).
+      const fn = opts.functie || 'wonen', woon = fn === 'wonen', werk = fn === 'werken', winkel = fn === 'commercieel';
+      if (!woon) { opts = Object.assign({ dak: false }, opts); if (winkel && opts.kamers === undefined) opts.kamers = false; }
+      const m = maak(soort, armen, opts), lagen = opts.lagen || 2, gevel = opts.gevel || 'brick', vloer = opts.vloer || (werk ? 'carpet' : winkel ? 'polished' : 'wood'), buur = opts.buur || (() => ({}));
+      m.name = opts.naam || ('Huizen · ' + armen.join('')); m.cat = woon ? 'Wonen' : werk ? 'Werken' : 'Winkels'; m.bp.huis = { lagen, gevel }; m.bp.functie = fn;
       const L0 = m.lv[0]; delete L0.v; delete L0.vk;
       const tris = driehoeken(), obst = obstakels(armen);
       const huisDeel = T => { const A = opp(T.v), raak = obst.filter(O => knip(T.v, O.in).length && opp(knip(T.v, O.in)) > 1e-6); if (!raak.length) return { A, keep: [], P: T.v };
@@ -175,7 +181,7 @@
         for (const T of tris) { const d = deel.get(T.id), a = d.P.length ? opp(d.P) : 0, lp = lpVan(T);
           if (li === 0 && a >= d.A * 0.001 && (stukVan.get(T.id) || {}).klein) { L.f[T.id] = stukVan.get(T.id).soort === 'plein' ? 'stonetile' : 'grass'; if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } continue; }
           if (a < d.A * 0.001 || li > lp) { if (li === 0) L.f[T.id] = 'padoker'; else delete L.f[T.id]; continue; }
-          L.f[T.id] = li === lp ? 'pannen' : li === 0 ? 'tile' : vloer;   // dak van terracotta pannen (Italiaans)
+          L.f[T.id] = li === lp ? (woon ? 'pannen' : 'concrete') : li === 0 ? (woon ? 'tile' : 'polished') : vloer;   // dak van terracotta pannen (Italiaans); kantoor en winkel: plat betonnen dak
           if (a < d.A * 0.999 && d.keep.length) { (L.fk || (L.fk = {}))[T.id] = d.keep.length === 1 ? d.keep[0] : d.keep; if (li === 0) (L.f2 || (L.f2 = {}))[T.id] = 'padoker'; } }
         if (li === maxL) break;
         for (const S of stukken) { const t = S.trap[li]; if (t) L.s.push({ a: t.a, d: t.d, n: TN, w: TW, k: 'stair', off: +(t.c + TW / 2).toFixed(4) }); }
@@ -194,13 +200,16 @@
           // Italiaans (Joep: "veel minder ramen"): veel dichte muur, een raam ongeveer om de 4 stukken, verspringend per verdieping;
           // op de begane grond hier en daar een deur, verder dicht
           const h = ((i * 7 + j * 13 + li * 5) % 11 + 11) % 11;
-          if (kant === 'huis|pad') { o = li === 0 ? (h === 0 && dw >= 3 ? 'door' : '') : (h % 4 === 1 ? (dw >= 3 ? 'luik' : 'window') : ''); if (li === 0) pad.push({ key: i + ',' + j + ',' + dw, S, mx, mz, lang: dw >= 3 }); }   // een deur alleen in een lang stuk (1,95 m); in een kort stuk (1,125 m) was de doorgang te smal
+          if (kant === 'huis|pad') { o = li === 0 ? (h === 0 && dw >= 3 ? 'door' : '') : (h % 4 === 1 ? (dw >= 3 ? 'luik' : 'window') : ''); if (li === 0) pad.push({ key: i + ',' + j + ',' + dw, S, mx, mz, lang: dw >= 3 });
+            if (werk) o = li === 0 && o === 'door' ? 'door' : h % 2 === 0 ? 'window' : '';   // kantoor: om de twee stukken een raam
+            if (winkel) { if (li === 0) { L.w[i + ',' + j + ',' + dw] = { m: 'curtain', o: o === 'door' ? 'door' : '' }; continue; } o = h % 3 === 1 ? 'window' : ''; } }   // winkel: een glazen pui langs de steeg   // een deur alleen in een lang stuk (1,95 m); in een kort stuk (1,125 m) was de doorgang te smal
           else { const k = FRAMES.reduce((bk, f, kk) => (mx * f.nx + mz * f.nz > mx * FRAMES[bk].nx + mz * FRAMES[bk].nz ? kk : bk), 0), b = buur(k, li) || {};
             if (k >= 3 && b.huis) continue;   // de buurman zet deze muur al (geen twee muren op elkaar)
             // op de rand van het vak: ramen met luiken (Joep: "de buitenkanten mogen wel mooiere passende ramen krijgen"), ongeveer
             // om de drie ribben, verspringend per verdieping. Staat er een buurhuis tegenaan, dan is die muur gedeeld en maakt het
             // spel hem dicht (wallSkips, 08c: geen ramen waar muren elkaar raken)
-            const h3 = ((i + 2 * j + li) % 3 + 3) % 3; o = h3 === 1 && !b.bezet ? 'luik' : ''; }   // i + 2j: langs elke richting van de rand (1,0), (0,1), (−1,1) verspringt het, dus om de drie ribben een raam
+            const h3 = ((i + 2 * j + li) % 3 + 3) % 3; o = h3 === 1 && !b.bezet ? 'luik' : '';
+            if (!woon) o = !b.bezet && (werk ? h3 !== 0 : h3 === 1 && li > 0) ? 'window' : ''; }   // kantoor: veel ramen; winkel: beneden dicht (achterkant), boven een raam   // i + 2j: langs elke richting van de rand (1,0), (0,1), (−1,1) verspringt het, dus om de drie ribben een raam
           if (o === 'door' && (S.trap.some(t => strook(t.a, t.d, t.c).binnen(mx, mz, 0.6)) || binnenMuur(S, mx, mz))) o = '';   // geen deur tegen de trap of een binnenmuur aan
           L.w[i + ',' + j + ',' + dw] = { m: gevel, o };
         }
@@ -209,6 +218,7 @@
           const eigen = pad.filter(w => w.S === S); if (!eigen.length || eigen.some(w => L.w[w.key].o === 'door')) continue;
           const vrij = eigen.filter(w => !S.trap.some(t => strook(t.a, t.d, t.c).binnen(w.mx, w.mz, 0.6)) && !binnenMuur(S, w.mx, w.mz)), lang = vrij.filter(w => w.lang), L2 = lang.length ? lang : vrij.length ? vrij : eigen;
           L.w[L2[Math.floor(L2.length / 2)].key].o = 'door';
+          if (winkel) L.w[L2[Math.floor(L2.length / 2)].key].m = 'curtain';
         }
       }
       // Schuin dak (Joep: "de daken mogen wel schuin aflopen; kan het dak in het midden hoger zijn en dan aflopen?"): een
@@ -225,6 +235,14 @@
           if (pl.length) m.lv[S.lagen].s.push({ k: 'plaat', dak: true, a: [0, 0], d: 0, n: 1, w: 2, m: 'pannen', p: pl }); }
         m.bp.dak = 1;
       }
+      // inrichting: winkel op de begane grond stellingen en een toonbank, kantoor per verdieping bureaus (niet op de trap)
+      if (!woon) for (const S of stukken) { if (S.klein || !S.lagen) continue;
+        const vrij = S.tris.filter(T => { const [x, z] = cenT(T); return !S.trap.some(t => strook(t.a, t.d, t.c).binnen(x, z, 1.2)) && FRAMES.every(f => x * f.nx + z * f.nz < INNER - 1.2) && soortVan(x, z) === 'huis'
+          && [0, 1, 2].every(e => { const p = T.v[e]; return soortVan(p[0] * 0.6 + x * 0.4, p[1] * 0.6 + z * 0.4) === 'huis'; }); });
+        if (!vrij.length) continue;
+        const A = vrij.reduce((s2, T) => s2 + opp(T.v), 0), n = Math.max(1, Math.min(4, Math.floor(A / 14))), stap = Math.max(1, Math.floor(vrij.length / n));
+        for (let li = 0; li < (winkel ? 1 : S.lagen); li++) for (let k = 0; k < n; k++) { const T = vrij[Math.min(vrij.length - 1, Math.floor(stap / 2) + k * stap)], [x, z] = cenT(T);
+          m.lv[li].o.push({ t: werk ? 'desk' : k === 0 ? 'counter' : 'shelf', x: +x.toFixed(3), z: +z.toFixed(3), rot: (k * 2) % 6 }); } }
       m.bp.v = 12;
       // een klein kavel als groen vlak (boom, struiken) of pleintje (bankje, lantaarn), op padhoogte
       for (const S of stukken) if (S.klein) { let g = null, gA = 0; for (const T of S.tris) { const a = opp(T.v); if (a > gA) { gA = a; g = T; } }
@@ -346,10 +364,16 @@
   function steegVormVan(mask) { const rot = (m, r) => ((m << r) | (m >> (6 - r))) & 63;
     for (const c of STEEG_VORMEN) for (let r = 0; r < 6; r++) if (rot(c, r) === mask) return { c, rot: r }; return null; }
   const STEEGHUIS_VARIANTEN = [['oker', 3, 'oker'], ['zalm', 2, 'zalm'], ['terra', 3, 'terracotta']];
-  const steeghuisNaam = (c, v) => 'Steeghuis · ' + steegVormNaam(c) + ' · ' + STEEGHUIS_VARIANTEN[v][2];
-  function steeghuisModule(c, v, extra) {   // extra: bijvoorbeeld { kleinOp } (kavels die groen of plein zijn, kavelKlik in 12)
-    const [gevel, lagen] = STEEGHUIS_VARIANTEN[v], m = bpModule.huis('pad', armenVan(c), Object.assign({ gevel, lagen, naam: steeghuisNaam(c, v) }, extra));
-    m.cat = 'Wonen'; m.bp.vorm = c; m.bp.variant = v; return m;
+  // per functie (Bouwpad: Wonen, Werken, Commercieel) een familie: naam, categorie en drie varianten [gevel, lagen, naam]
+  const BP_FUNCTIES = {
+    wonen: { naam: 'Steeghuis', cat: 'Wonen', var: STEEGHUIS_VARIANTEN },
+    werken: { naam: 'Werkpand', cat: 'Werken', var: [['concrete', 3, 'beton'], ['panel', 4, 'panelen'], ['darkbrick', 3, 'donkere steen']] },
+    commercieel: { naam: 'Winkelpand', cat: 'Winkels', var: [['plaster', 2, 'wit'], ['brick', 2, 'baksteen'], ['corten', 2, 'cortenstaal']] },
+  };
+  const steeghuisNaam = (c, v, f = 'wonen') => BP_FUNCTIES[f].naam + ' · ' + steegVormNaam(c) + ' · ' + BP_FUNCTIES[f].var[v][2];
+  function steeghuisModule(c, v, extra, f = 'wonen') {   // extra: bijvoorbeeld { kleinOp } (kavels die groen of plein zijn, kavelKlik in 12)
+    const F = BP_FUNCTIES[f] || BP_FUNCTIES.wonen, [gevel, lagen] = F.var[v] || F.var[0], m = bpModule.huis('pad', armenVan(c), Object.assign({ gevel, lagen, functie: f, naam: steeghuisNaam(c, v, f) }, extra));
+    m.cat = F.cat; m.bp.vorm = c; m.bp.variant = v; m.bp.functie = f; return m;
   }
   // in de modulelijst zetten wat er nog niet in staat (op naam; een aangepaste module blijft zoals hij is)
   function steeghuizenInstall() {
@@ -357,11 +381,20 @@
     let n0 = 0;
     // Steeghuizen uit een eerdere versie (zonder de driehoeken per kavel, nodig voor Shift+klik op een kavel): vernieuwen
     for (const m of modules) if (m.v === 2 && m.bp && m.bp.huis && m.bp.vorm && Array.isArray(m.bp.huis.stukken) && (m.bp.huis.stukken.some(S => !S.t) || (!m._sig && (m.bp.v | 0) < 12))) {   /* ook: nog nooit zelf bewaard (geen _sig) en van een oudere versie (v 3: schuin dak, v 4: geen ramen op de rand van het vak, v 5: trap tegen de muur, v 6: strak tegen de muur, v 7: scherpe hoeken afgerond, v 8: ramen met luiken, v 11: kamers, v 12: trappen en binnenmuren laten een doorgang vrij) */
-      const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
+      const nw = steeghuisModule(m.bp.vorm, m.bp.variant | 0, undefined, m.bp.functie || 'wonen'); for (const k of Object.keys(m)) if (k !== 'id') delete m[k]; Object.assign(m, nw, { id: m.id }); n0++; }
     const have = new Set(modules.map(m => m.name)); let n = 0;
     for (const c of STEEG_VORMEN) for (let v = 0; v < STEEGHUIS_VARIANTEN.length; v++) if (!have.has(steeghuisNaam(c, v))) { modules.push(steeghuisModule(c, v)); n++; }
     if (n || n0) try { saveMods(); } catch (e) { }
     return n;
   }
-  const steeghuizenVan = c => (typeof modules === 'undefined' ? [] : modules).filter(m => m.v === 2 && m.bp && m.bp.huis && m.bp.vorm === c);
+  const steeghuizenVan = (c, f = 'wonen') => (typeof modules === 'undefined' ? [] : modules).filter(m => m.v === 2 && m.bp && m.bp.huis && m.bp.vorm === c && (m.bp.functie || 'wonen') === f);
+  // Werkpanden en Winkelpanden pas maken als je ze neerzet, en alleen voor de vorm die nodig is: alle 117 samen zijn ruim 5 MB,
+  // meer dan de browser bewaart (dan werd alles bij elke start opnieuw gemaakt). Wonen staat er altijd (steeghuizenInstall).
+  function bpFamilie(c, f) {
+    if (typeof modules === 'undefined' || !BP_FUNCTIES[f]) return [];
+    const have = new Set(modules.map(m => m.name)); let n = 0;
+    for (let v = 0; v < BP_FUNCTIES[f].var.length; v++) if (!have.has(steeghuisNaam(c, v, f))) { modules.push(steeghuisModule(c, v, undefined, f)); n++; }
+    if (n) bpFamilie.nieuw = true;   // bewaren doet de aanroeper één keer na alle vormen (saveMods schrijft alle modules)
+    return steeghuizenVan(c, f);
+  }
   try { steeghuizenInstall(); } catch (e) { console.warn('Steeghuizen', e); }

@@ -432,6 +432,15 @@
     if (dragHEl.hidden === on) dragHEl.hidden = !on;
   }
   function showDragH(on) { dragHText(); dragHSync(); }
+  // Bouwpad: wat komt er langs het pad (Wonen, Werken, Commercieel; BP.functie in 12). Staat er zolang het Bouwpad gekozen is.
+  const bpFunctieEl = document.getElementById('bpFunctie');
+  function bpFunctieSync() {
+    if (!bpFunctieEl) return; const on = mode === 'build' && !flyCam.on && tool === 'vbouw' && !(typeof sheet !== 'undefined' && sheet && !sheet.hidden);
+    if (bpFunctieEl.hidden === on) bpFunctieEl.hidden = !on;
+    for (const b of bpFunctieEl.querySelectorAll('[data-f]')) { const p = String(b.dataset.f === BP.functie); if (b.getAttribute('aria-pressed') !== p) b.setAttribute('aria-pressed', p); }
+  }
+  if (bpFunctieEl) bpFunctieEl.addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (!b) return; bpFunctieZet(b.dataset.f); toast(b.textContent + ': Shift+klik op het Bouwpad zet de gebouwen neer', 1600); });
+  setInterval(bpFunctieSync, 250);
   setInterval(dragHSync, 250);
   function roadAbsToggle() {   // vaste laag (modulehoogte, los van het terrein) of volgt het terrein
     const D = roadDrag; D.abs = !D.abs; const b = dragHEl && dragHEl.querySelector('[data-m=abs]'); if (b) b.setAttribute('aria-pressed', String(D.abs));
