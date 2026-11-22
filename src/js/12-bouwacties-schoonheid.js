@@ -232,7 +232,12 @@
   // 4,5 m naar elke buur die aansluit, pleintje bij drie of meer) op de laag waar je bent, met Blokken eronder tot de grond.
   // De gekozen laag (Ctrl+scrollen, laagkiezer) is de laag van de volgende klik: dan wordt dat vak een Helling die van het vorige vak af omhoog (of ernaartoe
   // omlaag) loopt, en ga je een laag hoger of lager verder. Een helling is recht: het vak erna ligt in dezelfde richting.
-  const BP = { prev: null, lv: 0, hell: -1 };
+  const BP = { prev: null, lv: 0, hell: -1, functie: (() => { try { return localStorage.getItem('raatstad-bp-functie') || 'wonen'; } catch (e) { return 'wonen'; } })() };
+  // wat er langs het pad komt (Joep: "je moet kunnen kiezen wat je gaat bouwen: wonen, werken of commercieel"): de keuze in het
+  // balkje bij het Bouwpad (bpFunctieEl, 14); Shift+klik zet de gebouwen van die functie neer (Steeghuis, Werkpand, Winkelpand)
+  const BP_FUNCTIE_NAAM = { wonen: 'Wonen', werken: 'Werken', commercieel: 'Commercieel' };
+  function bpFunctieZet(f) { if (!BP_FUNCTIE_NAAM[f]) return; BP.functie = f; try { localStorage.setItem('raatstad-bp-functie', f); } catch (e) { } if (typeof bpFunctieSync === 'function') bpFunctieSync(); }
+  window.__bpFunctie = bpFunctieZet;
   // Shift+klik met de Bouwpad op een stuk pad: langs dit hele, aaneengesloten netwerk (vakken met een stuk Bouwpad, buur aan
   // buur) worden de blokken huizen: per vak een Steeghuis uit de Raatmaker-lijst (08o) van de vorm van de steeg op dat vak,
   // gedraaid naar de steeg, op de laag van het pad. Aanpassen gaat in de Raatmaker (K, of aanwijzen V → Bewerken), zoals
@@ -251,7 +256,7 @@
   const KV_TS = R / 8;
   const kvTri = (x, z) => { const fi = x / (KV_TS * SQ3 / 2), fj = z / KV_TS - fi / 2, i = Math.floor(fi), j = Math.floor(fj); return i + ',' + j + ',' + ((fi - i) + (fj - j) < 1 ? 0 : 1); };
   // een huis uit een eerdere versie (zonder de driehoeken per stuk, Joep: "het werkte niet"): eerst opnieuw maken uit de Raatmaker
-  const kvVers = I => { if (I.m.bp.huis.stukken.every(S => S.t)) return I; const m2 = steeghuisModule(I.m.bp.vorm, I.m.bp.variant | 0); m2.id = I.mid; I.m = instData(m2, false); delete I.kv; const e = modGroups.get(I); if (e) e.sig = ''; return I; };
+  const kvVers = I => { if (I.m.bp.huis.stukken.every(S => S.t)) return I; const m2 = steeghuisModule(I.m.bp.vorm, I.m.bp.variant | 0, undefined, I.m.bp.functie || 'wonen'); m2.id = I.mid; I.m = instData(m2, false); delete I.kv; const e = modGroups.get(I); if (e) e.sig = ''; return I; };
   const kvHuis = (q, r) => { const I = (cells.inst || []).find(I => I.q === q && I.r === r && I.m && I.m.bp && I.m.bp.huis && I.m.bp.huis.stukken && I.m.bp.vorm); return I && kvVers(I); };
   const kvLokaal = (I, X, Z) => { const o = cellToWorld(I.q, I.r), th = -I.rot * Math.PI / 3, c = Math.cos(th), s = Math.sin(th), dx = X - o.x, dz = Z - o.z; return [dx * c + dz * s, -dx * s + dz * c]; };
   const kvStuk = (I, x, z) => { const id = kvTri(x, z); return I.m.bp.huis.stukken.findIndex(S => S.t && S.t.includes(id)); };
@@ -306,13 +311,14 @@
     let n = 0;
     for (const [a, b] of kavel) {
       const lv = stackOf(a, b).length - 1, mask = pathMask(a, b, lv * 3), V = steegVormVan(mask); if (!V) continue;
-      let keus = steeghuizenVan(V.c); if (!keus.length) continue;
+      let keus = bpFamilie(V.c, BP.functie); if (!keus.length) continue;
       if (keus.length > 1) keus = keus.filter(m => m.id !== oud.get(a + ',' + b));   // nog eens Shift+klik: een andere variant
       const mod = keus[Math.floor(Math.random() * keus.length)];
       cells.inst.push({ mid: mod.id, m: instData(mod, false), q: a, r: b, rot: V.rot, lv }); n++;
     }
+    if (bpFamilie.nieuw) { bpFamilie.nieuw = false; try { saveMods(); } catch (e) { } }   // nieuwe Werk- of Winkelpanden in de Raatmaker-lijst
     rebuildAll(); changed();
-    toast((oud.size ? 'Andere huizen' : 'Huizen') + ' op ' + n + ' vakken langs de steeg (Steeghuizen uit de Raatmaker) · Shift+klik: andere · Ctrl+Shift+klik: weer leeg', 2800);
+    toast(BP_FUNCTIE_NAAM[BP.functie] + ': ' + (oud.size ? 'andere gebouwen' : 'gebouwen') + ' op ' + n + ' vakken langs de steeg (' + ({ wonen: 'Steeghuizen', werken: 'Werkpanden', commercieel: 'Winkelpanden' })[BP.functie] + ' uit de Raatmaker) · Shift+klik: andere · Ctrl+Shift+klik: weer leeg', 2800);
   }
   // Een helling komt altijd ergens op uit (Joep: "een helling die nergens op uitkomt"): stop je na een helling (Esc, of een
   // klik ergens anders), dan komt er rechtdoor één vlak stuk steeg achter op de hoge (of lage) kant.
